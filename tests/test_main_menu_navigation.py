@@ -9,9 +9,10 @@ from data_science_arcade.app.game import App
 from data_science_arcade.progress.model import LessonState
 from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
+from data_science_arcade.world.hub_scene import HubScene
 
 
-def test_continue_opens_the_course_map_keeping_existing_progress():
+def test_continue_opens_the_hub_keeping_existing_progress():
     app = App()
     app.init()
     try:
@@ -19,13 +20,13 @@ def test_continue_opens_the_course_map_keeping_existing_progress():
 
         app.scenes.current._continue()
 
-        assert isinstance(app.scenes.current, CourseMapScene)
+        assert isinstance(app.scenes.current, HubScene)
         assert app.progress.state_of(1) == LessonState.COMPLETED
     finally:
         pygame.quit()
 
 
-def test_new_course_resets_progress_and_opens_the_course_map():
+def test_new_course_resets_progress_and_opens_the_hub():
     app = App()
     app.init()
     try:
@@ -34,9 +35,21 @@ def test_new_course_resets_progress_and_opens_the_course_map():
 
         app.scenes.current._new_course()
 
-        assert isinstance(app.scenes.current, CourseMapScene)
+        assert isinstance(app.scenes.current, HubScene)
         assert app.progress.state_of(1) == LessonState.UNLOCKED
         assert app.progress.state_of(2) == LessonState.LOCKED
+    finally:
+        pygame.quit()
+
+
+def test_the_hub_s_mission_terminal_reaches_the_course_map():
+    app = App()
+    app.init()
+    try:
+        app.scenes.current._continue()
+        app.scenes.current._open_terminal()
+
+        assert isinstance(app.scenes.current, CourseMapScene)
     finally:
         pygame.quit()
 
