@@ -42,7 +42,8 @@ class HubScene(Scene):
         self.app.scenes.push(CourseMapScene(self.app))
 
     def _talk_to_mentor(self) -> None:
-        self.app.scenes.push(DialogueScene(self.app, MENTOR_GREETING, background=self))
+        dialogue = DialogueScene(self.app, MENTOR_GREETING, on_complete=self.app.scenes.pop, background=self)
+        self.app.scenes.push(dialogue)
 
     def _back(self) -> None:
         self.app.scenes.pop()

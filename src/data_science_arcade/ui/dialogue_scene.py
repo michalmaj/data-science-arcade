@@ -23,7 +23,10 @@ class DialogueScene(Scene):
     """Plays a Dialogue line by line. No choices on a line: any click/Enter/
     Space/Escape advances. Choices present: pick one (mouse or keyboard) to
     jump to its next_index. Reaching the end (or a choice with next_index
-    None) closes the scene and runs on_complete, if given.
+    None) calls on_complete - required, not optional, because this scene
+    never touches the scene stack itself (a lesson stage needs replace(),
+    not pop(), so it can't assume which one is correct). Callers that just
+    want "pop back to whatever pushed me" pass on_complete=app.scenes.pop.
 
     background, if provided, is drawn (dimmed) behind the dialogue box
     instead of a flat fill, so the scene the conversation is happening in
@@ -33,8 +36,8 @@ class DialogueScene(Scene):
         self,
         app,
         dialogue: Dialogue,
+        on_complete: Callable[[], None],
         background: Scene | None = None,
-        on_complete: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(app)
         self.dialogue = dialogue
@@ -80,9 +83,7 @@ class DialogueScene(Scene):
         self._advance_to(next_index if next_index < len(self.dialogue.lines) else None)
 
     def _finish(self) -> None:
-        self.app.scenes.pop()
-        if self.on_complete:
-            self.on_complete()
+        self.on_complete()
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if self.choice_buttons is not None:
