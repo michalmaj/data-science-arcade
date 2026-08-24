@@ -14,5 +14,12 @@
   "common.back": "Back",
   "placeholder.coming_soon": "Coming in a later phase.",
   "course_map.chapter_label": "Chapter",
-  "course_map.lesson_label": "Lesson"
+  "course_map.lesson_label": "Lesson",
+  "hub.title": "NovaMart",
+  "hub.mission_terminal": "Mission Terminal",
+  "npc.mentor.name": "Mentor",
+  "npc.mentor.role": "Senior Data Scientist",
+  "dialogue.mentor_greeting.line1": "Welcome to NovaMart! I'm around if you need a hand.",
+  "dialogue.mentor_greeting.line2": "Head to the Mission Terminal whenever you're ready to take on your first case.",
+  "dialogue.continue_hint": "Click or press Enter to continue"
 }

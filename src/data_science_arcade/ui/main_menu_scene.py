@@ -12,6 +12,7 @@ from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
 from data_science_arcade.ui.settings_scene import SettingsScene
 from data_science_arcade.ui.text import draw_centered_text
+from data_science_arcade.world.hub_scene import HubScene
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 FIRST_BUTTON_Y = 210
@@ -47,12 +48,12 @@ class MainMenuScene(Scene):
         self.app.scenes.push(PlaceholderScene(self.app, self.app.localization.t(title_key)))
 
     def _continue(self) -> None:
-        self.app.scenes.push(CourseMapScene(self.app))
+        self.app.scenes.push(HubScene(self.app))
 
     def _new_course(self) -> None:
         self.app.progress = Progress()
         self.app.save_progress()
-        self.app.scenes.push(CourseMapScene(self.app))
+        self.app.scenes.push(HubScene(self.app))
 
     def _open_course_map(self) -> None:
         self.app.scenes.push(CourseMapScene(self.app))
