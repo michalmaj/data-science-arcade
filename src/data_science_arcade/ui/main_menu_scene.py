@@ -4,9 +4,11 @@ import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
 from data_science_arcade.core.scenes import Scene
+from data_science_arcade.progress.model import Progress
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
+from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
 from data_science_arcade.ui.settings_scene import SettingsScene
 from data_science_arcade.ui.text import draw_centered_text
@@ -21,9 +23,9 @@ class MainMenuScene(Scene):
     def __init__(self, app) -> None:
         super().__init__(app)
         self._items: list[tuple[str, Callable[[], None]]] = [
-            ("menu.continue", lambda: self._open_placeholder("menu.continue")),
-            ("menu.new_course", lambda: self._open_placeholder("menu.new_course")),
-            ("menu.course_map", lambda: self._open_placeholder("menu.course_map")),
+            ("menu.continue", self._continue),
+            ("menu.new_course", self._new_course),
+            ("menu.course_map", self._open_course_map),
             ("menu.settings", self._open_settings),
             ("menu.credits", lambda: self._open_placeholder("menu.credits")),
             ("menu.quit", self._quit),
@@ -42,7 +44,18 @@ class MainMenuScene(Scene):
             button.label = self.app.localization.t(key)
 
     def _open_placeholder(self, title_key: str) -> None:
-        self.app.scenes.push(PlaceholderScene(self.app, title_key))
+        self.app.scenes.push(PlaceholderScene(self.app, self.app.localization.t(title_key)))
+
+    def _continue(self) -> None:
+        self.app.scenes.push(CourseMapScene(self.app))
+
+    def _new_course(self) -> None:
+        self.app.progress = Progress()
+        self.app.save_progress()
+        self.app.scenes.push(CourseMapScene(self.app))
+
+    def _open_course_map(self) -> None:
+        self.app.scenes.push(CourseMapScene(self.app))
 
     def _open_settings(self) -> None:
         self.app.scenes.push(SettingsScene(self.app))
