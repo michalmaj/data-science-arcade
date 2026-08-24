@@ -12,5 +12,7 @@
   "common.on": "On",
   "common.off": "Off",
   "common.back": "Back",
-  "placeholder.coming_soon": "Coming in a later phase."
+  "placeholder.coming_soon": "Coming in a later phase.",
+  "course_map.chapter_label": "Chapter",
+  "course_map.lesson_label": "Lesson"
 }

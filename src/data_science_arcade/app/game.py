@@ -9,6 +9,9 @@ from data_science_arcade.core.display import (
 )
 from data_science_arcade.core.scenes import SceneManager
 from data_science_arcade.localization.service import Localization
+from data_science_arcade.progress.dev_mode import is_dev_mode
+from data_science_arcade.progress.model import LessonState
+from data_science_arcade.progress.store import ProgressStore
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.main_menu_scene import MainMenuScene
 
@@ -35,16 +38,37 @@ class App:
         self.fullscreen = False
         self.scenes = SceneManager()
         self.localization = Localization()
+        self.progress_store = ProgressStore()
+        self.progress = self.progress_store.load()
+        self.dev_mode = is_dev_mode()
 
     def init(self) -> None:
         pygame.init()
         fonts.clear_cache()
         self.logical_surface = pygame.Surface(self.size)
+        self.fullscreen = self.progress.fullscreen
+        try:
+            self.localization.set_locale(self.progress.language)
+        except ValueError:
+            pass  # unrecognized locale in an old/corrupt save - keep the default
         self._apply_display_mode()
         pygame.display.set_caption(WINDOW_TITLE)
         self.clock = pygame.time.Clock()
         self.running = True
         self.scenes.push(MainMenuScene(self))
+
+    def save_progress(self) -> None:
+        self.progress.fullscreen = self.fullscreen
+        self.progress.language = self.localization.locale
+        self.progress_store.save(self.progress)
+
+    def effective_lesson_state(self, lesson_number: int) -> LessonState:
+        """Real progress, except in dev mode a locked lesson displays as
+        unlocked (for demoing the course map) without touching the save."""
+        state = self.progress.state_of(lesson_number)
+        if self.dev_mode and state == LessonState.LOCKED:
+            return LessonState.UNLOCKED
+        return state
 
     def _apply_display_mode(self) -> None:
         if self.fullscreen:

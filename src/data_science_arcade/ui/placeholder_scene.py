@@ -11,11 +11,15 @@ CENTER_X = LOGICAL_SIZE[0] // 2
 
 
 class PlaceholderScene(Scene):
-    """Stands in for a destination whose real system doesn't exist yet."""
+    """Stands in for a destination whose real system doesn't exist yet.
 
-    def __init__(self, app, title_key: str) -> None:
+    Takes an already-resolved title string rather than a localization key,
+    since some callers (e.g. the course map) need to compose one from a
+    label plus a lesson number rather than look up a single fixed key."""
+
+    def __init__(self, app, title: str) -> None:
         super().__init__(app)
-        self.title_key = title_key
+        self.title = title
         back_rect = pygame.Rect(0, 0, 200, 48)
         back_rect.center = (CENTER_X, 340)
         self.buttons = ButtonGroup([Button(back_rect, app.localization.t("common.back"), self._back)])
@@ -31,7 +35,8 @@ class PlaceholderScene(Scene):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(colors.BACKGROUND)
-        loc = self.app.localization
-        draw_centered_text(surface, loc.t(self.title_key), (CENTER_X, 220), 36, colors.TEXT)
-        draw_centered_text(surface, loc.t("placeholder.coming_soon"), (CENTER_X, 270), 20, colors.TEXT)
+        draw_centered_text(surface, self.title, (CENTER_X, 220), 36, colors.TEXT)
+        draw_centered_text(
+            surface, self.app.localization.t("placeholder.coming_soon"), (CENTER_X, 270), 20, colors.TEXT
+        )
         self.buttons.draw(surface)

@@ -38,11 +38,13 @@ class SettingsScene(Scene):
 
     def _toggle_fullscreen(self) -> None:
         self.app.toggle_fullscreen()
+        self.app.save_progress()
         self._refresh_labels()
 
     def _toggle_language(self) -> None:
         next_locale = "pl" if self.app.localization.locale == "en" else "en"
         self.app.localization.set_locale(next_locale)
+        self.app.save_progress()
         self._refresh_labels()
 
     def _back(self) -> None:
