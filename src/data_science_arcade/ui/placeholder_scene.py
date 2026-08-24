@@ -13,12 +13,12 @@ CENTER_X = LOGICAL_SIZE[0] // 2
 class PlaceholderScene(Scene):
     """Stands in for a destination whose real system doesn't exist yet."""
 
-    def __init__(self, app, title: str) -> None:
+    def __init__(self, app, title_key: str) -> None:
         super().__init__(app)
-        self.title = title
+        self.title_key = title_key
         back_rect = pygame.Rect(0, 0, 200, 48)
         back_rect.center = (CENTER_X, 340)
-        self.buttons = ButtonGroup([Button(back_rect, "Back", self._back)])
+        self.buttons = ButtonGroup([Button(back_rect, app.localization.t("common.back"), self._back)])
 
     def _back(self) -> None:
         self.app.scenes.pop()
@@ -31,6 +31,7 @@ class PlaceholderScene(Scene):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(colors.BACKGROUND)
-        draw_centered_text(surface, self.title, (CENTER_X, 220), 36, colors.TEXT)
-        draw_centered_text(surface, "Coming in a later phase.", (CENTER_X, 270), 20, colors.TEXT)
+        loc = self.app.localization
+        draw_centered_text(surface, loc.t(self.title_key), (CENTER_X, 220), 36, colors.TEXT)
+        draw_centered_text(surface, loc.t("placeholder.coming_soon"), (CENTER_X, 270), 20, colors.TEXT)
         self.buttons.draw(surface)
