@@ -66,8 +66,10 @@ def test_clicking_lesson_one_starts_the_real_lesson_not_a_placeholder():
 
         course_map._open_lesson(1)
 
-        assert isinstance(app.scenes.current, DialogueScene)
-        assert not isinstance(app.scenes.current, PlaceholderScene)
+        # Every lesson stage is wrapped in Pausable (spec: Escape opens a
+        # pause menu); .inner is the actual first-stage scene.
+        assert isinstance(app.scenes.current.inner, DialogueScene)
+        assert not isinstance(app.scenes.current.inner, PlaceholderScene)
     finally:
         pygame.quit()
 

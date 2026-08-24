@@ -108,5 +108,8 @@
   "lesson.l01.field.limitation.hint": "Dobry analityk zaznacza, co wciąż pozostaje niepewne, a nie tylko podaje główną liczbę.",
   "lesson.l01.option.limitation.no_causal_reason": "Powód zmiany zachowania",
   "lesson.l01.option.limitation.no_seasonality": "Czy to efekt sezonowy",
-  "lesson.l01.option.limitation.no_segment_detail": "Różnice między segmentami"
+  "lesson.l01.option.limitation.no_segment_detail": "Różnice między segmentami",
+  "pause.title": "Pauza",
+  "pause.resume": "Wznów",
+  "pause.quit": "Wyjdź do mapy kursu"
 }

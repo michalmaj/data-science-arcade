@@ -1,4 +1,6 @@
-from data_science_arcade.core.scenes import Scene, SceneManager
+import pygame
+
+from data_science_arcade.core.scenes import Pausable, Scene, SceneManager
 
 
 class RecordingScene(Scene):
@@ -12,6 +14,15 @@ class RecordingScene(Scene):
 
     def on_exit(self) -> None:
         self.events.append("exit")
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        self.events.append(f"event:{pygame.event.event_name(event.type)}")
+
+    def update(self, dt: float) -> None:
+        self.events.append("update")
+
+    def draw(self, surface) -> None:
+        self.events.append("draw")
 
 
 def test_push_enters_the_new_scene_and_becomes_current():
@@ -70,3 +81,44 @@ def test_replace_swaps_the_top_scene_without_touching_the_rest_of_the_stack():
     assert third.events == ["enter"]
     manager.pop()
     assert manager.current is first
+
+
+def test_pausable_forwards_on_enter_and_on_exit_to_the_inner_scene():
+    manager = SceneManager()
+    inner = RecordingScene("inner")
+    wrapped = Pausable(app=None, inner=inner, on_escape=lambda: None)
+
+    manager.push(wrapped)
+    manager.pop()
+
+    assert inner.events == ["enter", "exit"]
+
+
+def test_pausable_forwards_update_and_draw_to_the_inner_scene():
+    inner = RecordingScene("inner")
+    wrapped = Pausable(app=None, inner=inner, on_escape=lambda: None)
+
+    wrapped.update(0.1)
+    wrapped.draw(surface=None)
+
+    assert inner.events == ["update", "draw"]
+
+
+def test_pausable_forwards_non_escape_events_to_the_inner_scene():
+    inner = RecordingScene("inner")
+    wrapped = Pausable(app=None, inner=inner, on_escape=lambda: None)
+
+    wrapped.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))
+
+    assert inner.events == ["event:MouseButtonDown"]
+
+
+def test_pausable_intercepts_escape_instead_of_forwarding_it():
+    calls = []
+    inner = RecordingScene("inner")
+    wrapped = Pausable(app=None, inner=inner, on_escape=lambda: calls.append("paused"))
+
+    wrapped.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE, mod=0))
+
+    assert calls == ["paused"]
+    assert inner.events == []  # the inner scene never saw the Escape
