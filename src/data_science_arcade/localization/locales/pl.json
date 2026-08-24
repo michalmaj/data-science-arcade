@@ -12,5 +12,7 @@
   "common.on": "Wł.",
   "common.off": "Wył.",
   "common.back": "Wstecz",
-  "placeholder.coming_soon": "Dostępne w kolejnej fazie."
+  "placeholder.coming_soon": "Dostępne w kolejnej fazie.",
+  "course_map.chapter_label": "Rozdział",
+  "course_map.lesson_label": "Lekcja"
 }
