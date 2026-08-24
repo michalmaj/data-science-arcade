@@ -1,0 +1,27 @@
+[project]
+name = "data-science-arcade"
+version = "0.1.0"
+description = "A bilingual (PL/EN), gamified data science course delivered as a 2D Pygame desktop application."
+readme = "README.md"
+authors = [
+    { name = "Michał Maj", email = "michalpmaj@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pygame>=2.6.1",
+]
+
+[project.scripts]
+data-science-arcade = "data_science_arcade:main"
+
+[build-system]
+requires = ["uv_build>=0.11.21,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
