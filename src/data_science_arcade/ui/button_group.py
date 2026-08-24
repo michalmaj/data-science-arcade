@@ -46,8 +46,5 @@ class ButtonGroup:
                 self._activate_focused()
 
     def draw(self, surface: pygame.Surface) -> None:
-        mouse_pos = pygame.mouse.get_pos()
         for index, button in enumerate(self.buttons):
-            focused = index == self.focus_index
-            hovered = button.rect.collidepoint(mouse_pos)
-            button.draw(surface, focused=focused, hovered=hovered)
+            button.draw(surface, focused=index == self.focus_index)

@@ -1,13 +1,19 @@
 import pygame
 
 from data_science_arcade.core import fonts
-from data_science_arcade.core.display import LOGICAL_SIZE, TARGET_FPS, compute_scaled_rect
+from data_science_arcade.core.display import (
+    LOGICAL_SIZE,
+    TARGET_FPS,
+    compute_scaled_rect,
+    window_to_logical,
+)
 from data_science_arcade.core.scenes import SceneManager
 from data_science_arcade.localization.service import Localization
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.main_menu_scene import MainMenuScene
 
 WINDOW_TITLE = "Data Science Arcade"
+MOUSE_POSITION_EVENTS = (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP)
 
 
 class App:
@@ -56,7 +62,17 @@ class App:
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
             self.toggle_fullscreen()
         else:
+            if event.type in MOUSE_POSITION_EVENTS:
+                # Scenes draw onto the fixed logical canvas, so mouse hit
+                # testing needs logical coordinates too - raw window
+                # coordinates only line up 1:1 with it when unscaled
+                # (windowed mode); fullscreen scales and letterboxes.
+                event.pos = self._window_pos_to_logical(event.pos)
             self.scenes.handle_event(event)
+
+    def _window_pos_to_logical(self, window_pos: tuple[int, int]) -> tuple[int, int]:
+        x, y = window_to_logical(window_pos, self.size, self.window_surface.get_size())
+        return (int(x), int(y))
 
     def update(self, dt: float) -> None:
         self.scenes.update(dt)
