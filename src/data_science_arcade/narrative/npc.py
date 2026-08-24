@@ -21,3 +21,11 @@ MENTOR = NPC(
     avatar_color=(58, 214, 255),
     avatar_initial="M",
 )
+
+PRODUCT_MANAGER = NPC(
+    id="product_manager",
+    name_key="npc.product_manager.name",
+    role_key="npc.product_manager.role",
+    avatar_color=(255, 158, 68),
+    avatar_initial="P",
+)

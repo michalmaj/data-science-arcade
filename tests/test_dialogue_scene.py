@@ -27,7 +27,7 @@ def _init_app() -> App:
 def test_enter_advances_to_the_next_line():
     app = _init_app()
     try:
-        scene = DialogueScene(app, TWO_LINE_DIALOGUE)
+        scene = DialogueScene(app, TWO_LINE_DIALOGUE, on_complete=lambda: None)
         app.scenes.push(scene)
 
         scene.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0))
@@ -37,22 +37,22 @@ def test_enter_advances_to_the_next_line():
         pygame.quit()
 
 
-def test_advancing_past_the_last_line_closes_the_dialogue_and_pops_it():
+def test_advancing_past_the_last_line_runs_on_complete_without_touching_the_stack_itself():
     app = _init_app()
     try:
         hub_stand_in = app.scenes.current
-        scene = DialogueScene(app, TWO_LINE_DIALOGUE)
+        scene = DialogueScene(app, TWO_LINE_DIALOGUE, on_complete=app.scenes.pop)
         app.scenes.push(scene)
 
         scene._advance()  # line 0 -> 1
-        scene._advance()  # line 1 -> past the end
+        scene._advance()  # line 1 -> past the end -> on_complete() -> app.scenes.pop()
 
         assert app.scenes.current is hub_stand_in
     finally:
         pygame.quit()
 
 
-def test_on_complete_runs_once_the_dialogue_closes():
+def test_on_complete_runs_exactly_once_when_the_dialogue_ends():
     app = _init_app()
     try:
         calls = []
@@ -83,7 +83,7 @@ def test_a_line_with_choices_ignores_clicks_that_are_not_on_a_choice():
                 DialogueLine(speaker=MENTOR, text_key="dialogue.mentor_greeting.line2"),
             )
         )
-        scene = DialogueScene(app, branching)
+        scene = DialogueScene(app, branching, on_complete=lambda: None)
         app.scenes.push(scene)
 
         # Unlike a plain line, a click anywhere must NOT advance - only an
@@ -118,7 +118,7 @@ def test_enter_activates_the_keyboard_focused_choice():
                 DialogueLine(speaker=MENTOR, text_key="dialogue.mentor_greeting.line2"),
             )
         )
-        scene = DialogueScene(app, branching)
+        scene = DialogueScene(app, branching, on_complete=lambda: None)
         app.scenes.push(scene)
 
         scene.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0))
@@ -128,7 +128,7 @@ def test_enter_activates_the_keyboard_focused_choice():
         pygame.quit()
 
 
-def test_a_choice_with_next_index_none_ends_the_dialogue():
+def test_a_choice_with_next_index_none_runs_on_complete():
     app = _init_app()
     try:
         hub_stand_in = app.scenes.current
@@ -141,7 +141,7 @@ def test_a_choice_with_next_index_none_ends_the_dialogue():
                 ),
             )
         )
-        scene = DialogueScene(app, ends_here)
+        scene = DialogueScene(app, ends_here, on_complete=app.scenes.pop)
         app.scenes.push(scene)
 
         scene.choice_buttons.buttons[0].on_activate()
@@ -155,7 +155,7 @@ def test_draw_with_a_background_scene_paints_it_before_dimming_and_the_box():
     app = _init_app()
     try:
         background = app.scenes.current
-        scene = DialogueScene(app, TWO_LINE_DIALOGUE, background=background)
+        scene = DialogueScene(app, TWO_LINE_DIALOGUE, on_complete=lambda: None, background=background)
 
         scene.draw(app.logical_surface)  # must not raise
     finally:
@@ -165,7 +165,7 @@ def test_draw_with_a_background_scene_paints_it_before_dimming_and_the_box():
 def test_draw_without_a_background_scene_does_not_crash():
     app = _init_app()
     try:
-        scene = DialogueScene(app, TWO_LINE_DIALOGUE)
+        scene = DialogueScene(app, TWO_LINE_DIALOGUE, on_complete=lambda: None)
         scene.draw(app.logical_surface)
     finally:
         pygame.quit()
