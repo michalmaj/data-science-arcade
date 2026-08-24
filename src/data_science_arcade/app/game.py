@@ -3,6 +3,7 @@ import pygame
 from data_science_arcade.core import fonts
 from data_science_arcade.core.display import LOGICAL_SIZE, TARGET_FPS, compute_scaled_rect
 from data_science_arcade.core.scenes import SceneManager
+from data_science_arcade.localization.service import Localization
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.main_menu_scene import MainMenuScene
 
@@ -27,6 +28,7 @@ class App:
         self.running = False
         self.fullscreen = False
         self.scenes = SceneManager()
+        self.localization = Localization()
 
     def init(self) -> None:
         pygame.init()
