@@ -1,0 +1,16 @@
+{
+  "app.title": "Data Science Arcade",
+  "menu.continue": "Continue",
+  "menu.new_course": "New Course",
+  "menu.course_map": "Course Map",
+  "menu.settings": "Settings",
+  "menu.credits": "Credits",
+  "menu.quit": "Quit",
+  "settings.title": "Settings",
+  "settings.fullscreen_label": "Fullscreen:",
+  "settings.language_label": "Language:",
+  "common.on": "On",
+  "common.off": "Off",
+  "common.back": "Back",
+  "placeholder.coming_soon": "Coming in a later phase."
+}
