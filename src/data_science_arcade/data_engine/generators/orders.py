@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from data_science_arcade.data_engine.dataset import Dataset
+from data_science_arcade.data_engine.dataset import Dataset, PipelineStep
 from data_science_arcade.data_engine.schema import ColumnSchema, Schema
 
 ORDERS_SCHEMA = Schema(
@@ -31,4 +31,8 @@ def generate_orders(seed: int, customers: Dataset, count: int = 2000) -> Dataset
             "revenue": rng.gamma(shape=2.0, scale=25.0, size=count).round(2),
         }
     )
-    return Dataset(name="orders", frame=frame, schema=ORDERS_SCHEMA, history=("generated",))
+    step = PipelineStep(
+        "generated",
+        python_code=f"orders = generate_orders(seed={seed}, customers=customers, count={count})  # synthetic",
+    )
+    return Dataset(name="orders", frame=frame, schema=ORDERS_SCHEMA, history=(step,))

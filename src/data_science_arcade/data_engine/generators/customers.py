@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from data_science_arcade.data_engine.dataset import Dataset
+from data_science_arcade.data_engine.dataset import Dataset, PipelineStep
 from data_science_arcade.data_engine.schema import ColumnSchema, Schema
 
 REGIONS = ("North", "South", "East", "West", "Central")
@@ -30,4 +30,8 @@ def generate_customers(seed: int, count: int = 500) -> Dataset:
             "plan": pd.array(rng.choice(PLANS, count, p=PLAN_WEIGHTS), dtype="string"),
         }
     )
-    return Dataset(name="customers", frame=frame, schema=CUSTOMERS_SCHEMA, history=("generated",))
+    step = PipelineStep(
+        "generated",
+        python_code=f"customers = generate_customers(seed={seed}, count={count})  # synthetic",
+    )
+    return Dataset(name="customers", frame=frame, schema=CUSTOMERS_SCHEMA, history=(step,))

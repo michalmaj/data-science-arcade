@@ -35,4 +35,6 @@ def test_region_and_plan_only_take_documented_values():
 
 
 def test_history_records_that_it_was_generated():
-    assert generate_customers(seed=1, count=10).history == ("generated",)
+    dataset = generate_customers(seed=1, count=10)
+    assert [step.name for step in dataset.history] == ["generated"]
+    assert dataset.python_mirror()  # has a Python Mirror entry, non-empty

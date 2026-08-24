@@ -21,5 +21,21 @@
   "npc.mentor.role": "Senior Data Scientist",
   "dialogue.mentor_greeting.line1": "Welcome to NovaMart! I'm around if you need a hand.",
   "dialogue.mentor_greeting.line2": "Head to the Mission Terminal whenever you're ready to take on your first case.",
-  "dialogue.continue_hint": "Click or press Enter to continue"
+  "dialogue.continue_hint": "Click or press Enter to continue",
+  "workbench.tab.mission": "Mission",
+  "workbench.tab.data": "Data",
+  "workbench.tab.pipeline": "Pipeline",
+  "workbench.tab.evidence": "Evidence",
+  "workbench.tab.decision": "Decision",
+  "workbench.tab.python": "Python",
+  "workbench.data.view_table": "Table",
+  "workbench.data.view_schema": "Schema",
+  "workbench.data.rows_label": "Rows:",
+  "workbench.data.columns_label": "Columns:",
+  "workbench.data.more_rows": "...and more rows not shown here.",
+  "workbench.pipeline.empty": "No steps yet.",
+  "workbench.evidence.empty": "No evidence collected yet.",
+  "workbench.mission.placeholder": "No active mission yet - this tab will show objectives, hints, and progress once a lesson is running.",
+  "workbench.decision.placeholder": "The decision screen will be wired up once there's a real lesson to decide about.",
+  "workbench.python.empty": "No Python Mirror entries for this dataset yet."
 }
