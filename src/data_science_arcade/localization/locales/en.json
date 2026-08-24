@@ -108,5 +108,8 @@
   "lesson.l01.field.limitation.hint": "A good analyst states what's still uncertain, not just the headline number.",
   "lesson.l01.option.limitation.no_causal_reason": "The reason behind the change",
   "lesson.l01.option.limitation.no_seasonality": "Whether it is seasonal",
-  "lesson.l01.option.limitation.no_segment_detail": "Segment-level differences"
+  "lesson.l01.option.limitation.no_segment_detail": "Segment-level differences",
+  "pause.title": "Paused",
+  "pause.resume": "Resume",
+  "pause.quit": "Quit to Course Map"
 }
