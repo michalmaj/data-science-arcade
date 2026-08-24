@@ -21,5 +21,21 @@
   "npc.mentor.role": "Starszy Data Scientist",
   "dialogue.mentor_greeting.line1": "Witaj w NovaMart! Jestem gdzieś w pobliżu, gdyby przydała się pomoc.",
   "dialogue.mentor_greeting.line2": "Ruszaj do Terminalu Misji, kiedy zechcesz podjąć pierwsze zadanie.",
-  "dialogue.continue_hint": "Kliknij lub naciśnij Enter, aby kontynuować"
+  "dialogue.continue_hint": "Kliknij lub naciśnij Enter, aby kontynuować",
+  "workbench.tab.mission": "Misja",
+  "workbench.tab.data": "Dane",
+  "workbench.tab.pipeline": "Pipeline",
+  "workbench.tab.evidence": "Dowody",
+  "workbench.tab.decision": "Decyzja",
+  "workbench.tab.python": "Python",
+  "workbench.data.view_table": "Tabela",
+  "workbench.data.view_schema": "Schemat",
+  "workbench.data.rows_label": "Wiersze:",
+  "workbench.data.columns_label": "Kolumny:",
+  "workbench.data.more_rows": "...i więcej wierszy, których tu nie pokazano.",
+  "workbench.pipeline.empty": "Brak kroków.",
+  "workbench.evidence.empty": "Nie zebrano jeszcze żadnych dowodów.",
+  "workbench.mission.placeholder": "Brak aktywnej misji — ta zakładka pokaże cele, podpowiedzi i postęp, gdy wystartuje pierwsza lekcja.",
+  "workbench.decision.placeholder": "Ekran decyzji zostanie podłączony, gdy pojawi się prawdziwa lekcja, w której trzeba będzie coś zdecydować.",
+  "workbench.python.empty": "Brak wpisów Python Mirror dla tego zbioru danych."
 }
