@@ -2,6 +2,7 @@ import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
 from data_science_arcade.core.scenes import Scene
+from data_science_arcade.lessons.l01_question_first.scenario import build_lesson_one_runner
 from data_science_arcade.progress.model import CHAPTER_COUNT, LESSONS_PER_CHAPTER, LessonState
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
@@ -64,11 +65,14 @@ class CourseMapScene(Scene):
         return open_lesson
 
     def _open_lesson(self, lesson_number: int) -> None:
-        # No lesson runtime exists yet (spec Phase 7+). In dev mode, treat a
-        # click as "play it" and mark it complete so the unlock chain and
-        # completion marker can actually be exercised before real lessons
-        # exist; never happens for a normal student since dev_mode defaults
-        # to off.
+        if lesson_number == 1:
+            self._start_lesson_one()
+            return
+
+        # No lesson runtime exists yet for lessons 2-30 (spec Phase 8+). In
+        # dev mode, treat a click as "play it" and mark it complete so the
+        # unlock chain and completion marker can actually be exercised;
+        # never happens for a normal student since dev_mode defaults off.
         if self.app.dev_mode and self.app.progress.state_of(lesson_number) is not LessonState.COMPLETED:
             self.app.progress.complete(lesson_number)
             self.app.save_progress()
@@ -77,6 +81,15 @@ class CourseMapScene(Scene):
         loc = self.app.localization
         title = f"{loc.t('course_map.lesson_label')} {lesson_number:02d}"
         self.app.scenes.push(PlaceholderScene(self.app, title))
+
+    def _start_lesson_one(self) -> None:
+        def on_finished(result) -> None:
+            self.app.progress.complete(1)
+            self.app.save_progress()
+            self._refresh()
+
+        runner, _ = build_lesson_one_runner(self.app, on_finished)
+        runner.start()
 
     def _back(self) -> None:
         self.app.scenes.pop()

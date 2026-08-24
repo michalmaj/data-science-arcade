@@ -6,9 +6,13 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import pygame
 
 from data_science_arcade.app.game import App
+from data_science_arcade.lessons.l01_question_first.scenario import BRIEF_FIELDS, DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonState
+from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.course_map_scene import CourseMapScene
+from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
+from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
 
 
 def test_only_the_first_lesson_starts_enabled():
@@ -37,7 +41,23 @@ def test_unlocking_a_lesson_in_progress_is_reflected_after_on_enter():
         pygame.quit()
 
 
-def test_clicking_an_unlocked_lesson_opens_a_placeholder_with_the_lesson_number():
+def test_clicking_an_unlocked_lesson_with_no_runtime_yet_opens_a_placeholder():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(2)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+
+        course_map._open_lesson(2)
+
+        assert isinstance(app.scenes.current, PlaceholderScene)
+        assert "02" in app.scenes.current.title
+    finally:
+        pygame.quit()
+
+
+def test_clicking_lesson_one_starts_the_real_lesson_not_a_placeholder():
     app = App()
     app.init()
     try:
@@ -46,8 +66,43 @@ def test_clicking_an_unlocked_lesson_opens_a_placeholder_with_the_lesson_number(
 
         course_map._open_lesson(1)
 
-        assert isinstance(app.scenes.current, PlaceholderScene)
-        assert "01" in app.scenes.current.title
+        assert isinstance(app.scenes.current, DialogueScene)
+        assert not isinstance(app.scenes.current, PlaceholderScene)
+    finally:
+        pygame.quit()
+
+
+def _play_dialogue_to_the_end(scene: DialogueScene) -> None:
+    while scene.app.scenes.current is scene:
+        scene.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))
+
+
+def _fill_out(scene: BriefBuilderScene, fields) -> None:
+    for _ in fields:
+        scene.buttons.buttons[0].on_activate()
+        scene.next_button.on_activate()
+
+
+def test_finishing_lesson_one_marks_it_complete_and_unlocks_lesson_two():
+    app = App()
+    app.init()
+    try:
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(1)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # investigation
+        _fill_out(app.scenes.current, BRIEF_FIELDS)  # guided work
+        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
+        _fill_out(app.scenes.current, BRIEF_FIELDS)  # independent challenge
+        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
+        _fill_out(app.scenes.current, DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+
+        assert app.scenes.current is course_map
+        assert app.progress.state_of(1) == LessonState.COMPLETED
+        assert app.progress.state_of(2) == LessonState.UNLOCKED
     finally:
         pygame.quit()
 
@@ -73,10 +128,13 @@ def test_dev_mode_click_marks_the_lesson_complete_and_unlocks_the_next(monkeypat
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        course_map._open_lesson(1)
+        # Lesson 2 has no real runtime yet, so this exercises the dev-mode
+        # shortcut - lesson 1 always launches the real lesson now (see
+        # test_finishing_lesson_one_marks_it_complete_and_unlocks_lesson_two).
+        course_map._open_lesson(2)
 
-        assert app.progress.state_of(1) == LessonState.COMPLETED
-        assert app.progress.state_of(2) == LessonState.UNLOCKED
+        assert app.progress.state_of(2) == LessonState.COMPLETED
+        assert app.progress.state_of(3) == LessonState.UNLOCKED
     finally:
         pygame.quit()
 
