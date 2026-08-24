@@ -18,5 +18,10 @@ def get_font(size: int) -> pygame.font.Font:
 
 def clear_cache() -> None:
     """Drop cached Font objects. Fonts are tied to the SDL context they were
-    created in, so this must run whenever pygame is (re-)initialized."""
+    created in, so this must run right after every pygame.init() - App.init()
+    already does this. Tests that call pygame.init() directly (a local
+    fixture, not through App) must call this too: a stale Font surviving a
+    pygame.quit()/init() cycle doesn't just render wrong, it can segfault
+    the interpreter outright (seen when a parametrized test forgot this and
+    crashed pytest mid-run rather than failing one test)."""
     _cache.clear()
