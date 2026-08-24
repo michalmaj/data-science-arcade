@@ -12,7 +12,7 @@
   "common.on": "Wł.",
   "common.off": "Wył.",
   "common.back": "Wstecz",
-  "placeholder.coming_soon": "Dostępne w kolejnej fazie.",
+  "placeholder.coming_soon": "Wkrótce dostępne.",
   "course_map.chapter_label": "Rozdział",
   "course_map.lesson_label": "Lekcja",
   "hub.title": "NovaMart",
@@ -20,6 +20,6 @@
   "npc.mentor.name": "Mentor",
   "npc.mentor.role": "Starszy Data Scientist",
   "dialogue.mentor_greeting.line1": "Witaj w NovaMart! Jestem gdzieś w pobliżu, gdyby przydała się pomoc.",
-  "dialogue.mentor_greeting.line2": "Ruszaj do Terminalu Misji, kiedy zechcesz podjąć pierwszą sprawę.",
+  "dialogue.mentor_greeting.line2": "Ruszaj do Terminalu Misji, kiedy zechcesz podjąć pierwsze zadanie.",
   "dialogue.continue_hint": "Kliknij lub naciśnij Enter, aby kontynuować"
 }
