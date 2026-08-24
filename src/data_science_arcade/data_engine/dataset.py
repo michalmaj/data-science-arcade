@@ -6,6 +6,16 @@ import pandas as pd
 from data_science_arcade.data_engine.schema import Schema
 
 
+@dataclass(frozen=True)
+class PipelineStep:
+    """One entry in a Dataset's history. python_code is that step's
+    real-world pandas/numpy equivalent (spec §17 Python Mirror) - None for
+    steps that don't have one worth showing yet."""
+
+    name: str
+    python_code: str | None = None
+
+
 @dataclass(frozen=True, eq=False)
 class Dataset:
     """A DataFrame plus schema metadata and its transformation history, so
@@ -22,7 +32,7 @@ class Dataset:
     name: str
     frame: pd.DataFrame
     schema: Schema
-    history: tuple[str, ...] = field(default_factory=tuple)
+    history: tuple[PipelineStep, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         frame_columns = set(self.frame.columns)
@@ -37,6 +47,7 @@ class Dataset:
         step_name: str,
         transform: Callable[[pd.DataFrame], pd.DataFrame],
         schema: Schema | None = None,
+        python_code: str | None = None,
     ) -> "Dataset":
         """Apply transform (must return a new DataFrame, not mutate the
         input in place - the standard pandas idiom) and record the step.
@@ -44,16 +55,23 @@ class Dataset:
         Pass `schema` when transform changes the columns - a join or
         groupby, say. Omit it for column-preserving steps (filter, sort,
         dedupe, parse-in-place) to just carry the current schema forward.
+
+        Pass `python_code` to give this step a Python Mirror entry.
         """
         return Dataset(
             name=self.name,
             frame=transform(self.frame),
             schema=schema if schema is not None else self.schema,
-            history=(*self.history, step_name),
+            history=(*self.history, PipelineStep(step_name, python_code)),
         )
 
     def with_schema(self, schema: Schema) -> "Dataset":
         return Dataset(name=self.name, frame=self.frame, schema=schema, history=self.history)
 
     def pipeline_summary(self) -> str:
-        return " -> ".join((self.name, *self.history))
+        return " -> ".join((self.name, *(step.name for step in self.history)))
+
+    def python_mirror(self) -> str:
+        """Concatenated Python-equivalent code for every step that has one,
+        in the order they were applied."""
+        return "\n".join(step.python_code for step in self.history if step.python_code)

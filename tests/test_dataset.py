@@ -12,6 +12,10 @@ def make_dataset() -> Dataset:
     return Dataset(name="things", frame=frame, schema=SIMPLE_SCHEMA)
 
 
+def step_names(dataset: Dataset) -> tuple[str, ...]:
+    return tuple(step.name for step in dataset.history)
+
+
 def test_a_dataset_starts_with_empty_history():
     assert make_dataset().history == ()
 
@@ -27,7 +31,7 @@ def test_then_returns_a_new_dataset_and_records_the_step():
 
     doubled = original.then("doubled_value", lambda frame: frame.assign(value=frame["value"] * 2))
 
-    assert doubled.history == ("doubled_value",)
+    assert step_names(doubled) == ("doubled_value",)
     assert doubled.frame["value"].tolist() == [20, 40, 60]
 
 
@@ -47,7 +51,7 @@ def test_then_chains_accumulate_history_in_order():
         .then("filtered", lambda frame: frame[frame["value"] > 20])
     )
 
-    assert result.history == ("doubled", "filtered")
+    assert step_names(result) == ("doubled", "filtered")
     assert result.frame["id"].tolist() == [2, 3]
 
 
@@ -66,7 +70,7 @@ def test_then_accepts_a_column_changing_transform_when_given_the_new_schema():
 
     assert result.schema is id_only_schema
     assert list(result.frame.columns) == ["id"]
-    assert result.history == ("dropped_value",)
+    assert step_names(result) == ("dropped_value",)
 
 
 def test_with_schema_replaces_the_schema_without_touching_history():
@@ -76,13 +80,30 @@ def test_with_schema_replaces_the_schema_without_touching_history():
     updated = original.with_schema(new_schema)
 
     assert updated.schema is new_schema
-    assert updated.history == ("doubled",)
+    assert step_names(updated) == ("doubled",)
 
 
 def test_pipeline_summary_joins_the_dataset_name_and_history():
     result = make_dataset().then("doubled", lambda frame: frame).then("filtered", lambda frame: frame)
 
     assert result.pipeline_summary() == "things -> doubled -> filtered"
+
+
+def test_python_mirror_concatenates_code_from_steps_that_have_it_in_order():
+    result = (
+        make_dataset()
+        .then("doubled", lambda frame: frame, python_code="things['value'] *= 2")
+        .then("filtered", lambda frame: frame)  # no python_code - skipped, not a blank line
+        .then("sorted", lambda frame: frame, python_code="things = things.sort_values('value')")
+    )
+
+    assert result.python_mirror() == "things['value'] *= 2\nthings = things.sort_values('value')"
+
+
+def test_python_mirror_is_empty_when_no_step_has_code():
+    result = make_dataset().then("doubled", lambda frame: frame)
+
+    assert result.python_mirror() == ""
 
 
 def test_two_datasets_with_identical_data_are_not_spuriously_equal_or_unhashable():
