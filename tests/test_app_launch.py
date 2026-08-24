@@ -59,3 +59,19 @@ def test_draw_does_not_crash_after_init():
         app.draw()
     finally:
         pygame.quit()
+
+
+def test_toggling_fullscreen_discards_stale_pending_mouse_events():
+    app = App()
+    app.init()
+    try:
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))
+        pygame.event.post(pygame.event.Event(pygame.MOUSEMOTION, pos=(2, 2)))
+
+        app.toggle_fullscreen()
+
+        pending_types = {event.type for event in pygame.event.get()}
+        assert pygame.MOUSEBUTTONDOWN not in pending_types
+        assert pygame.MOUSEMOTION not in pending_types
+    finally:
+        pygame.quit()

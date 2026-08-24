@@ -51,6 +51,14 @@ class App:
             self.window_surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
             self.window_surface = pygame.display.set_mode(self.size)
+        # Recreating the window can leave a stale mouse-down (the click that
+        # triggered this) or an OS-generated refocus event sitting in the
+        # queue against the old layout; drop it rather than risk it firing
+        # against the new one. Mitigates a reported "first click after
+        # switching fullscreen is swallowed" symptom - not a confirmed
+        # root-caused fix, since real OS window-focus behavior isn't
+        # reproducible headlessly.
+        pygame.event.clear(MOUSE_POSITION_EVENTS)
 
     def toggle_fullscreen(self) -> None:
         self.fullscreen = not self.fullscreen
