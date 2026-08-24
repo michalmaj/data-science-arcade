@@ -1,39 +1,72 @@
 import pygame
 
-LOGICAL_SIZE = (960, 540)
-TARGET_FPS = 60
+from data_science_arcade.core import fonts
+from data_science_arcade.core.display import LOGICAL_SIZE, TARGET_FPS, compute_scaled_rect
+from data_science_arcade.core.scenes import SceneManager
+from data_science_arcade.ui import colors
+from data_science_arcade.ui.main_menu_scene import MainMenuScene
+
 WINDOW_TITLE = "Data Science Arcade"
-BACKGROUND_COLOR = (12, 14, 22)
 
 
 class App:
-    """Owns the pygame window and the main loop for the fixed 960x540 logical canvas."""
+    """Owns the window, the scene stack, and the main loop.
+
+    Gameplay always renders to a fixed 960x540 logical surface, which is then
+    scaled (preserving aspect ratio, letterboxed/pillarboxed, never stretched)
+    onto the real window - fixed-size when windowed, scaled-to-desktop in
+    fullscreen. See spec §11.
+    """
 
     def __init__(self, size: tuple[int, int] = LOGICAL_SIZE, fps: int = TARGET_FPS) -> None:
         self.size = size
         self.fps = fps
-        self.screen: pygame.Surface | None = None
+        self.logical_surface: pygame.Surface | None = None
+        self.window_surface: pygame.Surface | None = None
         self.clock: pygame.time.Clock | None = None
         self.running = False
+        self.fullscreen = False
+        self.scenes = SceneManager()
 
     def init(self) -> None:
         pygame.init()
-        self.screen = pygame.display.set_mode(self.size)
+        fonts.clear_cache()
+        self.logical_surface = pygame.Surface(self.size)
+        self._apply_display_mode()
         pygame.display.set_caption(WINDOW_TITLE)
         self.clock = pygame.time.Clock()
         self.running = True
+        self.scenes.push(MainMenuScene(self))
+
+    def _apply_display_mode(self) -> None:
+        if self.fullscreen:
+            self.window_surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        else:
+            self.window_surface = pygame.display.set_mode(self.size)
+
+    def toggle_fullscreen(self) -> None:
+        self.fullscreen = not self.fullscreen
+        self._apply_display_mode()
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.QUIT:
             self.running = False
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            self.running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+            self.toggle_fullscreen()
+        else:
+            self.scenes.handle_event(event)
 
     def update(self, dt: float) -> None:
-        pass
+        self.scenes.update(dt)
 
     def draw(self) -> None:
-        self.screen.fill(BACKGROUND_COLOR)
+        self.logical_surface.fill(colors.BACKGROUND)
+        self.scenes.draw(self.logical_surface)
+
+        rect = compute_scaled_rect(self.size, self.window_surface.get_size())
+        scaled = pygame.transform.scale(self.logical_surface, rect.size)
+        self.window_surface.fill((0, 0, 0))
+        self.window_surface.blit(scaled, rect.topleft)
         pygame.display.flip()
 
     def run(self) -> None:
