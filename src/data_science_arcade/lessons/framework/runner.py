@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
-from data_science_arcade.core.scenes import Scene
+from data_science_arcade.core.scenes import Pausable, Scene
+from data_science_arcade.ui.pause_menu_scene import PauseMenuScene
 
 StageFactory = Callable[[Callable[[], None]], Scene]
 
@@ -14,6 +15,11 @@ class LessonRunner:
     builder's on_complete). Stages replace each other on the scene stack
     (constant depth) rather than pushing deeper each time. Finishing the
     last stage pops back to whatever opened the lesson (the course map).
+
+    Every stage is wrapped in Pausable, so Escape opens a pause menu
+    (Resume, or Quit to abandon the lesson without finishing it) instead
+    of whatever the stage would otherwise do with Escape - individual
+    stage scenes never need to know about pausing at all.
 
     Not persisted: starting a lesson always begins at the first stage.
     Mid-lesson checkpoint/resume (spec §22) is deferred - see
@@ -30,7 +36,12 @@ class LessonRunner:
         self.app.scenes.push(self._build_current_stage())
 
     def _build_current_stage(self) -> Scene:
-        return self.stages[self.index](self._advance)
+        stage_scene = self.stages[self.index](self._advance)
+        return Pausable(self.app, stage_scene, on_escape=self._open_pause_menu)
+
+    def _open_pause_menu(self) -> None:
+        background = self.app.scenes.current
+        self.app.scenes.push(PauseMenuScene(self.app, background=background, on_quit=self.app.scenes.pop))
 
     def _advance(self) -> None:
         self.index += 1
