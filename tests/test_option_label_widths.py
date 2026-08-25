@@ -20,6 +20,7 @@ from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPA
 from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION_FIELDS as L06_DECISION_FIELDS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import DECISION_FIELDS as L07_DECISION_FIELDS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import STRATEGIES as L07_STRATEGIES
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import DECISION_FIELDS as L08_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
@@ -49,6 +50,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L05_DECISION_FIELDS,
         *L06_DECISION_FIELDS,
         *L07_DECISION_FIELDS,
+        *L08_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
