@@ -15,6 +15,13 @@ COLUMN_SPACING = 300
 COLUMN_WIDTH = 260
 HEADER_SIZE = (240, 44)
 HEADER_Y = 150
+# Lesson 02 never has more than 3 sources, where the numbers above fit the
+# 960px canvas comfortably. Lesson 07 needs 5 - narrower spacing/columns
+# past that count, verified to still leave a clear gap between columns.
+WIDE_COLUMN_SPACING = 170
+WIDE_COLUMN_WIDTH = 150
+WIDE_HEADER_WIDTH = 150
+MANY_COLUMNS_THRESHOLD = 3
 ATTRIBUTE_FIRST_Y = 200
 ATTRIBUTE_ROW_HEIGHT = 26
 HINT_Y = 360
@@ -49,17 +56,27 @@ class SourceBoardScene(Scene):
         self.source_buttons: dict[str, Button] = {}
         self._rebuild_buttons()
 
+    def _column_spacing(self) -> int:
+        return COLUMN_SPACING if len(self.sources) <= MANY_COLUMNS_THRESHOLD else WIDE_COLUMN_SPACING
+
+    def _column_width(self) -> int:
+        return COLUMN_WIDTH if len(self.sources) <= MANY_COLUMNS_THRESHOLD else WIDE_COLUMN_WIDTH
+
+    def _header_width(self) -> int:
+        return HEADER_SIZE[0] if len(self.sources) <= MANY_COLUMNS_THRESHOLD else WIDE_HEADER_WIDTH
+
     def _first_column_x(self) -> int:
-        return CENTER_X - (len(self.sources) - 1) * COLUMN_SPACING // 2
+        return CENTER_X - (len(self.sources) - 1) * self._column_spacing() // 2
 
     def _rebuild_buttons(self) -> None:
         loc = self.app.localization
         buttons: list[Button] = []
         self.source_buttons = {}
         first_x = self._first_column_x()
+        spacing = self._column_spacing()
         for index, source in enumerate(self.sources):
-            rect = pygame.Rect(0, 0, *HEADER_SIZE)
-            rect.center = (first_x + index * COLUMN_SPACING, HEADER_Y)
+            rect = pygame.Rect(0, 0, self._header_width(), HEADER_SIZE[1])
+            rect.center = (first_x + index * spacing, HEADER_Y)
             button = Button(rect, loc.t(source.name_key), self._make_select(source.key))
             self.source_buttons[source.key] = button
             buttons.append(button)
@@ -116,9 +133,11 @@ class SourceBoardScene(Scene):
     def _draw_attributes(self, surface: pygame.Surface) -> None:
         loc = self.app.localization
         first_x = self._first_column_x()
+        spacing = self._column_spacing()
+        column_width = self._column_width()
         for index, source in enumerate(self.sources):
-            column_left = first_x + index * COLUMN_SPACING - COLUMN_WIDTH // 2
+            column_left = first_x + index * spacing - column_width // 2
             for row, attribute in enumerate(source.attributes):
                 text = f"{loc.t(attribute.label_key)}: {loc.t(attribute.rating_key)}"
                 y = ATTRIBUTE_FIRST_Y + row * ATTRIBUTE_ROW_HEIGHT
-                draw_single_line(surface, text, (column_left, y), COLUMN_WIDTH, 15, colors.TEXT)
+                draw_single_line(surface, text, (column_left, y), column_width, 15, colors.TEXT)

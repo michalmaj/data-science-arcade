@@ -7,6 +7,7 @@ from data_science_arcade.lessons.l03_api_courier.scenario import build_lesson_th
 from data_science_arcade.lessons.l04_event_log_factory.scenario import build_lesson_four_runner
 from data_science_arcade.lessons.l05_sampling_mission.scenario import build_lesson_five_runner
 from data_science_arcade.lessons.l06_schema_repair_shop.scenario import build_lesson_six_runner
+from data_science_arcade.lessons.l07_missing_data_clinic.scenario import build_lesson_seven_runner
 
 RunnerBuilder = Callable[..., tuple[LessonRunner, dict]]
 
@@ -17,6 +18,7 @@ LESSON_RUNNERS: dict[int, RunnerBuilder] = {
     4: build_lesson_four_runner,
     5: build_lesson_five_runner,
     6: build_lesson_six_runner,
+    7: build_lesson_seven_runner,
 }
 """Lesson number -> its build_lesson_*_runner(app, on_finished) factory.
 The single place CourseMapScene (or anything else that wants to launch a

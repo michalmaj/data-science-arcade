@@ -14,11 +14,17 @@ BOX_RECT = pygame.Rect(40, 130, 880, 370)
 
 class TwistRevealScene(Scene):
     """Shows the lesson's twist as real computed evidence, not a scripted
-    number: an ordered list of labeled rates plus the Dataset's own
+    number: an ordered list of labeled values plus the Dataset's own
     python_mirror(), so the reveal is backed by an actual (if small,
     hand-crafted) Dataset rather than text pretending a computation
-    happened. comparisons is (label_key, rate) pairs, shown in order -
-    two for a before/after contrast, more for an N-way breakdown."""
+    happened. comparisons is (label_key, value) pairs, shown in order -
+    two for a before/after contrast, more for an N-way breakdown.
+
+    value_format controls how each value renders - defaults to a
+    percentage (every lesson through Lesson 06 compares rates), but a
+    lesson comparing a plain numeric value (a mean score, a count, ...)
+    can pass its own formatter instead of forcing that value into a
+    rate it isn't."""
 
     def __init__(
         self,
@@ -28,6 +34,7 @@ class TwistRevealScene(Scene):
         dataset: Dataset,
         comparisons: tuple[tuple[str, float], ...],
         on_complete: Callable[[], None],
+        value_format: Callable[[float], str] = lambda value: f"{value:.0%}",
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -35,6 +42,7 @@ class TwistRevealScene(Scene):
         self.dataset = dataset
         self.comparisons = comparisons
         self.on_complete = on_complete
+        self.value_format = value_format
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.KEYDOWN and event.key in (
@@ -64,8 +72,8 @@ class TwistRevealScene(Scene):
             y += 44
 
         y += 10
-        for label_key, rate in self.comparisons:
-            text = f"{loc.t(label_key)} {rate:.0%}"
+        for label_key, value in self.comparisons:
+            text = f"{loc.t(label_key)} {self.value_format(value)}"
             draw_wrapped_text(surface, text, (left, y), width, 20, colors.BUTTON_FOCUS_BORDER)
             y += 30
 
