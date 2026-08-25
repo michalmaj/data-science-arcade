@@ -13,9 +13,12 @@ from data_science_arcade.lessons.l01_question_first.scenario import DECISION_FIE
 from data_science_arcade.lessons.l02_source_scout.scenario import DECISION_FIELDS as L02_DECISION_FIELDS
 from data_science_arcade.lessons.l02_source_scout.scenario import SOURCES as L02_SOURCES
 from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
+from data_science_arcade.lessons.l04_event_log_factory.scenario import DECISION_FIELDS as L04_DECISION_FIELDS
+from data_science_arcade.lessons.l04_event_log_factory.scenario import FLOW_STEPS as L04_FLOW_STEPS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
+from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
 from data_science_arcade.ui.source_board_scene import HEADER_SIZE
 
 # Button.draw() centers text with no wrapping/truncation (unlike table cells
@@ -31,7 +34,13 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     checks: list[tuple[str, str, int]] = []
 
     option_button_width = OPTION_SIZE[0] - BUTTON_PADDING
-    brief_fields = (*L01_BRIEF_FIELDS, *L01_DECISION_FIELDS, *L02_DECISION_FIELDS, *L03_DECISION_FIELDS)
+    brief_fields = (
+        *L01_BRIEF_FIELDS,
+        *L01_DECISION_FIELDS,
+        *L02_DECISION_FIELDS,
+        *L03_DECISION_FIELDS,
+        *L04_DECISION_FIELDS,
+    )
     for field in brief_fields:
         for option in field.options:
             checks.append((f"{field.key}.{option.key}", option.label_key, option_button_width))
@@ -39,6 +48,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     header_button_width = HEADER_SIZE[0] - BUTTON_PADDING
     for source in L02_SOURCES:
         checks.append((f"source.{source.key}", source.name_key, header_button_width))
+
+    flow_option_button_width = FLOW_OPTION_SIZE[0] - BUTTON_PADDING
+    for step in L04_FLOW_STEPS:
+        for option in step.options:
+            checks.append((f"{step.key}.{option.key}", option.label_key, flow_option_button_width))
 
     return checks
 
