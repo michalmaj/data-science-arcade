@@ -27,12 +27,34 @@ def _make_scene(app, on_complete):
         title_key="dialogue.continue_hint",  # any real key works for these tests
         narrative_keys=("dialogue.continue_hint",),
         dataset=dataset,
-        recent_label_key="dialogue.continue_hint",
-        recent_rate=repeat_purchase_rate(dataset, RECENT_WINDOW_START),
-        full_period_label_key="dialogue.continue_hint",
-        full_period_rate=repeat_purchase_rate(dataset, None),
+        comparisons=(
+            ("dialogue.continue_hint", repeat_purchase_rate(dataset, RECENT_WINDOW_START)),
+            ("dialogue.continue_hint", repeat_purchase_rate(dataset, None)),
+        ),
         on_complete=on_complete,
     )
+
+
+def test_draw_handles_any_number_of_comparisons():
+    app = _init_app()
+    try:
+        dataset = generate_twist_orders()
+        scene = TwistRevealScene(
+            app,
+            title_key="dialogue.continue_hint",
+            narrative_keys=("dialogue.continue_hint",),
+            dataset=dataset,
+            comparisons=(
+                ("dialogue.continue_hint", 0.1),
+                ("dialogue.continue_hint", 0.5),
+                ("dialogue.continue_hint", 0.9),
+            ),
+            on_complete=lambda: None,
+        )
+
+        scene.draw(app.logical_surface)  # must not raise for 3+ rows
+    finally:
+        pygame.quit()
 
 
 def test_enter_triggers_on_complete():
