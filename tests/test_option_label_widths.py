@@ -15,6 +15,7 @@ from data_science_arcade.lessons.l02_source_scout.scenario import SOURCES as L02
 from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import DECISION_FIELDS as L04_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import FLOW_STEPS as L04_FLOW_STEPS
+from data_science_arcade.lessons.l05_sampling_mission.scenario import DECISION_FIELDS as L05_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
@@ -40,6 +41,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L02_DECISION_FIELDS,
         *L03_DECISION_FIELDS,
         *L04_DECISION_FIELDS,
+        *L05_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
