@@ -29,3 +29,11 @@ PRODUCT_MANAGER = NPC(
     avatar_color=(255, 158, 68),
     avatar_initial="P",
 )
+
+DATA_ENGINEER = NPC(
+    id="data_engineer",
+    name_key="npc.data_engineer.name",
+    role_key="npc.data_engineer.role",
+    avatar_color=(110, 220, 130),
+    avatar_initial="D",
+)
