@@ -16,11 +16,14 @@ from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import DECISION_FIELDS as L04_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import FLOW_STEPS as L04_FLOW_STEPS
 from data_science_arcade.lessons.l05_sampling_mission.scenario import DECISION_FIELDS as L05_DECISION_FIELDS
+from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPAIR_ISSUES as L06_REPAIR_ISSUES
+from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION_FIELDS as L06_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
 from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
 from data_science_arcade.ui.source_board_scene import HEADER_SIZE
+from data_science_arcade.ui.workbench_scene import PICKER_OPTION_SIZE
 
 # Button.draw() centers text with no wrapping/truncation (unlike table cells
 # or dialogue text), so any label wider than its button silently spills past
@@ -42,6 +45,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L03_DECISION_FIELDS,
         *L04_DECISION_FIELDS,
         *L05_DECISION_FIELDS,
+        *L06_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -55,6 +59,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for step in L04_FLOW_STEPS:
         for option in step.options:
             checks.append((f"{step.key}.{option.key}", option.label_key, flow_option_button_width))
+
+    picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
+    for issue in L06_REPAIR_ISSUES:
+        for option in issue.options:
+            checks.append((f"{issue.column}.{option.key}", option.label_key, picker_option_button_width))
 
     return checks
 
