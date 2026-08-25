@@ -4,13 +4,12 @@ import pandas as pd
 import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
-from data_science_arcade.core.fonts import get_font
 from data_science_arcade.core.scenes import Scene
 from data_science_arcade.data_engine.dataset import Dataset
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
-from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text
+from data_science_arcade.ui.text import draw_centered_text, draw_single_line, draw_wrapped_text
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 TAB_BAR_Y = 42
@@ -40,25 +39,6 @@ def _format_cell(value: object) -> str:
     if isinstance(value, pd.Timestamp):
         return value.strftime("%Y-%m-%d")
     return str(value)
-
-
-def _draw_single_line(
-    surface: pygame.Surface,
-    text: str,
-    top_left: tuple[int, int],
-    max_width: int,
-    size: int,
-    color: tuple[int, int, int],
-) -> None:
-    """Single-line text, truncated with an ellipsis if it doesn't fit -
-    unlike draw_wrapped_text, never breaks onto a second line, so table
-    cells/headers stay row-aligned instead of silently wrapping."""
-    font = get_font(size)
-    if font.size(text)[0] > max_width:
-        while text and font.size(f"{text}...")[0] > max_width:
-            text = text[:-1]
-        text = f"{text}..." if text else "..."
-    surface.blit(font.render(text, True, color), top_left)
 
 
 class WorkbenchScene(Scene):
@@ -193,14 +173,14 @@ class WorkbenchScene(Scene):
         col_width = width // len(columns) if columns else width
 
         for index, column in enumerate(columns):
-            _draw_single_line(surface, column, (left + index * col_width, top), col_width - 8, 16, colors.TEXT)
+            draw_single_line(surface, column, (left + index * col_width, top), col_width - 8, 16, colors.TEXT)
 
         row_top = top + ROW_HEIGHT
         shown_rows = frame.head(MAX_TABLE_ROWS)
         for row_index, (_, row) in enumerate(shown_rows.iterrows()):
             y = row_top + row_index * ROW_HEIGHT
             for col_index, column in enumerate(columns):
-                _draw_single_line(
+                draw_single_line(
                     surface,
                     _format_cell(row[column]),
                     (left + col_index * col_width, y),
@@ -229,7 +209,7 @@ class WorkbenchScene(Scene):
         for index, column in enumerate(self.dataset.schema.columns):
             y = top + index * line_height
             header = f"{column.name} ({column.dtype})" + ("" if not column.nullable else " - nullable")
-            _draw_single_line(surface, header, (left, y), width, 16, colors.TEXT)
+            draw_single_line(surface, header, (left, y), width, 16, colors.TEXT)
             if column.description:
                 draw_wrapped_text(surface, column.description, (left + 12, y + 18), width - 12, 13, colors.BUTTON_TEXT_DISABLED)
 
