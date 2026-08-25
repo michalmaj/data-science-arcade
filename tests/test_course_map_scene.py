@@ -8,7 +8,9 @@ import pygame
 from data_science_arcade.app.game import App
 from data_science_arcade.lessons.l01_question_first.scenario import BRIEF_FIELDS, DECISION_FIELDS
 from data_science_arcade.lessons.l02_source_scout.scenario import DECISION_FIELDS as L02_DECISION_FIELDS
+from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonState
+from data_science_arcade.ui.api_console_scene import APIConsoleScene
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
@@ -46,15 +48,15 @@ def test_clicking_an_unlocked_lesson_with_no_runtime_yet_opens_a_placeholder():
     app = App()
     app.init()
     try:
-        # Lesson 3 has no registry entry yet (only 1 and 2 do).
-        app.progress.unlock(3)
+        # Lesson 4 has no registry entry yet (only 1, 2 and 3 do).
+        app.progress.unlock(4)
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        course_map._open_lesson(3)
+        course_map._open_lesson(4)
 
         assert isinstance(app.scenes.current, PlaceholderScene)
-        assert "03" in app.scenes.current.title
+        assert "04" in app.scenes.current.title
     finally:
         pygame.quit()
 
@@ -85,6 +87,22 @@ def test_clicking_lesson_two_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(2)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)
+        assert not isinstance(app.scenes.current.inner, PlaceholderScene)
+    finally:
+        pygame.quit()
+
+
+def test_clicking_lesson_three_starts_the_real_lesson_once_unlocked():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(3)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+
+        course_map._open_lesson(3)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -156,6 +174,37 @@ def test_finishing_lesson_two_marks_it_complete_and_unlocks_lesson_three():
         pygame.quit()
 
 
+def _play_out_the_console(scene: APIConsoleScene) -> None:
+    while not scene._all_sent():
+        scene.action_button.on_activate()
+    scene.action_button.on_activate()  # now showing Finish
+
+
+def test_finishing_lesson_three_marks_it_complete_and_unlocks_lesson_four():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(3)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(3)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # investigation
+        _play_out_the_console(app.scenes.current)  # guided console
+        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
+        _play_out_the_console(app.scenes.current)  # independent console
+        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
+        _fill_out(app.scenes.current, L03_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+
+        assert app.scenes.current is course_map
+        assert app.progress.state_of(3) == LessonState.COMPLETED
+        assert app.progress.state_of(4) == LessonState.UNLOCKED
+    finally:
+        pygame.quit()
+
+
 def test_dev_mode_shows_every_lesson_as_enabled_without_touching_the_save(monkeypatch):
     monkeypatch.setenv("DSA_DEV_MODE", "1")
     app = App()
@@ -177,13 +226,13 @@ def test_dev_mode_click_marks_the_lesson_complete_and_unlocks_the_next(monkeypat
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        # Lesson 3 has no real runtime yet (only 1 and 2 are registered), so
-        # this exercises the dev-mode shortcut - lessons 1/2 always launch
-        # their real lesson now regardless of dev mode.
-        course_map._open_lesson(3)
+        # Lesson 4 has no real runtime yet (only 1, 2 and 3 are registered),
+        # so this exercises the dev-mode shortcut - lessons 1/2/3 always
+        # launch their real lesson now regardless of dev mode.
+        course_map._open_lesson(4)
 
-        assert app.progress.state_of(3) == LessonState.COMPLETED
-        assert app.progress.state_of(4) == LessonState.UNLOCKED
+        assert app.progress.state_of(4) == LessonState.COMPLETED
+        assert app.progress.state_of(5) == LessonState.UNLOCKED
     finally:
         pygame.quit()
 
