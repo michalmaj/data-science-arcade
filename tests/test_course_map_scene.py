@@ -20,6 +20,11 @@ from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPA
 from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION_FIELDS as L06_DECISION_FIELDS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import DECISION_FIELDS as L07_DECISION_FIELDS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import STRATEGIES as L07_STRATEGIES
+from data_science_arcade.lessons.l08_duplicate_detective.candidate_pairs import CANDIDATE_PAIRS as L08_CANDIDATE_PAIRS
+from data_science_arcade.lessons.l08_duplicate_detective.candidate_pairs import (
+    CORRECT_DECISION_BY_PAIR as L08_CORRECT_DECISION_BY_PAIR,
+)
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import DECISION_FIELDS as L08_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonState
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
@@ -28,6 +33,7 @@ from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.flow_builder_scene import FlowBuilderScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
+from data_science_arcade.ui.record_pair_scene import RecordPairScene
 from data_science_arcade.ui.sampling_allocator_scene import SamplingAllocatorScene
 from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
@@ -63,15 +69,15 @@ def test_clicking_an_unlocked_lesson_with_no_runtime_yet_opens_a_placeholder():
     app = App()
     app.init()
     try:
-        # Lesson 8 has no registry entry yet (only 1-7 do).
-        app.progress.unlock(8)
+        # Lesson 9 has no registry entry yet (only 1-8 do).
+        app.progress.unlock(9)
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        course_map._open_lesson(8)
+        course_map._open_lesson(9)
 
         assert isinstance(app.scenes.current, PlaceholderScene)
-        assert "08" in app.scenes.current.title
+        assert "09" in app.scenes.current.title
     finally:
         pygame.quit()
 
@@ -182,6 +188,22 @@ def test_clicking_lesson_seven_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(7)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)
+        assert not isinstance(app.scenes.current.inner, PlaceholderScene)
+    finally:
+        pygame.quit()
+
+
+def test_clicking_lesson_eight_starts_the_real_lesson_once_unlocked():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(8)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+
+        course_map._open_lesson(8)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -425,6 +447,39 @@ def test_finishing_lesson_seven_marks_it_complete_and_unlocks_lesson_eight():
         pygame.quit()
 
 
+def _decide_every_l08_pair_correctly(scene: RecordPairScene) -> None:
+    for pair in L08_CANDIDATE_PAIRS:
+        decision = L08_CORRECT_DECISION_BY_PAIR[pair.key]
+        button = scene.merge_button if decision == "merge" else scene.keep_separate_button
+        button.on_activate()
+        scene.next_button.on_activate()
+
+
+def test_finishing_lesson_eight_marks_it_complete_and_unlocks_lesson_nine():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(8)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(8)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # investigation
+        _decide_every_l08_pair_correctly(app.scenes.current)  # guided pairs
+        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
+        _decide_every_l08_pair_correctly(app.scenes.current)  # independent pairs
+        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
+        _fill_out(app.scenes.current, L08_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+
+        assert app.scenes.current is course_map
+        assert app.progress.state_of(8) == LessonState.COMPLETED
+        assert app.progress.state_of(9) == LessonState.UNLOCKED
+    finally:
+        pygame.quit()
+
+
 def test_dev_mode_shows_every_lesson_as_enabled_without_touching_the_save(monkeypatch):
     monkeypatch.setenv("DSA_DEV_MODE", "1")
     app = App()
@@ -446,13 +501,13 @@ def test_dev_mode_click_marks_the_lesson_complete_and_unlocks_the_next(monkeypat
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        # Lesson 8 has no real runtime yet (only 1-7 are registered), so
-        # this exercises the dev-mode shortcut - lessons 1-7 always launch
+        # Lesson 9 has no real runtime yet (only 1-8 are registered), so
+        # this exercises the dev-mode shortcut - lessons 1-8 always launch
         # their real lesson now regardless of dev mode.
-        course_map._open_lesson(8)
+        course_map._open_lesson(9)
 
-        assert app.progress.state_of(8) == LessonState.COMPLETED
-        assert app.progress.state_of(9) == LessonState.UNLOCKED
+        assert app.progress.state_of(9) == LessonState.COMPLETED
+        assert app.progress.state_of(10) == LessonState.UNLOCKED
     finally:
         pygame.quit()
 
