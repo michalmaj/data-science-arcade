@@ -12,6 +12,7 @@ from data_science_arcade.lessons.l01_question_first.scenario import BRIEF_FIELDS
 from data_science_arcade.lessons.l01_question_first.scenario import DECISION_FIELDS as L01_DECISION_FIELDS
 from data_science_arcade.lessons.l02_source_scout.scenario import DECISION_FIELDS as L02_DECISION_FIELDS
 from data_science_arcade.lessons.l02_source_scout.scenario import SOURCES as L02_SOURCES
+from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
@@ -30,7 +31,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     checks: list[tuple[str, str, int]] = []
 
     option_button_width = OPTION_SIZE[0] - BUTTON_PADDING
-    brief_fields = (*L01_BRIEF_FIELDS, *L01_DECISION_FIELDS, *L02_DECISION_FIELDS)
+    brief_fields = (*L01_BRIEF_FIELDS, *L01_DECISION_FIELDS, *L02_DECISION_FIELDS, *L03_DECISION_FIELDS)
     for field in brief_fields:
         for option in field.options:
             checks.append((f"{field.key}.{option.key}", option.label_key, option_button_width))
