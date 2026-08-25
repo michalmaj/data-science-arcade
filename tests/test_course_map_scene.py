@@ -16,15 +16,19 @@ from data_science_arcade.lessons.l05_sampling_mission.scenario import CUSTOMER_G
 from data_science_arcade.lessons.l05_sampling_mission.scenario import DECISION_FIELDS as L05_DECISION_FIELDS
 from data_science_arcade.lessons.l05_sampling_mission.scenario import STEP as L05_STEP
 from data_science_arcade.lessons.l05_sampling_mission.scenario import TOTAL_BUDGET as L05_TOTAL_BUDGET
+from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPAIR_ISSUES as L06_REPAIR_ISSUES
+from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION_FIELDS as L06_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonState
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
+from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.flow_builder_scene import FlowBuilderScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
 from data_science_arcade.ui.sampling_allocator_scene import SamplingAllocatorScene
 from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
+from data_science_arcade.ui.workbench_scene import WorkbenchScene
 
 
 def test_only_the_first_lesson_starts_enabled():
@@ -57,15 +61,15 @@ def test_clicking_an_unlocked_lesson_with_no_runtime_yet_opens_a_placeholder():
     app = App()
     app.init()
     try:
-        # Lesson 6 has no registry entry yet (only 1-5 do).
-        app.progress.unlock(6)
+        # Lesson 7 has no registry entry yet (only 1-6 do).
+        app.progress.unlock(7)
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        course_map._open_lesson(6)
+        course_map._open_lesson(7)
 
         assert isinstance(app.scenes.current, PlaceholderScene)
-        assert "06" in app.scenes.current.title
+        assert "07" in app.scenes.current.title
     finally:
         pygame.quit()
 
@@ -144,6 +148,22 @@ def test_clicking_lesson_five_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(5)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)
+        assert not isinstance(app.scenes.current.inner, PlaceholderScene)
+    finally:
+        pygame.quit()
+
+
+def test_clicking_lesson_six_starts_the_real_lesson_once_unlocked():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(6)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+
+        course_map._open_lesson(6)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -313,6 +333,49 @@ def test_finishing_lesson_five_marks_it_complete_and_unlocks_lesson_six():
         pygame.quit()
 
 
+def _first_flagged_cell_button(scene: WorkbenchScene) -> Button:
+    chrome_labels = {
+        scene.app.localization.t(key) for key in ("workbench.data.view_table", "workbench.data.view_schema", "workbench.continue")
+    }
+    tab_labels = {scene.app.localization.t(tab.value) for tab in type(scene.active_tab)}
+    return next(b for b in scene.buttons.buttons if b.label not in chrome_labels and b.label not in tab_labels)
+
+
+def _repair_every_l06_issue_correctly(scene: WorkbenchScene) -> None:
+    for _ in L06_REPAIR_ISSUES:
+        flagged_cell = _first_flagged_cell_button(scene)
+        flagged_cell.on_activate()
+        correct_key = scene.active_issue.options[0].key
+        scene.picker_buttons[correct_key].on_activate()
+
+
+def test_finishing_lesson_six_marks_it_complete_and_unlocks_lesson_seven():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(6)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(6)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # investigation
+        _repair_every_l06_issue_correctly(app.scenes.current)  # guided workbench
+        app.scenes.current.continue_button.on_activate()
+        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
+        _repair_every_l06_issue_correctly(app.scenes.current)  # independent workbench
+        app.scenes.current.continue_button.on_activate()
+        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
+        _fill_out(app.scenes.current, L06_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+
+        assert app.scenes.current is course_map
+        assert app.progress.state_of(6) == LessonState.COMPLETED
+        assert app.progress.state_of(7) == LessonState.UNLOCKED
+    finally:
+        pygame.quit()
+
+
 def test_dev_mode_shows_every_lesson_as_enabled_without_touching_the_save(monkeypatch):
     monkeypatch.setenv("DSA_DEV_MODE", "1")
     app = App()
@@ -334,13 +397,13 @@ def test_dev_mode_click_marks_the_lesson_complete_and_unlocks_the_next(monkeypat
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        # Lesson 6 has no real runtime yet (only 1-5 are registered), so
-        # this exercises the dev-mode shortcut - lessons 1-5 always launch
+        # Lesson 7 has no real runtime yet (only 1-6 are registered), so
+        # this exercises the dev-mode shortcut - lessons 1-6 always launch
         # their real lesson now regardless of dev mode.
-        course_map._open_lesson(6)
+        course_map._open_lesson(7)
 
-        assert app.progress.state_of(6) == LessonState.COMPLETED
-        assert app.progress.state_of(7) == LessonState.UNLOCKED
+        assert app.progress.state_of(7) == LessonState.COMPLETED
+        assert app.progress.state_of(8) == LessonState.UNLOCKED
     finally:
         pygame.quit()
 
