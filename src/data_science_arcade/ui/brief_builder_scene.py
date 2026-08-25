@@ -96,8 +96,10 @@ class BriefBuilderScene(Scene):
         self._rebuild_buttons()
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        # No Escape-to-quit here: an accidental Escape shouldn't abandon
-        # mid-lesson progress the way it harmlessly backs out of a menu.
+        # No special Escape handling needed here: LessonRunner wraps every
+        # stage in Pausable, which intercepts Escape before this scene ever
+        # sees it (opens the pause menu instead of, say, accidentally
+        # abandoning progress on this field).
         self.buttons.handle_event(event)
 
     def draw(self, surface: pygame.Surface) -> None:

@@ -173,10 +173,10 @@ def build_lesson_one_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l01.twist_title",
             narrative_keys=("dialogue.l01_twist.line1", "dialogue.l01_twist.line2"),
             dataset=twist_dataset,
-            recent_label_key="lesson.l01.twist_recent_label",
-            recent_rate=recent_rate,
-            full_period_label_key="lesson.l01.twist_full_label",
-            full_period_rate=full_period_rate,
+            comparisons=(
+                ("lesson.l01.twist_recent_label", recent_rate),
+                ("lesson.l01.twist_full_label", full_period_rate),
+            ),
             on_complete=advance,
         )
 

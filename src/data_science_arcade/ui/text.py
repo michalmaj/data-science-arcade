@@ -16,6 +16,26 @@ def draw_centered_text(
     return rect
 
 
+def draw_single_line(
+    surface: pygame.Surface,
+    text: str,
+    top_left: tuple[int, int],
+    max_width: int,
+    size: int,
+    color: tuple[int, int, int],
+) -> None:
+    """Single-line text, truncated with an ellipsis if it doesn't fit -
+    unlike draw_wrapped_text, never breaks onto a second line, so grid/table
+    cells stay row-aligned instead of silently wrapping (which would push
+    that row's later columns out of line with the rows above/below it)."""
+    font = get_font(size)
+    if font.size(text)[0] > max_width:
+        while text and font.size(f"{text}...")[0] > max_width:
+            text = text[:-1]
+        text = f"{text}..." if text else "..."
+    surface.blit(font.render(text, True, color), top_left)
+
+
 def wrap_text(text: str, font: pygame.font.Font, max_width: int) -> list[str]:
     """Greedy word-wrap: breaks text into lines that each fit max_width."""
     lines: list[str] = []

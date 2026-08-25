@@ -14,9 +14,11 @@ BOX_RECT = pygame.Rect(40, 130, 880, 370)
 
 class TwistRevealScene(Scene):
     """Shows the lesson's twist as real computed evidence, not a scripted
-    number: two labeled rates plus the Dataset's own python_mirror(), so
-    the reveal is backed by an actual (if small, hand-crafted) Dataset
-    rather than text pretending a computation happened."""
+    number: an ordered list of labeled rates plus the Dataset's own
+    python_mirror(), so the reveal is backed by an actual (if small,
+    hand-crafted) Dataset rather than text pretending a computation
+    happened. comparisons is (label_key, rate) pairs, shown in order -
+    two for a before/after contrast, more for an N-way breakdown."""
 
     def __init__(
         self,
@@ -24,20 +26,14 @@ class TwistRevealScene(Scene):
         title_key: str,
         narrative_keys: tuple[str, ...],
         dataset: Dataset,
-        recent_label_key: str,
-        recent_rate: float,
-        full_period_label_key: str,
-        full_period_rate: float,
+        comparisons: tuple[tuple[str, float], ...],
         on_complete: Callable[[], None],
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
         self.narrative_keys = narrative_keys
         self.dataset = dataset
-        self.recent_label_key = recent_label_key
-        self.recent_rate = recent_rate
-        self.full_period_label_key = full_period_label_key
-        self.full_period_rate = full_period_rate
+        self.comparisons = comparisons
         self.on_complete = on_complete
 
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -68,11 +64,12 @@ class TwistRevealScene(Scene):
             y += 44
 
         y += 10
-        self._draw_rate_row(surface, left, y, self.recent_label_key, self.recent_rate)
-        y += 30
-        self._draw_rate_row(surface, left, y, self.full_period_label_key, self.full_period_rate)
+        for label_key, rate in self.comparisons:
+            text = f"{loc.t(label_key)} {rate:.0%}"
+            draw_wrapped_text(surface, text, (left, y), width, 20, colors.BUTTON_FOCUS_BORDER)
+            y += 30
 
-        y += 46
+        y += 16
         for line in self.dataset.python_mirror().split("\n"):
             draw_wrapped_text(surface, line, (left, y), width, 14, colors.BUTTON_TEXT_DISABLED)
             y += 20
@@ -84,8 +81,3 @@ class TwistRevealScene(Scene):
             14,
             colors.BUTTON_TEXT_DISABLED,
         )
-
-    def _draw_rate_row(self, surface: pygame.Surface, left: int, y: int, label_key: str, rate: float) -> None:
-        loc = self.app.localization
-        text = f"{loc.t(label_key)} {rate:.0%}"
-        draw_wrapped_text(surface, text, (left, y), BOX_RECT.width - 40, 20, colors.BUTTON_FOCUS_BORDER)
