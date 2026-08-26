@@ -21,6 +21,8 @@ from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import DECISION_FIELDS as L07_DECISION_FIELDS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import STRATEGIES as L07_STRATEGIES
 from data_science_arcade.lessons.l08_duplicate_detective.scenario import DECISION_FIELDS as L08_DECISION_FIELDS
+from data_science_arcade.lessons.l09_outlier_patrol.scenario import DECISION_FIELDS as L09_DECISION_FIELDS
+from data_science_arcade.lessons.l09_outlier_patrol.transactions import OUTLIER_CASES as L09_OUTLIER_CASES
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
@@ -51,6 +53,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L06_DECISION_FIELDS,
         *L07_DECISION_FIELDS,
         *L08_DECISION_FIELDS,
+        *L09_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -71,6 +74,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for step in L04_FLOW_STEPS:
         for option in step.options:
             checks.append((f"{step.key}.{option.key}", option.label_key, flow_option_button_width))
+    for case in L09_OUTLIER_CASES:
+        for option in case.options:
+            checks.append((f"{case.key}.{option.key}", option.label_key, flow_option_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:
