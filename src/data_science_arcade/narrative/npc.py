@@ -37,3 +37,11 @@ DATA_ENGINEER = NPC(
     avatar_color=(110, 220, 130),
     avatar_initial="D",
 )
+
+FINANCE_LEAD = NPC(
+    id="finance_lead",
+    name_key="npc.finance_lead.name",
+    role_key="npc.finance_lead.role",
+    avatar_color=(230, 200, 90),
+    avatar_initial="F",
+)
