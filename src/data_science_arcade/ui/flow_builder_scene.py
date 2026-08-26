@@ -3,18 +3,33 @@ from collections.abc import Callable
 import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
+from data_science_arcade.core.fonts import get_font
 from data_science_arcade.core.scenes import Scene
 from data_science_arcade.lessons.framework.flow import EventPlacement, FlowStep
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
-from data_science_arcade.ui.text import draw_centered_text, draw_single_line, draw_wrapped_text
+from data_science_arcade.ui.text import (
+    draw_centered_text,
+    draw_centered_wrapped_text,
+    draw_single_line,
+    draw_wrapped_text,
+    wrap_text,
+)
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 STEP_BOX_SIZE = (150, 54)
 STEP_SPACING = 172
+# 6+ steps (first hit by Lesson 10's 6 validation checks) would overflow the
+# canvas at STEP_SPACING - (n-1) * STEP_SPACING + STEP_BOX_SIZE[0] exceeds
+# LOGICAL_SIZE[0] past 5 steps. Box size stays fixed (it's sized for label
+# text, not step count); only the spacing between boxes narrows.
+MANY_STEPS_THRESHOLD = 5
+WIDE_STEP_SPACING = 155
 DIAGRAM_Y = 105
 PROMPT_Y = 170
+PROMPT_SIZE = 20
+PROMPT_MAX_WIDTH = 900
 OPTION_SIZE = (420, 46)
 FIRST_OPTION_Y = 215
 OPTION_SPACING = 54
@@ -53,16 +68,32 @@ class FlowBuilderScene(Scene):
     def _current_step(self) -> FlowStep:
         return self.steps[self.step_index]
 
+    def _step_spacing(self) -> int:
+        return STEP_SPACING if len(self.steps) <= MANY_STEPS_THRESHOLD else WIDE_STEP_SPACING
+
     def _first_box_x(self) -> int:
-        return CENTER_X - (len(self.steps) - 1) * STEP_SPACING // 2
+        return CENTER_X - (len(self.steps) - 1) * self._step_spacing() // 2
+
+    def _prompt_line_count(self, step: FlowStep) -> int:
+        loc = self.app.localization
+        font = get_font(PROMPT_SIZE)
+        return len(wrap_text(loc.t(step.prompt_key), font, PROMPT_MAX_WIDTH))
+
+    def _first_option_y(self, step: FlowStep) -> int:
+        # Most prompts are one line and this matches FIRST_OPTION_Y exactly;
+        # a prompt long enough to wrap (spec content, not UI copy, so length
+        # isn't under our control) pushes the options down to stay clear of it.
+        line_height = get_font(PROMPT_SIZE).get_linesize() + 4
+        return FIRST_OPTION_Y + (self._prompt_line_count(step) - 1) * line_height
 
     def _rebuild_buttons(self) -> None:
         loc = self.app.localization
         step = self._current_step()
+        first_option_y = self._first_option_y(step)
         buttons = []
         for index, option in enumerate(step.options):
             rect = pygame.Rect(0, 0, *OPTION_SIZE)
-            rect.center = (CENTER_X, FIRST_OPTION_Y + index * OPTION_SPACING)
+            rect.center = (CENTER_X, first_option_y + index * OPTION_SPACING)
             buttons.append(Button(rect, loc.t(option.label_key), self._make_choose(option.key)))
 
         back_rect = pygame.Rect(0, 0, 140, 44)
@@ -117,7 +148,7 @@ class FlowBuilderScene(Scene):
         draw_centered_text(surface, loc.t(self.title_key), (CENTER_X, 50), 28, colors.TEXT)
 
         self._draw_flow_diagram(surface)
-        draw_centered_text(surface, loc.t(step.prompt_key), (CENTER_X, PROMPT_Y), 20, colors.TEXT)
+        draw_centered_wrapped_text(surface, loc.t(step.prompt_key), (CENTER_X, PROMPT_Y), PROMPT_MAX_WIDTH, PROMPT_SIZE, colors.TEXT)
 
         self.buttons.draw(surface)
         self._draw_selected_indicator(surface, step)
@@ -128,9 +159,10 @@ class FlowBuilderScene(Scene):
     def _draw_flow_diagram(self, surface: pygame.Surface) -> None:
         loc = self.app.localization
         first_x = self._first_box_x()
+        spacing = self._step_spacing()
         for index, step in enumerate(self.steps):
             rect = pygame.Rect(0, 0, *STEP_BOX_SIZE)
-            rect.center = (first_x + index * STEP_SPACING, DIAGRAM_Y)
+            rect.center = (first_x + index * spacing, DIAGRAM_Y)
             pygame.draw.rect(surface, colors.PANEL_BACKGROUND, rect, border_radius=6)
             if index == self.step_index:
                 pygame.draw.rect(surface, colors.BUTTON_FOCUS_BORDER, rect, width=2, border_radius=6)
