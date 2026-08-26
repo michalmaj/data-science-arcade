@@ -25,12 +25,18 @@ from data_science_arcade.lessons.l09_outlier_patrol.scenario import DECISION_FIE
 from data_science_arcade.lessons.l09_outlier_patrol.transactions import OUTLIER_CASES as L09_OUTLIER_CASES
 from data_science_arcade.lessons.l10_validation_gate.checks import VALIDATION_CHECKS as L10_VALIDATION_CHECKS
 from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
+from data_science_arcade.lessons.l11_distribution_observatory.lenses import build_distribution_lenses
+from data_science_arcade.lessons.l11_distribution_observatory.order_values import generate_order_values
+from data_science_arcade.lessons.l11_distribution_observatory.scenario import DECISION_FIELDS as L11_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
+from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTION_OPTION_SIZE
 from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
 from data_science_arcade.ui.source_board_scene import HEADER_SIZE, WIDE_HEADER_WIDTH
 from data_science_arcade.ui.workbench_scene import PICKER_OPTION_SIZE
+
+L11_LENSES = build_distribution_lenses(generate_order_values())
 
 # Button.draw() centers text with no wrapping/truncation (unlike table cells
 # or dialogue text), so any label wider than its button silently spills past
@@ -57,6 +63,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L08_DECISION_FIELDS,
         *L09_DECISION_FIELDS,
         *L10_DECISION_FIELDS,
+        *L11_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -83,6 +90,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for check in L10_VALIDATION_CHECKS:
         for option in check.options:
             checks.append((f"{check.key}.{option.key}", option.label_key, flow_option_button_width))
+
+    distribution_option_button_width = DISTRIBUTION_OPTION_SIZE[0] - BUTTON_PADDING
+    for lens in L11_LENSES:
+        for option in lens.options:
+            checks.append((f"{lens.key}.{option.key}", option.label_key, distribution_option_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:
