@@ -23,6 +23,8 @@ from data_science_arcade.lessons.l07_missing_data_clinic.scenario import STRATEG
 from data_science_arcade.lessons.l08_duplicate_detective.scenario import DECISION_FIELDS as L08_DECISION_FIELDS
 from data_science_arcade.lessons.l09_outlier_patrol.scenario import DECISION_FIELDS as L09_DECISION_FIELDS
 from data_science_arcade.lessons.l09_outlier_patrol.transactions import OUTLIER_CASES as L09_OUTLIER_CASES
+from data_science_arcade.lessons.l10_validation_gate.checks import VALIDATION_CHECKS as L10_VALIDATION_CHECKS
+from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
@@ -54,6 +56,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L07_DECISION_FIELDS,
         *L08_DECISION_FIELDS,
         *L09_DECISION_FIELDS,
+        *L10_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -77,6 +80,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for case in L09_OUTLIER_CASES:
         for option in case.options:
             checks.append((f"{case.key}.{option.key}", option.label_key, flow_option_button_width))
+    for check in L10_VALIDATION_CHECKS:
+        for option in check.options:
+            checks.append((f"{check.key}.{option.key}", option.label_key, flow_option_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:

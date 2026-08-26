@@ -16,6 +16,33 @@ def draw_centered_text(
     return rect
 
 
+def draw_centered_wrapped_text(
+    surface: pygame.Surface,
+    text: str,
+    center: tuple[int, int],
+    max_width: int,
+    size: int,
+    color: tuple[int, int, int],
+    line_spacing: int = 4,
+) -> int:
+    """Like draw_centered_text, but wraps onto extra lines - each still
+    horizontally centered on center's x - instead of silently running past
+    max_width off both edges. The first line's center lands exactly on
+    center, same as draw_centered_text, so single-line callers (the common
+    case) render pixel-identical; only text long enough to need a second
+    line shifts anything, stacking downward from there. Returns the number
+    of lines drawn, so callers can reserve space below for what follows."""
+    font = get_font(size)
+    x, y = center
+    line_height = font.get_linesize() + line_spacing
+    lines = wrap_text(text, font, max_width)
+    for index, line in enumerate(lines):
+        image = font.render(line, True, color)
+        rect = image.get_rect(center=(x, y + index * line_height))
+        surface.blit(image, rect)
+    return len(lines)
+
+
 def draw_single_line(
     surface: pygame.Surface,
     text: str,
