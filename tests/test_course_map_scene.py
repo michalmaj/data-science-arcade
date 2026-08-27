@@ -37,10 +37,13 @@ from data_science_arcade.lessons.l12_groupby_kitchen.requests import CORRECT_PIP
 from data_science_arcade.lessons.l12_groupby_kitchen.scenario import DECISION_FIELDS as L12_DECISION_FIELDS
 from data_science_arcade.lessons.l13_join_junction.requests import CORRECT_HOW_BY_REQUEST as L13_CORRECT_HOW_BY_REQUEST
 from data_science_arcade.lessons.l13_join_junction.scenario import DECISION_FIELDS as L13_DECISION_FIELDS
+from data_science_arcade.lessons.l14_chart_designer.requests import CORRECT_OPTION_BY_REQUEST as L14_CORRECT_OPTION_BY_REQUEST
+from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS as L14_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonState
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.button import Button
+from data_science_arcade.ui.chart_designer_scene import ChartDesignerScene
 from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.distribution_scene import DistributionScene
@@ -84,16 +87,16 @@ def test_clicking_an_unlocked_lesson_with_no_runtime_yet_opens_a_placeholder():
     app = App()
     app.init()
     try:
-        # Lesson 14 has no registry entry yet (only 1-13 do) - the fourth
-        # lesson of Chapter 3, once lesson 13 is complete.
-        app.progress.unlock(14)
+        # Lesson 15 has no registry entry yet (only 1-14 do) - the first
+        # lesson of Chapter 4, once Chapter 3 (lessons 11-14) is complete.
+        app.progress.unlock(15)
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        course_map._open_lesson(14)
+        course_map._open_lesson(15)
 
         assert isinstance(app.scenes.current, PlaceholderScene)
-        assert "14" in app.scenes.current.title
+        assert "15" in app.scenes.current.title
     finally:
         pygame.quit()
 
@@ -300,6 +303,22 @@ def test_clicking_lesson_thirteen_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(13)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)
+        assert not isinstance(app.scenes.current.inner, PlaceholderScene)
+    finally:
+        pygame.quit()
+
+
+def test_clicking_lesson_fourteen_starts_the_real_lesson_once_unlocked():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(14)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+
+        course_map._open_lesson(14)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -749,6 +768,40 @@ def test_finishing_lesson_thirteen_marks_it_complete_and_unlocks_lesson_fourteen
         pygame.quit()
 
 
+def _pick_every_l14_chart_correctly(scene: ChartDesignerScene) -> None:
+    for _ in range(len(scene.requests)):
+        request = scene._current_request()
+        correct_key = L14_CORRECT_OPTION_BY_REQUEST[request.key]
+        index = next(i for i, option in enumerate(request.options) if option.key == correct_key)
+        scene.buttons.buttons[index].on_activate()
+        scene.next_button.on_activate()
+
+
+def test_finishing_lesson_fourteen_marks_it_complete_and_unlocks_lesson_fifteen():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(14)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(14)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # investigation
+        _pick_every_l14_chart_correctly(app.scenes.current)  # guided charts
+        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
+        _pick_every_l14_chart_correctly(app.scenes.current)  # independent charts
+        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
+        _fill_out(app.scenes.current, L14_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+
+        assert app.scenes.current is course_map
+        assert app.progress.state_of(14) == LessonState.COMPLETED
+        assert app.progress.state_of(15) == LessonState.UNLOCKED
+    finally:
+        pygame.quit()
+
+
 def test_dev_mode_shows_every_lesson_as_enabled_without_touching_the_save(monkeypatch):
     monkeypatch.setenv("DSA_DEV_MODE", "1")
     app = App()
@@ -770,14 +823,14 @@ def test_dev_mode_click_marks_the_lesson_complete_and_unlocks_the_next(monkeypat
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        # Lesson 14 has no real runtime yet (only 1-13 are registered) -
-        # it's Chapter 3's fourth lesson - so this exercises the dev-mode
-        # shortcut - lessons 1-13 always launch their real lesson now
+        # Lesson 15 has no real runtime yet (only 1-14 are registered) -
+        # it's Chapter 4's first lesson - so this exercises the dev-mode
+        # shortcut - lessons 1-14 always launch their real lesson now
         # regardless of dev mode.
-        course_map._open_lesson(14)
+        course_map._open_lesson(15)
 
-        assert app.progress.state_of(14) == LessonState.COMPLETED
-        assert app.progress.state_of(15) == LessonState.UNLOCKED
+        assert app.progress.state_of(15) == LessonState.COMPLETED
+        assert app.progress.state_of(16) == LessonState.UNLOCKED
     finally:
         pygame.quit()
 
