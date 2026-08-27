@@ -27,14 +27,15 @@ NAV_BUTTON_Y = 460
 
 
 class SegmentSlicerScene(Scene):
-    """Slice a company-wide metric by a chosen dimension (spec §25 Lesson
-    15 'Segment Detective'): a fixed sequence of requests, each framed as
-    a specific team's complaint, offers a few slice dimensions (device,
-    region, channel) as options. Picking one shows a real before/after
-    rate table for that dimension's own segments - the mechanism behind
-    Simpson's paradox made checkable rather than asserted: every segment
-    can decline while the company-wide rate (revealed later, at the
-    twist) improves.
+    """A fixed sequence of requests, each offering a few options; picking
+    one shows a real before/after table for that option's own rows -
+    originally built to slice a company-wide metric by a chosen dimension
+    (spec §25 Lesson 15 'Segment Detective', where each row is a
+    demographic segment like device or region), and reused as-is for
+    Lesson 16 'Metric Forge' (where each row is a tracked metric - primary
+    or guardrail - instead of a segment). "Segment" in the framework
+    dataclasses (`lessons/framework/segment.py`) means "a row this table
+    compares," not specifically a demographic slice.
 
     guided=True also shows each request's hint; guided=False hides it,
     matching every other stage scene's guided/independent split."""
@@ -46,12 +47,22 @@ class SegmentSlicerScene(Scene):
         requests: tuple[SegmentRequest, ...],
         on_complete: Callable[[SegmentChoices], None],
         guided: bool = True,
+        row_column_label_key: str = "lesson.l15.segment_column_label",
+        before_column_label_key: str = "lesson.l15.before_column_label",
+        after_column_label_key: str = "lesson.l15.after_column_label",
+        pick_hint_key: str = "lesson.l15.pick_a_slice_hint",
+        value_format: Callable[[float], str] = lambda value: f"{value:.0%}",
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
         self.requests = requests
         self.on_complete = on_complete
         self.guided = guided
+        self.row_column_label_key = row_column_label_key
+        self.before_column_label_key = before_column_label_key
+        self.after_column_label_key = after_column_label_key
+        self.pick_hint_key = pick_hint_key
+        self.value_format = value_format
         self.request_index = 0
         self.choices: SegmentChoices = {}
         self._rebuild_buttons()
@@ -138,21 +149,21 @@ class SegmentSlicerScene(Scene):
         loc = self.app.localization
         option = self._selected_option(request)
         if option is None:
-            draw_centered_text(surface, loc.t("lesson.l15.pick_a_slice_hint"), (CENTER_X, TABLE_TOP + 20), 15, colors.BUTTON_TEXT_DISABLED)
+            draw_centered_text(surface, loc.t(self.pick_hint_key), (CENTER_X, TABLE_TOP + 20), 15, colors.BUTTON_TEXT_DISABLED)
             return
 
         header_y = TABLE_TOP
-        draw_centered_text(surface, loc.t("lesson.l15.segment_column_label"), (SEGMENT_COLUMN_X, header_y), 14, colors.BUTTON_TEXT_DISABLED)
-        draw_centered_text(surface, loc.t("lesson.l15.before_column_label"), (BEFORE_COLUMN_X, header_y), 14, colors.BUTTON_TEXT_DISABLED)
-        draw_centered_text(surface, loc.t("lesson.l15.after_column_label"), (AFTER_COLUMN_X, header_y), 14, colors.BUTTON_TEXT_DISABLED)
+        draw_centered_text(surface, loc.t(self.row_column_label_key), (SEGMENT_COLUMN_X, header_y), 14, colors.BUTTON_TEXT_DISABLED)
+        draw_centered_text(surface, loc.t(self.before_column_label_key), (BEFORE_COLUMN_X, header_y), 14, colors.BUTTON_TEXT_DISABLED)
+        draw_centered_text(surface, loc.t(self.after_column_label_key), (AFTER_COLUMN_X, header_y), 14, colors.BUTTON_TEXT_DISABLED)
 
         for index, segment in enumerate(option.segments):
             y = header_y + (index + 1) * TABLE_ROW_HEIGHT
             declined = segment.after_rate < segment.before_rate
             value_color = colors.BUTTON_FOCUS_BORDER if declined else colors.TEXT
             draw_centered_text(surface, loc.t(segment.label_key), (SEGMENT_COLUMN_X, y), 15, colors.TEXT)
-            draw_centered_text(surface, f"{segment.before_rate:.0%}", (BEFORE_COLUMN_X, y), 15, value_color)
-            draw_centered_text(surface, f"{segment.after_rate:.0%}", (AFTER_COLUMN_X, y), 15, value_color)
+            draw_centered_text(surface, self.value_format(segment.before_rate), (BEFORE_COLUMN_X, y), 15, value_color)
+            draw_centered_text(surface, self.value_format(segment.after_rate), (AFTER_COLUMN_X, y), 15, value_color)
 
     def _draw_selected_indicator(self, surface: pygame.Surface, request: SegmentRequest) -> None:
         selected_key = self.choices.get(request.key)
