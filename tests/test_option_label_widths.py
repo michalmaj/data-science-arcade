@@ -32,9 +32,12 @@ from data_science_arcade.lessons.l12_groupby_kitchen.requests import AGGREGATION
 from data_science_arcade.lessons.l12_groupby_kitchen.scenario import DECISION_FIELDS as L12_DECISION_FIELDS
 from data_science_arcade.lessons.l13_join_junction.requests import JOIN_REQUESTS as L13_JOIN_REQUESTS
 from data_science_arcade.lessons.l13_join_junction.scenario import DECISION_FIELDS as L13_DECISION_FIELDS
+from data_science_arcade.lessons.l14_chart_designer.requests import CHART_REQUESTS as L14_CHART_REQUESTS
+from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS as L14_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
+from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPTION_SIZE
 from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTION_OPTION_SIZE
 from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
 from data_science_arcade.ui.junction_scene import OPTION_SIZE as JUNCTION_OPTION_SIZE
@@ -72,6 +75,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L11_DECISION_FIELDS,
         *L12_DECISION_FIELDS,
         *L13_DECISION_FIELDS,
+        *L14_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -115,6 +119,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for request in L13_JOIN_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, junction_option_button_width))
+
+    chart_option_button_width = CHART_OPTION_SIZE[0] - BUTTON_PADDING
+    for request in L14_CHART_REQUESTS:
+        for option in request.options:
+            checks.append((f"{request.key}.{option.key}", option.label_key, chart_option_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:
