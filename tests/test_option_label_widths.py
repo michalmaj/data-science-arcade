@@ -36,6 +36,8 @@ from data_science_arcade.lessons.l14_chart_designer.requests import CHART_REQUES
 from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS as L14_DECISION_FIELDS
 from data_science_arcade.lessons.l15_segment_detective.requests import SEGMENT_REQUESTS as L15_SEGMENT_REQUESTS
 from data_science_arcade.lessons.l15_segment_detective.scenario import DECISION_FIELDS as L15_DECISION_FIELDS
+from data_science_arcade.lessons.l16_metric_forge.requests import METRIC_REQUESTS as L16_METRIC_REQUESTS
+from data_science_arcade.lessons.l16_metric_forge.scenario import DECISION_FIELDS as L16_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
@@ -80,6 +82,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L13_DECISION_FIELDS,
         *L14_DECISION_FIELDS,
         *L15_DECISION_FIELDS,
+        *L16_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -131,6 +134,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
 
     segment_option_button_width = SEGMENT_OPTION_SIZE[0] - BUTTON_PADDING
     for request in L15_SEGMENT_REQUESTS:
+        for option in request.options:
+            checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
+    for request in L16_METRIC_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
 
