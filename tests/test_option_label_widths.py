@@ -39,6 +39,8 @@ from data_science_arcade.lessons.l15_segment_detective.scenario import DECISION_
 from data_science_arcade.lessons.l16_metric_forge.requests import METRIC_REQUESTS as L16_METRIC_REQUESTS
 from data_science_arcade.lessons.l16_metric_forge.scenario import DECISION_FIELDS as L16_DECISION_FIELDS
 from data_science_arcade.lessons.l17_hypothesis_detective.scenario import DECISION_FIELDS as L17_DECISION_FIELDS
+from data_science_arcade.lessons.l18_randomization_control_room.requests import ASSIGNMENT_REQUESTS as L18_ASSIGNMENT_REQUESTS
+from data_science_arcade.lessons.l18_randomization_control_room.scenario import DECISION_FIELDS as L18_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
@@ -86,6 +88,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L15_DECISION_FIELDS,
         *L16_DECISION_FIELDS,
         *L17_DECISION_FIELDS,
+        *L18_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -140,6 +143,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
     for request in L16_METRIC_REQUESTS:
+        for option in request.options:
+            checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
+    for request in L18_ASSIGNMENT_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
 
