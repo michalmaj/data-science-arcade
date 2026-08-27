@@ -30,7 +30,14 @@ class SamplingAllocatorScene(Scene):
     Lesson 05 'Sampling Mission'): +/- steppers per group, a running
     'remaining budget' total, Confirm only enabled once every last contact
     is spent. guided=True also shows a hint about what an even split
-    doesn't guarantee; guided=False hides it."""
+    doesn't guarantee; guided=False hides it.
+
+    diagnostic is an optional per-row status line (Lesson 19 'Power
+    Plant' reuse): given a group and its current allocation, return
+    (text, flagged) to draw beneath that row, or None to draw nothing -
+    the default draws nothing, so Lesson 05 is unaffected. row_spacing
+    is likewise overridable for callers whose diagnostic line needs more
+    vertical room than Lesson 05's bare label-and-steppers row does."""
 
     def __init__(
         self,
@@ -43,6 +50,8 @@ class SamplingAllocatorScene(Scene):
         on_complete: Callable[[SamplingAllocation], None],
         guided: bool = True,
         hint_key: str | None = None,
+        diagnostic: Callable[[SamplingGroup, int], tuple[str, bool] | None] = lambda group, allocated: None,
+        row_spacing: int = ROW_SPACING,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -53,6 +62,8 @@ class SamplingAllocatorScene(Scene):
         self.on_complete = on_complete
         self.guided = guided
         self.hint_key = hint_key
+        self.diagnostic = diagnostic
+        self.row_spacing = row_spacing
         self.allocation: SamplingAllocation = {group.key: 0 for group in groups}
         self._rebuild_buttons()
 
@@ -70,7 +81,7 @@ class SamplingAllocatorScene(Scene):
         remaining = self._remaining()
 
         for index, group in enumerate(self.groups):
-            y = FIRST_ROW_Y + index * ROW_SPACING
+            y = FIRST_ROW_Y + index * self.row_spacing
             minus_rect = pygame.Rect(0, 0, *STEP_BUTTON_SIZE)
             minus_rect.center = (MINUS_X, y)
             minus_button = Button(
@@ -125,9 +136,15 @@ class SamplingAllocatorScene(Scene):
         draw_centered_text(surface, loc.t(self.prompt_key), (CENTER_X, 90), 18, colors.TEXT)
 
         for index, group in enumerate(self.groups):
-            y = FIRST_ROW_Y + index * ROW_SPACING
+            y = FIRST_ROW_Y + index * self.row_spacing
             draw_single_line(surface, loc.t(group.label_key), (LABEL_X, y - 10), LABEL_WIDTH, 20, colors.TEXT)
             draw_centered_text(surface, str(self.allocation[group.key]), (VALUE_X, y), 20, colors.TEXT)
+
+            diagnostic = self.diagnostic(group, self.allocation[group.key])
+            if diagnostic is not None:
+                text, flagged = diagnostic
+                color = colors.BUTTON_FOCUS_BORDER if flagged else colors.BUTTON_TEXT_DISABLED
+                draw_centered_text(surface, text, (CENTER_X, y + 24), 14, color)
 
         self.buttons.draw(surface)
 

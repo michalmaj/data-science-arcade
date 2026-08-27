@@ -118,3 +118,32 @@ def test_draw_does_not_crash_guided_or_not_at_any_allocation_level():
             scene.draw(app.logical_surface)
     finally:
         pygame.quit()
+
+
+def test_default_diagnostic_draws_nothing_extra():
+    app = _init_app()
+    try:
+        scene = _make_scene(app)
+        assert scene.diagnostic(GROUPS[0], 0) is None
+        assert scene.diagnostic(GROUPS[0], STEP) is None
+    finally:
+        pygame.quit()
+
+
+def test_a_custom_diagnostic_is_called_with_the_groups_own_allocation():
+    app = _init_app()
+    try:
+        calls = []
+
+        def diagnostic(group, allocated):
+            calls.append((group.key, allocated))
+            return f"{allocated} units", allocated > STEP
+
+        scene = _make_scene(app, diagnostic=diagnostic, row_spacing=90)
+        scene.plus_buttons["group_a"].on_activate()
+        scene.draw(app.logical_surface)
+
+        assert ("group_a", STEP) in calls
+        assert ("group_b", 0) in calls
+    finally:
+        pygame.quit()
