@@ -4,7 +4,7 @@ import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
 from data_science_arcade.core.scenes import Scene
-from data_science_arcade.lessons.framework.segment import SegmentChoices, SegmentRequest, SliceOption
+from data_science_arcade.lessons.framework.segment import Segment, SegmentChoices, SegmentRequest, SliceOption
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
@@ -31,11 +31,17 @@ class SegmentSlicerScene(Scene):
     one shows a real before/after table for that option's own rows -
     originally built to slice a company-wide metric by a chosen dimension
     (spec §25 Lesson 15 'Segment Detective', where each row is a
-    demographic segment like device or region), and reused as-is for
-    Lesson 16 'Metric Forge' (where each row is a tracked metric - primary
-    or guardrail - instead of a segment). "Segment" in the framework
-    dataclasses (`lessons/framework/segment.py`) means "a row this table
-    compares," not specifically a demographic slice.
+    demographic segment like device or region), reused as-is for Lesson 16
+    'Metric Forge' (where each row is a tracked metric - primary or
+    guardrail - instead of a segment), and reused again for Lesson 18
+    'Randomization Control Room' (where the two columns are Treatment/
+    Control balance instead of a before/after contrast - see flag_check,
+    and where value_format needs to render a plain count, a percentage,
+    and a day count as different rows of the *same* table, hence it
+    receiving the Segment being formatted rather than a bare float).
+    "Segment" in the framework dataclasses (`lessons/framework/segment.py`)
+    means "a row this table compares," not specifically a demographic
+    slice.
 
     guided=True also shows each request's hint; guided=False hides it,
     matching every other stage scene's guided/independent split."""
@@ -51,7 +57,8 @@ class SegmentSlicerScene(Scene):
         before_column_label_key: str = "lesson.l15.before_column_label",
         after_column_label_key: str = "lesson.l15.after_column_label",
         pick_hint_key: str = "lesson.l15.pick_a_slice_hint",
-        value_format: Callable[[float], str] = lambda value: f"{value:.0%}",
+        value_format: Callable[[Segment, float], str] = lambda segment, value: f"{value:.0%}",
+        flag_check: Callable[[float, float], bool] = lambda before, after: after < before,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -63,6 +70,7 @@ class SegmentSlicerScene(Scene):
         self.after_column_label_key = after_column_label_key
         self.pick_hint_key = pick_hint_key
         self.value_format = value_format
+        self.flag_check = flag_check
         self.request_index = 0
         self.choices: SegmentChoices = {}
         self._rebuild_buttons()
@@ -159,11 +167,11 @@ class SegmentSlicerScene(Scene):
 
         for index, segment in enumerate(option.segments):
             y = header_y + (index + 1) * TABLE_ROW_HEIGHT
-            declined = segment.after_rate < segment.before_rate
-            value_color = colors.BUTTON_FOCUS_BORDER if declined else colors.TEXT
+            flagged = self.flag_check(segment.before_rate, segment.after_rate)
+            value_color = colors.BUTTON_FOCUS_BORDER if flagged else colors.TEXT
             draw_centered_text(surface, loc.t(segment.label_key), (SEGMENT_COLUMN_X, y), 15, colors.TEXT)
-            draw_centered_text(surface, self.value_format(segment.before_rate), (BEFORE_COLUMN_X, y), 15, value_color)
-            draw_centered_text(surface, self.value_format(segment.after_rate), (AFTER_COLUMN_X, y), 15, value_color)
+            draw_centered_text(surface, self.value_format(segment, segment.before_rate), (BEFORE_COLUMN_X, y), 15, value_color)
+            draw_centered_text(surface, self.value_format(segment, segment.after_rate), (AFTER_COLUMN_X, y), 15, value_color)
 
     def _draw_selected_indicator(self, surface: pygame.Surface, request: SegmentRequest) -> None:
         selected_key = self.choices.get(request.key)
