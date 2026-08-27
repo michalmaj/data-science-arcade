@@ -42,10 +42,12 @@ from data_science_arcade.lessons.l17_hypothesis_detective.scenario import DECISI
 from data_science_arcade.lessons.l18_randomization_control_room.requests import ASSIGNMENT_REQUESTS as L18_ASSIGNMENT_REQUESTS
 from data_science_arcade.lessons.l18_randomization_control_room.scenario import DECISION_FIELDS as L18_DECISION_FIELDS
 from data_science_arcade.lessons.l19_power_plant.scenario import DECISION_FIELDS as L19_DECISION_FIELDS
+from data_science_arcade.lessons.l20_ab_test_commander.scenario import DECISION_FIELDS as L20_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
 from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPTION_SIZE
+from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
 from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTION_OPTION_SIZE
 from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
 from data_science_arcade.ui.junction_scene import OPTION_SIZE as JUNCTION_OPTION_SIZE
@@ -91,6 +93,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L17_DECISION_FIELDS,
         *L18_DECISION_FIELDS,
         *L19_DECISION_FIELDS,
+        *L20_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -157,6 +160,12 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     direction_button_width = DIRECTION_BUTTON_SIZE[0] - BUTTON_PADDING
     for direction in ("increase", "decrease", "no_change"):
         checks.append((f"prediction.direction.{direction}", f"prediction.direction.{direction}", direction_button_width))
+
+    # The two CheckpointMonitorScene nav buttons (Lesson 20) are fixed
+    # scene chrome, not per-request content, so they're checked once here.
+    checkpoint_nav_button_width = CHECKPOINT_NAV_BUTTON_SIZE[0] - BUTTON_PADDING
+    for key in ("checkpoint.stop_button", "checkpoint.continue_button"):
+        checks.append((key, key, checkpoint_nav_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:
