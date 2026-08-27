@@ -34,6 +34,8 @@ from data_science_arcade.lessons.l13_join_junction.requests import JOIN_REQUESTS
 from data_science_arcade.lessons.l13_join_junction.scenario import DECISION_FIELDS as L13_DECISION_FIELDS
 from data_science_arcade.lessons.l14_chart_designer.requests import CHART_REQUESTS as L14_CHART_REQUESTS
 from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS as L14_DECISION_FIELDS
+from data_science_arcade.lessons.l15_segment_detective.requests import SEGMENT_REQUESTS as L15_SEGMENT_REQUESTS
+from data_science_arcade.lessons.l15_segment_detective.scenario import DECISION_FIELDS as L15_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
@@ -42,6 +44,7 @@ from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTIO
 from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
 from data_science_arcade.ui.junction_scene import OPTION_SIZE as JUNCTION_OPTION_SIZE
 from data_science_arcade.ui.pipeline_builder_scene import OPTION_SIZE as PIPELINE_OPTION_SIZE
+from data_science_arcade.ui.segment_slicer_scene import OPTION_SIZE as SEGMENT_OPTION_SIZE
 from data_science_arcade.ui.source_board_scene import HEADER_SIZE, WIDE_HEADER_WIDTH
 from data_science_arcade.ui.workbench_scene import PICKER_OPTION_SIZE
 
@@ -76,6 +79,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L12_DECISION_FIELDS,
         *L13_DECISION_FIELDS,
         *L14_DECISION_FIELDS,
+        *L15_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -124,6 +128,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for request in L14_CHART_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, chart_option_button_width))
+
+    segment_option_button_width = SEGMENT_OPTION_SIZE[0] - BUTTON_PADDING
+    for request in L15_SEGMENT_REQUESTS:
+        for option in request.options:
+            checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:
