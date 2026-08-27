@@ -30,11 +30,14 @@ from data_science_arcade.lessons.l11_distribution_observatory.order_values impor
 from data_science_arcade.lessons.l11_distribution_observatory.scenario import DECISION_FIELDS as L11_DECISION_FIELDS
 from data_science_arcade.lessons.l12_groupby_kitchen.requests import AGGREGATION_REQUESTS as L12_AGGREGATION_REQUESTS
 from data_science_arcade.lessons.l12_groupby_kitchen.scenario import DECISION_FIELDS as L12_DECISION_FIELDS
+from data_science_arcade.lessons.l13_join_junction.requests import JOIN_REQUESTS as L13_JOIN_REQUESTS
+from data_science_arcade.lessons.l13_join_junction.scenario import DECISION_FIELDS as L13_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
 from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTION_OPTION_SIZE
 from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
+from data_science_arcade.ui.junction_scene import OPTION_SIZE as JUNCTION_OPTION_SIZE
 from data_science_arcade.ui.pipeline_builder_scene import OPTION_SIZE as PIPELINE_OPTION_SIZE
 from data_science_arcade.ui.source_board_scene import HEADER_SIZE, WIDE_HEADER_WIDTH
 from data_science_arcade.ui.workbench_scene import PICKER_OPTION_SIZE
@@ -68,6 +71,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L10_DECISION_FIELDS,
         *L11_DECISION_FIELDS,
         *L12_DECISION_FIELDS,
+        *L13_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -106,6 +110,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{request.key}.group_by.{option.key}", option.label_key, pipeline_option_button_width))
         for option in request.aggregate_options:
             checks.append((f"{request.key}.aggregate.{option.key}", option.label_key, pipeline_option_button_width))
+
+    junction_option_button_width = JUNCTION_OPTION_SIZE[0] - BUTTON_PADDING
+    for request in L13_JOIN_REQUESTS:
+        for option in request.options:
+            checks.append((f"{request.key}.{option.key}", option.label_key, junction_option_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:
