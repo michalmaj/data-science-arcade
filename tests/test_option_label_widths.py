@@ -38,6 +38,7 @@ from data_science_arcade.lessons.l15_segment_detective.requests import SEGMENT_R
 from data_science_arcade.lessons.l15_segment_detective.scenario import DECISION_FIELDS as L15_DECISION_FIELDS
 from data_science_arcade.lessons.l16_metric_forge.requests import METRIC_REQUESTS as L16_METRIC_REQUESTS
 from data_science_arcade.lessons.l16_metric_forge.scenario import DECISION_FIELDS as L16_DECISION_FIELDS
+from data_science_arcade.lessons.l17_hypothesis_detective.scenario import DECISION_FIELDS as L17_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
@@ -46,6 +47,7 @@ from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTIO
 from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
 from data_science_arcade.ui.junction_scene import OPTION_SIZE as JUNCTION_OPTION_SIZE
 from data_science_arcade.ui.pipeline_builder_scene import OPTION_SIZE as PIPELINE_OPTION_SIZE
+from data_science_arcade.ui.prediction_scene import DIRECTION_BUTTON_SIZE
 from data_science_arcade.ui.segment_slicer_scene import OPTION_SIZE as SEGMENT_OPTION_SIZE
 from data_science_arcade.ui.source_board_scene import HEADER_SIZE, WIDE_HEADER_WIDTH
 from data_science_arcade.ui.workbench_scene import PICKER_OPTION_SIZE
@@ -83,6 +85,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L14_DECISION_FIELDS,
         *L15_DECISION_FIELDS,
         *L16_DECISION_FIELDS,
+        *L17_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -139,6 +142,13 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for request in L16_METRIC_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
+
+    # The three PredictionScene direction buttons (Lesson 17) are a fixed
+    # shared response scale, not per-request content, so they're checked
+    # once here rather than per-request like every other scene's options.
+    direction_button_width = DIRECTION_BUTTON_SIZE[0] - BUTTON_PADDING
+    for direction in ("increase", "decrease", "no_change"):
+        checks.append((f"prediction.direction.{direction}", f"prediction.direction.{direction}", direction_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:
