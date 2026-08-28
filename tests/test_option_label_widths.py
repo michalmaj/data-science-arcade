@@ -43,6 +43,8 @@ from data_science_arcade.lessons.l18_randomization_control_room.requests import 
 from data_science_arcade.lessons.l18_randomization_control_room.scenario import DECISION_FIELDS as L18_DECISION_FIELDS
 from data_science_arcade.lessons.l19_power_plant.scenario import DECISION_FIELDS as L19_DECISION_FIELDS
 from data_science_arcade.lessons.l20_ab_test_commander.scenario import DECISION_FIELDS as L20_DECISION_FIELDS
+from data_science_arcade.lessons.l21_funnel_factory.requests import FUNNEL_REQUESTS as L21_FUNNEL_REQUESTS
+from data_science_arcade.lessons.l21_funnel_factory.scenario import DECISION_FIELDS as L21_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
@@ -50,6 +52,7 @@ from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPT
 from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
 from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTION_OPTION_SIZE
 from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
+from data_science_arcade.ui.funnel_builder_scene import DEFINITION_OPTION_SIZE as FUNNEL_DEFINITION_OPTION_SIZE
 from data_science_arcade.ui.junction_scene import OPTION_SIZE as JUNCTION_OPTION_SIZE
 from data_science_arcade.ui.pipeline_builder_scene import OPTION_SIZE as PIPELINE_OPTION_SIZE
 from data_science_arcade.ui.prediction_scene import DIRECTION_BUTTON_SIZE
@@ -94,6 +97,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L18_DECISION_FIELDS,
         *L19_DECISION_FIELDS,
         *L20_DECISION_FIELDS,
+        *L21_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -166,6 +170,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     checkpoint_nav_button_width = CHECKPOINT_NAV_BUTTON_SIZE[0] - BUTTON_PADDING
     for key in ("checkpoint.stop_button", "checkpoint.continue_button"):
         checks.append((key, key, checkpoint_nav_button_width))
+
+    funnel_definition_button_width = FUNNEL_DEFINITION_OPTION_SIZE[0] - BUTTON_PADDING
+    for request in L21_FUNNEL_REQUESTS:
+        for definition in request.definitions:
+            checks.append((f"{request.key}.{definition.key}", definition.label_key, funnel_definition_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:

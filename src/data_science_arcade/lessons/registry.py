@@ -21,6 +21,7 @@ from data_science_arcade.lessons.l17_hypothesis_detective.scenario import build_
 from data_science_arcade.lessons.l18_randomization_control_room.scenario import build_lesson_eighteen_runner
 from data_science_arcade.lessons.l19_power_plant.scenario import build_lesson_nineteen_runner
 from data_science_arcade.lessons.l20_ab_test_commander.scenario import build_lesson_twenty_runner
+from data_science_arcade.lessons.l21_funnel_factory.scenario import build_lesson_twenty_one_runner
 
 RunnerBuilder = Callable[..., tuple[LessonRunner, dict]]
 
@@ -45,6 +46,7 @@ LESSON_RUNNERS: dict[int, RunnerBuilder] = {
     18: build_lesson_eighteen_runner,
     19: build_lesson_nineteen_runner,
     20: build_lesson_twenty_runner,
+    21: build_lesson_twenty_one_runner,
 }
 """Lesson number -> its build_lesson_*_runner(app, on_finished) factory.
 The single place CourseMapScene (or anything else that wants to launch a
