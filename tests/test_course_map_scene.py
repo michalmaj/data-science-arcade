@@ -57,6 +57,8 @@ from data_science_arcade.lessons.l21_funnel_factory.requests import CORRECT_DEFI
 from data_science_arcade.lessons.l21_funnel_factory.scenario import DECISION_FIELDS as L21_DECISION_FIELDS
 from data_science_arcade.lessons.l22_cohort_observatory.requests import CORRECT_OPTION_BY_REQUEST as L22_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l22_cohort_observatory.scenario import DECISION_FIELDS as L22_DECISION_FIELDS
+from data_science_arcade.lessons.l23_time_series_control_room.requests import CORRECT_OPTION_BY_REQUEST as L23_CORRECT_OPTION_BY_REQUEST
+from data_science_arcade.lessons.l23_time_series_control_room.scenario import DECISION_FIELDS as L23_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonState
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
@@ -76,6 +78,7 @@ from data_science_arcade.ui.prediction_scene import PredictionScene
 from data_science_arcade.ui.record_pair_scene import RecordPairScene
 from data_science_arcade.ui.sampling_allocator_scene import SamplingAllocatorScene
 from data_science_arcade.ui.segment_slicer_scene import SegmentSlicerScene
+from data_science_arcade.ui.timeseries_scene import TimeSeriesScene
 from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
 
@@ -110,16 +113,16 @@ def test_clicking_an_unlocked_lesson_with_no_runtime_yet_opens_a_placeholder():
     app = App()
     app.init()
     try:
-        # Lesson 23 has no registry entry yet (only 1-22 do) - Chapter 5's
-        # third lesson, once Lesson 22 ("Cohort Observatory") is complete.
-        app.progress.unlock(23)
+        # Lesson 24 has no registry entry yet (only 1-23 do) - Chapter 5's
+        # fourth lesson, once Lesson 23 ("Time Series Control Room") is complete.
+        app.progress.unlock(24)
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        course_map._open_lesson(23)
+        course_map._open_lesson(24)
 
         assert isinstance(app.scenes.current, PlaceholderScene)
-        assert "23" in app.scenes.current.title
+        assert "24" in app.scenes.current.title
     finally:
         pygame.quit()
 
@@ -470,6 +473,22 @@ def test_clicking_lesson_twenty_two_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(22)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)
+        assert not isinstance(app.scenes.current.inner, PlaceholderScene)
+    finally:
+        pygame.quit()
+
+
+def test_clicking_lesson_twenty_three_starts_the_real_lesson_once_unlocked():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(23)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+
+        course_map._open_lesson(23)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -1222,6 +1241,40 @@ def test_finishing_lesson_twenty_two_marks_it_complete_and_unlocks_lesson_twenty
         pygame.quit()
 
 
+def _pick_every_l23_option_correctly(scene: TimeSeriesScene) -> None:
+    for _ in range(len(scene.requests)):
+        request = scene._current_request()
+        correct_key = L23_CORRECT_OPTION_BY_REQUEST[request.key]
+        index = next(i for i, option in enumerate(request.options) if option.key == correct_key)
+        scene.buttons.buttons[index].on_activate()
+        scene.next_button.on_activate()
+
+
+def test_finishing_lesson_twenty_three_marks_it_complete_and_unlocks_lesson_twenty_four():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(23)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(23)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # investigation
+        _pick_every_l23_option_correctly(app.scenes.current)  # guided lens picks
+        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
+        _pick_every_l23_option_correctly(app.scenes.current)  # independent lens picks
+        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
+        _fill_out(app.scenes.current, L23_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+
+        assert app.scenes.current is course_map
+        assert app.progress.state_of(23) == LessonState.COMPLETED
+        assert app.progress.state_of(24) == LessonState.UNLOCKED
+    finally:
+        pygame.quit()
+
+
 def test_dev_mode_shows_every_lesson_as_enabled_without_touching_the_save(monkeypatch):
     monkeypatch.setenv("DSA_DEV_MODE", "1")
     app = App()
@@ -1243,14 +1296,14 @@ def test_dev_mode_click_marks_the_lesson_complete_and_unlocks_the_next(monkeypat
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        # Lesson 23 has no real runtime yet (only 1-22 are registered) -
-        # it's Chapter 5's third lesson - so this exercises the dev-mode
-        # shortcut - lessons 1-22 always launch their real lesson now
+        # Lesson 24 has no real runtime yet (only 1-23 are registered) -
+        # it's Chapter 5's fourth lesson - so this exercises the dev-mode
+        # shortcut - lessons 1-23 always launch their real lesson now
         # regardless of dev mode.
-        course_map._open_lesson(23)
+        course_map._open_lesson(24)
 
-        assert app.progress.state_of(23) == LessonState.COMPLETED
-        assert app.progress.state_of(24) == LessonState.UNLOCKED
+        assert app.progress.state_of(24) == LessonState.COMPLETED
+        assert app.progress.state_of(25) == LessonState.UNLOCKED
     finally:
         pygame.quit()
 

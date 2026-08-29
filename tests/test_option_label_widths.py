@@ -47,12 +47,15 @@ from data_science_arcade.lessons.l21_funnel_factory.requests import FUNNEL_REQUE
 from data_science_arcade.lessons.l21_funnel_factory.scenario import DECISION_FIELDS as L21_DECISION_FIELDS
 from data_science_arcade.lessons.l22_cohort_observatory.requests import COHORT_REQUESTS as L22_COHORT_REQUESTS
 from data_science_arcade.lessons.l22_cohort_observatory.scenario import DECISION_FIELDS as L22_DECISION_FIELDS
+from data_science_arcade.lessons.l23_time_series_control_room.requests import TIME_SERIES_REQUESTS as L23_TIME_SERIES_REQUESTS
+from data_science_arcade.lessons.l23_time_series_control_room.scenario import DECISION_FIELDS as L23_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
 from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPTION_SIZE
 from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
 from data_science_arcade.ui.cohort_matrix_scene import COMPARISON_OPTION_SIZE as COHORT_COMPARISON_OPTION_SIZE
+from data_science_arcade.ui.timeseries_scene import LENS_OPTION_SIZE as TIMESERIES_LENS_OPTION_SIZE
 from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTION_OPTION_SIZE
 from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
 from data_science_arcade.ui.funnel_builder_scene import DEFINITION_OPTION_SIZE as FUNNEL_DEFINITION_OPTION_SIZE
@@ -102,6 +105,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L20_DECISION_FIELDS,
         *L21_DECISION_FIELDS,
         *L22_DECISION_FIELDS,
+        *L23_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -184,6 +188,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for request in L22_COHORT_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, cohort_comparison_button_width))
+
+    timeseries_lens_button_width = TIMESERIES_LENS_OPTION_SIZE[0] - BUTTON_PADDING
+    for request in L23_TIME_SERIES_REQUESTS:
+        for option in request.options:
+            checks.append((f"{request.key}.{option.key}", option.label_key, timeseries_lens_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:
