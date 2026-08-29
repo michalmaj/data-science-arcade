@@ -59,6 +59,8 @@ from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRELA
 from data_science_arcade.lessons.l27_causality_courtroom.scenario import DECISION_FIELDS as L27_DECISION_FIELDS
 from data_science_arcade.lessons.l28_chart_crime_lab.requests import CHART_REQUESTS as L28_CHART_REQUESTS
 from data_science_arcade.lessons.l28_chart_crime_lab.scenario import DECISION_FIELDS as L28_DECISION_FIELDS
+from data_science_arcade.lessons.l29_the_executive_brief.findings import FINDINGS_POOL as L29_FINDINGS_POOL
+from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.alert_config_scene import OPTION_SIZE as ALERT_OPTION_SIZE
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
@@ -67,6 +69,7 @@ from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
 from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPTION_SIZE
 from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
 from data_science_arcade.ui.cohort_matrix_scene import COMPARISON_OPTION_SIZE as COHORT_COMPARISON_OPTION_SIZE
+from data_science_arcade.ui.finding_picker_scene import OPTION_SIZE as FINDING_OPTION_SIZE
 from data_science_arcade.ui.survey_builder_scene import OPTION_SIZE as SURVEY_OPTION_SIZE
 from data_science_arcade.ui.timeseries_scene import LENS_OPTION_SIZE as TIMESERIES_LENS_OPTION_SIZE
 from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTION_OPTION_SIZE
@@ -124,6 +127,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L26_DECISION_FIELDS,
         *L27_DECISION_FIELDS,
         *L28_DECISION_FIELDS,
+        *L29_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -241,6 +245,13 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for issue in L06_REPAIR_ISSUES:
         for option in issue.options:
             checks.append((f"{issue.column}.{option.key}", option.label_key, picker_option_button_width))
+
+    # FindingPickerScene (Lesson 29) has one flat shared pool rather than
+    # per-request options, so there's no nested loop here like every other
+    # scene above.
+    finding_option_button_width = FINDING_OPTION_SIZE[0] - BUTTON_PADDING
+    for finding in L29_FINDINGS_POOL:
+        checks.append((f"finding.{finding.key}", finding.label_key, finding_option_button_width))
 
     return checks
 
