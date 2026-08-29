@@ -69,6 +69,8 @@ from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRECT
 from data_science_arcade.lessons.l27_causality_courtroom.scenario import DECISION_FIELDS as L27_DECISION_FIELDS
 from data_science_arcade.lessons.l28_chart_crime_lab.requests import CORRECT_OPTION_BY_REQUEST as L28_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l28_chart_crime_lab.scenario import DECISION_FIELDS as L28_DECISION_FIELDS
+from data_science_arcade.lessons.l29_the_executive_brief.findings import CORRECT_FINDING_KEYS as L29_CORRECT_FINDING_KEYS
+from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonState
 from data_science_arcade.ui.alert_config_scene import AlertConfigScene
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
@@ -81,6 +83,7 @@ from data_science_arcade.ui.correlation_scene import CorrelationScene
 from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.distribution_scene import DistributionScene
+from data_science_arcade.ui.finding_picker_scene import FindingPickerScene
 from data_science_arcade.ui.flow_builder_scene import FlowBuilderScene
 from data_science_arcade.ui.funnel_builder_scene import FunnelBuilderScene
 from data_science_arcade.ui.junction_scene import JunctionScene
@@ -126,16 +129,16 @@ def test_clicking_an_unlocked_lesson_with_no_runtime_yet_opens_a_placeholder():
     app = App()
     app.init()
     try:
-        # Lesson 29 has no registry entry yet (only 1-28 do) - Chapter 6's
-        # fourth lesson, once Lesson 28 ("Chart Crime Lab") is complete.
-        app.progress.unlock(29)
+        # Lesson 30 has no registry entry yet (only 1-29 do) - Chapter 6's
+        # capstone, once Lesson 29 ("The Executive Brief") is complete.
+        app.progress.unlock(30)
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        course_map._open_lesson(29)
+        course_map._open_lesson(30)
 
         assert isinstance(app.scenes.current, PlaceholderScene)
-        assert "29" in app.scenes.current.title
+        assert "30" in app.scenes.current.title
     finally:
         pygame.quit()
 
@@ -582,6 +585,22 @@ def test_clicking_lesson_twenty_eight_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(28)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)
+        assert not isinstance(app.scenes.current.inner, PlaceholderScene)
+    finally:
+        pygame.quit()
+
+
+def test_clicking_lesson_twenty_nine_starts_the_real_lesson_once_unlocked():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(29)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+
+        course_map._open_lesson(29)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -1542,6 +1561,41 @@ def test_finishing_lesson_twenty_eight_marks_it_complete_and_unlocks_lesson_twen
         pygame.quit()
 
 
+def _pick_every_l29_finding_correctly(scene: FindingPickerScene) -> None:
+    # Unlike every other lesson's fixed-index-per-request helper, the pool
+    # here shrinks after every pick - the correct finding's position has to
+    # be looked up fresh each round rather than read off a stable mapping.
+    for _ in range(scene.target_count):
+        remaining = scene._remaining_findings()
+        index = next(i for i, finding in enumerate(remaining) if finding.key in L29_CORRECT_FINDING_KEYS)
+        scene.buttons.buttons[index].on_activate()
+
+
+def test_finishing_lesson_twenty_nine_marks_it_complete_and_unlocks_lesson_thirty():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(29)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(29)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # investigation
+        _pick_every_l29_finding_correctly(app.scenes.current)  # guided findings
+        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
+        _pick_every_l29_finding_correctly(app.scenes.current)  # independent findings
+        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
+        _fill_out(app.scenes.current, L29_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+
+        assert app.scenes.current is course_map
+        assert app.progress.state_of(29) == LessonState.COMPLETED
+        assert app.progress.state_of(30) == LessonState.UNLOCKED
+    finally:
+        pygame.quit()
+
+
 def test_dev_mode_shows_every_lesson_as_enabled_without_touching_the_save(monkeypatch):
     monkeypatch.setenv("DSA_DEV_MODE", "1")
     app = App()
@@ -1555,7 +1609,7 @@ def test_dev_mode_shows_every_lesson_as_enabled_without_touching_the_save(monkey
         pygame.quit()
 
 
-def test_dev_mode_click_marks_the_lesson_complete_and_unlocks_the_next(monkeypatch):
+def test_dev_mode_click_marks_the_lesson_complete(monkeypatch):
     monkeypatch.setenv("DSA_DEV_MODE", "1")
     app = App()
     app.init()
@@ -1563,14 +1617,16 @@ def test_dev_mode_click_marks_the_lesson_complete_and_unlocks_the_next(monkeypat
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        # Lesson 29 has no real runtime yet (only 1-28 are registered) -
-        # it's Chapter 6's fourth lesson - so this exercises the dev-mode
-        # shortcut - lessons 1-28 always launch their real lesson now
-        # regardless of dev mode.
-        course_map._open_lesson(29)
+        # Lesson 30 has no real runtime yet (only 1-29 are registered) -
+        # it's Chapter 6's capstone and the course's last lesson - so this
+        # exercises the dev-mode shortcut - lessons 1-29 always launch their
+        # real lesson now regardless of dev mode. There is no lesson 31 to
+        # unlock: Progress.complete() only unlocks lesson_number + 1 while
+        # lesson_number < TOTAL_LESSONS, and 30 == TOTAL_LESSONS.
+        course_map._open_lesson(30)
 
-        assert app.progress.state_of(29) == LessonState.COMPLETED
-        assert app.progress.state_of(30) == LessonState.UNLOCKED
+        assert app.progress.state_of(30) == LessonState.COMPLETED
+        assert app.progress.state_of(31) == LessonState.LOCKED
     finally:
         pygame.quit()
 
