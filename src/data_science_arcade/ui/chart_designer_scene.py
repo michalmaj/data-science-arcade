@@ -35,6 +35,13 @@ class ChartDesignerScene(Scene):
     bar-chart scale visibly exaggerates the same real gap a zero-based
     one shows honestly.
 
+    A recipe can also override the request's own categories/values
+    entirely (spec §25 Lesson 28 'Chart Crime Lab'), for a flaw that
+    changes *what* gets charted rather than just how - a cherry-picked
+    date window or a rate computed against the wrong denominator - not
+    just how the same numbers get scaled. A recipe that doesn't override
+    them falls back to the request's, unchanged from Lesson 14's own use.
+
     guided=True also shows each request's hint; guided=False hides it,
     matching every other stage scene's guided/independent split."""
 
@@ -138,6 +145,11 @@ class ChartDesignerScene(Scene):
             return min(values) * 0.9, max(values) * 1.05
         return 0.0, max(values) * 1.15
 
+    def _effective_series(self, request: ChartRequest, option: ChartOption) -> tuple[tuple[str, ...], tuple[float, ...]]:
+        categories = option.categories if option.categories is not None else request.categories
+        values = option.values if option.values is not None else request.values
+        return categories, values
+
     def _draw_chart(self, surface: pygame.Surface, request: ChartRequest) -> None:
         loc = self.app.localization
         option = self._selected_option(request)
@@ -145,15 +157,16 @@ class ChartDesignerScene(Scene):
             draw_centered_text(surface, loc.t("lesson.l14.pick_a_chart_hint"), (CENTER_X, CHART_RECT.centery), 15, colors.BUTTON_TEXT_DISABLED)
             return
 
-        min_value, max_value = self._chart_range(option, request.values)
-        values = list(request.values)
+        categories, raw_values = self._effective_series(request, option)
+        min_value, max_value = self._chart_range(option, raw_values)
+        values = list(raw_values)
         if option.chart_type == "line":
             draw_line_chart(surface, CHART_RECT, values, min_value, max_value, colors.BUTTON_FOCUS_BORDER)
         else:
             draw_bar_chart(surface, CHART_RECT, values, min_value, max_value, colors.TEXT)
 
-        for index, (category, value) in enumerate(zip(request.categories, request.values)):
-            x = category_x(index, len(request.categories), CHART_RECT)
+        for index, (category, value) in enumerate(zip(categories, raw_values)):
+            x = category_x(index, len(categories), CHART_RECT)
             draw_centered_text(surface, category, (x, CATEGORY_LABEL_Y), 13, colors.BUTTON_TEXT_DISABLED)
             label_y = value_to_y(value, min_value, max_value, CHART_RECT) - 12
             draw_centered_text(surface, f"{value:,.0f}", (x, label_y), 12, colors.BUTTON_TEXT_DISABLED)
