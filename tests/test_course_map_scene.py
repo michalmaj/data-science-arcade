@@ -67,6 +67,8 @@ from data_science_arcade.lessons.l26_correlation_crime_scene.requests import COR
 from data_science_arcade.lessons.l26_correlation_crime_scene.scenario import DECISION_FIELDS as L26_DECISION_FIELDS
 from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRECT_OPTION_BY_REQUEST as L27_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l27_causality_courtroom.scenario import DECISION_FIELDS as L27_DECISION_FIELDS
+from data_science_arcade.lessons.l28_chart_crime_lab.requests import CORRECT_OPTION_BY_REQUEST as L28_CORRECT_OPTION_BY_REQUEST
+from data_science_arcade.lessons.l28_chart_crime_lab.scenario import DECISION_FIELDS as L28_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonState
 from data_science_arcade.ui.alert_config_scene import AlertConfigScene
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
@@ -124,16 +126,16 @@ def test_clicking_an_unlocked_lesson_with_no_runtime_yet_opens_a_placeholder():
     app = App()
     app.init()
     try:
-        # Lesson 28 has no registry entry yet (only 1-27 do) - Chapter 6's
-        # third lesson, once Lesson 27 ("Causality Courtroom") is complete.
-        app.progress.unlock(28)
+        # Lesson 29 has no registry entry yet (only 1-28 do) - Chapter 6's
+        # fourth lesson, once Lesson 28 ("Chart Crime Lab") is complete.
+        app.progress.unlock(29)
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        course_map._open_lesson(28)
+        course_map._open_lesson(29)
 
         assert isinstance(app.scenes.current, PlaceholderScene)
-        assert "28" in app.scenes.current.title
+        assert "29" in app.scenes.current.title
     finally:
         pygame.quit()
 
@@ -564,6 +566,22 @@ def test_clicking_lesson_twenty_seven_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(27)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)
+        assert not isinstance(app.scenes.current.inner, PlaceholderScene)
+    finally:
+        pygame.quit()
+
+
+def test_clicking_lesson_twenty_eight_starts_the_real_lesson_once_unlocked():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(28)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+
+        course_map._open_lesson(28)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -1490,6 +1508,40 @@ def test_finishing_lesson_twenty_seven_marks_it_complete_and_unlocks_lesson_twen
         pygame.quit()
 
 
+def _pick_every_l28_chart_correctly(scene: ChartDesignerScene) -> None:
+    for _ in range(len(scene.requests)):
+        request = scene._current_request()
+        correct_key = L28_CORRECT_OPTION_BY_REQUEST[request.key]
+        index = next(i for i, option in enumerate(request.options) if option.key == correct_key)
+        scene.buttons.buttons[index].on_activate()
+        scene.next_button.on_activate()
+
+
+def test_finishing_lesson_twenty_eight_marks_it_complete_and_unlocks_lesson_twenty_nine():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(28)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(28)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # investigation
+        _pick_every_l28_chart_correctly(app.scenes.current)  # guided charts
+        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
+        _pick_every_l28_chart_correctly(app.scenes.current)  # independent charts
+        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
+        _fill_out(app.scenes.current, L28_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+
+        assert app.scenes.current is course_map
+        assert app.progress.state_of(28) == LessonState.COMPLETED
+        assert app.progress.state_of(29) == LessonState.UNLOCKED
+    finally:
+        pygame.quit()
+
+
 def test_dev_mode_shows_every_lesson_as_enabled_without_touching_the_save(monkeypatch):
     monkeypatch.setenv("DSA_DEV_MODE", "1")
     app = App()
@@ -1511,14 +1563,14 @@ def test_dev_mode_click_marks_the_lesson_complete_and_unlocks_the_next(monkeypat
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
 
-        # Lesson 28 has no real runtime yet (only 1-27 are registered) -
-        # it's Chapter 6's third lesson - so this exercises the dev-mode
-        # shortcut - lessons 1-27 always launch their real lesson now
+        # Lesson 29 has no real runtime yet (only 1-28 are registered) -
+        # it's Chapter 6's fourth lesson - so this exercises the dev-mode
+        # shortcut - lessons 1-28 always launch their real lesson now
         # regardless of dev mode.
-        course_map._open_lesson(28)
+        course_map._open_lesson(29)
 
-        assert app.progress.state_of(28) == LessonState.COMPLETED
-        assert app.progress.state_of(29) == LessonState.UNLOCKED
+        assert app.progress.state_of(29) == LessonState.COMPLETED
+        assert app.progress.state_of(30) == LessonState.UNLOCKED
     finally:
         pygame.quit()
 

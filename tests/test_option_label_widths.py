@@ -57,6 +57,8 @@ from data_science_arcade.lessons.l26_correlation_crime_scene.requests import COR
 from data_science_arcade.lessons.l26_correlation_crime_scene.scenario import DECISION_FIELDS as L26_DECISION_FIELDS
 from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRELATION_REQUESTS as L27_CORRELATION_REQUESTS
 from data_science_arcade.lessons.l27_causality_courtroom.scenario import DECISION_FIELDS as L27_DECISION_FIELDS
+from data_science_arcade.lessons.l28_chart_crime_lab.requests import CHART_REQUESTS as L28_CHART_REQUESTS
+from data_science_arcade.lessons.l28_chart_crime_lab.scenario import DECISION_FIELDS as L28_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.alert_config_scene import OPTION_SIZE as ALERT_OPTION_SIZE
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
@@ -121,6 +123,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L25_DECISION_FIELDS,
         *L26_DECISION_FIELDS,
         *L27_DECISION_FIELDS,
+        *L28_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -167,6 +170,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
 
     chart_option_button_width = CHART_OPTION_SIZE[0] - BUTTON_PADDING
     for request in L14_CHART_REQUESTS:
+        for option in request.options:
+            checks.append((f"{request.key}.{option.key}", option.label_key, chart_option_button_width))
+    for request in L28_CHART_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, chart_option_button_width))
 
