@@ -55,6 +55,8 @@ from data_science_arcade.lessons.l25_kpi_emergency_room.requests import MONITORI
 from data_science_arcade.lessons.l25_kpi_emergency_room.scenario import DECISION_FIELDS as L25_DECISION_FIELDS
 from data_science_arcade.lessons.l26_correlation_crime_scene.requests import CORRELATION_REQUESTS as L26_CORRELATION_REQUESTS
 from data_science_arcade.lessons.l26_correlation_crime_scene.scenario import DECISION_FIELDS as L26_DECISION_FIELDS
+from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRELATION_REQUESTS as L27_CORRELATION_REQUESTS
+from data_science_arcade.lessons.l27_causality_courtroom.scenario import DECISION_FIELDS as L27_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.alert_config_scene import OPTION_SIZE as ALERT_OPTION_SIZE
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
@@ -118,6 +120,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L24_DECISION_FIELDS,
         *L25_DECISION_FIELDS,
         *L26_DECISION_FIELDS,
+        *L27_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -222,6 +225,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
 
     correlation_option_button_width = CORRELATION_OPTION_SIZE[0] - BUTTON_PADDING
     for request in L26_CORRELATION_REQUESTS:
+        for option in request.options:
+            checks.append((f"{request.key}.{option.key}", option.label_key, correlation_option_button_width))
+    for request in L27_CORRELATION_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, correlation_option_button_width))
 
