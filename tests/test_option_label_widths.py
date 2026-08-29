@@ -51,7 +51,10 @@ from data_science_arcade.lessons.l23_time_series_control_room.requests import TI
 from data_science_arcade.lessons.l23_time_series_control_room.scenario import DECISION_FIELDS as L23_DECISION_FIELDS
 from data_science_arcade.lessons.l24_survey_bureau.requests import SURVEY_REQUESTS as L24_SURVEY_REQUESTS
 from data_science_arcade.lessons.l24_survey_bureau.scenario import DECISION_FIELDS as L24_DECISION_FIELDS
+from data_science_arcade.lessons.l25_kpi_emergency_room.requests import MONITORING_REQUESTS as L25_MONITORING_REQUESTS
+from data_science_arcade.lessons.l25_kpi_emergency_room.scenario import DECISION_FIELDS as L25_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
+from data_science_arcade.ui.alert_config_scene import OPTION_SIZE as ALERT_OPTION_SIZE
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
 from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPTION_SIZE
@@ -110,6 +113,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L22_DECISION_FIELDS,
         *L23_DECISION_FIELDS,
         *L24_DECISION_FIELDS,
+        *L25_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -204,6 +208,13 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{request.key}.wording.{option.key}", option.label_key, survey_option_button_width))
         for option in request.channel_options:
             checks.append((f"{request.key}.channel.{option.key}", option.label_key, survey_option_button_width))
+
+    alert_option_button_width = ALERT_OPTION_SIZE[0] - BUTTON_PADDING
+    for request in L25_MONITORING_REQUESTS:
+        for option in request.metric_options:
+            checks.append((f"{request.key}.metric.{option.key}", option.label_key, alert_option_button_width))
+        for option in request.threshold_options:
+            checks.append((f"{request.key}.threshold.{option.key}", option.label_key, alert_option_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
     for issue in L06_REPAIR_ISSUES:
