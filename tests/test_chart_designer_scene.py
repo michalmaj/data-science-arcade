@@ -134,6 +134,45 @@ def test_finishing_the_last_request_calls_on_complete_with_the_full_choices():
         pygame.quit()
 
 
+def test_an_option_without_an_override_uses_the_requests_own_series():
+    app = _init_app()
+    try:
+        scene = _make_scene(app)
+        request = scene._current_request()
+        option = next(o for o in request.options if o.key == "bar_zero")
+
+        categories, values = scene._effective_series(request, option)
+
+        assert categories == request.categories
+        assert values == request.values
+    finally:
+        pygame.quit()
+
+
+def test_an_option_with_an_override_uses_its_own_series_instead():
+    app = _init_app()
+    try:
+        request = ChartRequest(
+            key="request_c",
+            prompt_key="app.title",
+            categories=("Jan", "Feb", "Mar"),
+            values=(100.0, 90.0, 80.0),
+            options=(
+                ChartOption("full", "common.on", "line", "zero_based"),
+                ChartOption("cherry_picked", "common.off", "line", "zero_based", categories=("Feb", "Mar"), values=(90.0, 80.0)),
+            ),
+        )
+        scene = _make_scene(app)
+        cherry_picked = request.options[1]
+
+        categories, values = scene._effective_series(request, cherry_picked)
+
+        assert categories == ("Feb", "Mar")
+        assert values == (90.0, 80.0)
+    finally:
+        pygame.quit()
+
+
 def test_draw_does_not_crash_guided_or_not_before_or_after_a_choice():
     app = _init_app()
     try:
