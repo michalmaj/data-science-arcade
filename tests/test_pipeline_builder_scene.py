@@ -193,20 +193,39 @@ def test_committing_a_complete_choice_records_a_real_action_and_evidence_with_re
         pygame.quit()
 
 
-def test_recommitting_the_same_pair_does_not_duplicate_the_recorded_action():
+def test_committing_two_different_requests_records_two_separate_actions():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = PipelineBuilderScene(app, "app.title", DATASET, REQUESTS, lambda choices: None, context=context)
+        scene.buttons.buttons[0].on_activate()  # request_a group_by: by_a
+        scene.buttons.buttons[2].on_activate()  # request_a aggregate: sum
+        scene.next_button.on_activate()
+        scene.buttons.buttons[1].on_activate()  # request_b group_by: by_b
+        scene.buttons.buttons[3].on_activate()  # request_b aggregate: count
+
+        assert len(context.actions) == 2  # different request.key values - not merged
+    finally:
+        pygame.quit()
+
+
+def test_recommitting_the_same_request_updates_its_one_slot_instead_of_accumulating():
+    # Recording is keyed by request.key, so re-picking for the *same*
+    # request - however many times, however the choice changes along the
+    # way - always ends up as exactly one line reflecting the current pick,
+    # not one line per click.
     app = _init_app()
     try:
         context = LessonContext()
         scene = PipelineBuilderScene(app, "app.title", DATASET, REQUESTS, lambda choices: None, context=context)
         scene.buttons.buttons[0].on_activate()  # group_by: by_a
         scene.buttons.buttons[2].on_activate()  # aggregate: sum -> commits (by_a, sum)
-        scene.buttons.buttons[3].on_activate()  # aggregate: count -> commits (by_a, count), a different line
-        scene.buttons.buttons[2].on_activate()  # back to sum -> re-commits (by_a, sum), already recorded
+        scene.buttons.buttons[3].on_activate()  # aggregate: count -> commits (by_a, count)
+        scene.buttons.buttons[2].on_activate()  # back to sum -> re-commits (by_a, sum)
 
-        assert len(context.actions) == 2  # (by_a, sum) and (by_a, count) - not three
-        codes = [a.python_code for a in context.actions]
-        assert codes.count("synthetic.groupby('group_a')['amount'].sum()") == 1
-        assert codes.count("synthetic.groupby('group_a')['amount'].count()") == 1
+        assert len(context.actions) == 1  # one slot for "request_a", not three
+        assert context.actions[0].python_code == "synthetic.groupby('group_a')['amount'].sum()"
+        assert len(context.evidence) == 1
     finally:
         pygame.quit()
 

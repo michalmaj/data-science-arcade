@@ -76,7 +76,11 @@ class WorkbenchScene(Scene):
     - `_make_choose` deliberately does NOT also pass `python_code=` into
     `Dataset.then()` for a resolved issue, so each choice's code line is
     recorded exactly once, in `context`, not duplicated across both
-    mirrors."""
+    mirrors (and `_python_mirror_text()` dedups by exact line anyway, as a
+    guarantee independent of that call-site discipline). `_make_choose`
+    also records under `key=issue.column`, since guided_work and
+    independent_challenge deliberately resolve the same issues again -
+    resolving one twice updates its one slot instead of doubling it."""
 
     def __init__(
         self,
@@ -209,9 +213,14 @@ class WorkbenchScene(Scene):
                 option.apply,
                 schema=issue.schema_after,
             )
-            action = self.context.record_action(label_key=option.label_key, python_code=option.python_code)
+            # key=issue.column: guided_work and independent_challenge
+            # deliberately resolve the *same* issues again - this makes a
+            # later resolution update the earlier one's slot (same id,
+            # latest content) instead of appending a second, indistinguishable
+            # entry every time the same issue is resolved again.
+            action = self.context.record_action(label_key=option.label_key, python_code=option.python_code, key=issue.column)
             if issue.evidence_key is not None:
-                self.context.record_evidence(label_key=issue.evidence_key, source_action=action)
+                self.context.record_evidence(label_key=issue.evidence_key, source_action=action, key=issue.column)
             self.resolution[issue.column] = option.key
             self.active_issue = None
             self._rebuild_buttons()
@@ -420,10 +429,16 @@ class WorkbenchScene(Scene):
     def _python_mirror_text(self) -> str:
         # Baseline/seed history first (chronologically always predates any
         # Workbench-driven action in every current usage), then every
-        # choice made in Workbench - each choice's code lives in exactly
-        # one of these two mirrors (see _make_choose), so this is a
-        # concatenation, not a merge that needs its own dedup.
-        return "\n".join(part for part in (self.dataset.python_mirror(), self.context.python_mirror()) if part)
+        # choice made in Workbench. _make_choose deliberately avoids ever
+        # putting the same line in both dataset.history and context, but
+        # that's an invariant of *that one call site*, not something these
+        # two independent sources otherwise guarantee on their own - so
+        # this dedups by exact line match rather than trusting the callers
+        # never to overlap.
+        dataset_lines = [line for line in self.dataset.python_mirror().split("\n") if line]
+        already_shown = set(dataset_lines)
+        context_lines = [line for line in self.context.python_mirror().split("\n") if line and line not in already_shown]
+        return "\n".join(dataset_lines + context_lines)
 
     def _draw_python_tab(self, surface: pygame.Surface) -> None:
         code = self._python_mirror_text()

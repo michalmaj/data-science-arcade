@@ -360,6 +360,27 @@ def test_python_tab_merges_dataset_seed_history_with_context_actions_without_dup
         pygame.quit()
 
 
+def test_python_tab_dedups_a_line_even_if_it_ends_up_in_both_dataset_history_and_context():
+    # _make_choose's own discipline (never pass python_code= into both
+    # Dataset.then() and record_action() for the same step) is what keeps
+    # this from happening in practice today - but Dataset.history and
+    # LessonContext.actions are two independent sources, and nothing
+    # *structurally* prevents a future change from putting the same line
+    # in both. _python_mirror_text() must not trust that discipline alone.
+    app = _init_app()
+    try:
+        seeded = make_dataset().then("loaded", lambda frame: frame, python_code="dup = 1")
+        context = LessonContext()
+        context.record_action("also recorded in context", python_code="dup = 1")
+        scene = WorkbenchScene(app, seeded, ISSUES, lambda resolution: None, context=context)
+
+        merged = scene._python_mirror_text()
+
+        assert merged.count("dup = 1") == 1
+    finally:
+        pygame.quit()
+
+
 def test_schema_description_key_is_preferred_over_the_legacy_literal_description():
     app = _init_app()
     try:

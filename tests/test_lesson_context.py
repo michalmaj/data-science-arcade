@@ -1,4 +1,4 @@
-from data_science_arcade.workbench.context import DecisionState, LessonContext
+from data_science_arcade.workbench.context import CONTEXT_SCHEMA_VERSION, DecisionState, LessonContext
 
 
 def test_starts_with_nothing_recorded():
@@ -29,28 +29,66 @@ def test_actions_get_unique_ids_when_content_actually_differs():
     assert one.id != two.id
 
 
-def test_recording_identical_content_again_returns_the_existing_action_not_a_duplicate():
-    # Matters concretely for Lesson 06: guided_work and independent_challenge
-    # deliberately present the same issues again, so a student picking the
-    # same correct option in both rounds must not double the Python Mirror.
+def test_recording_identical_content_twice_with_no_key_still_appends_both():
+    # No key means no implicit content-equality guess: two genuinely
+    # different actions could coincidentally share the same label/code,
+    # and that alone isn't reason to merge them.
     context = LessonContext()
 
     one = context.record_action("same_label", python_code="a = 1")
     two = context.record_action("same_label", python_code="a = 1")
 
-    assert one is two
-    assert context.actions == (one,)
+    assert one.id != two.id
+    assert context.actions == (one, two)
 
 
-def test_recording_identical_evidence_again_returns_the_existing_item_not_a_duplicate():
+def test_recording_with_the_same_key_updates_the_existing_action_in_place():
+    # Matters concretely for Lesson 06: guided_work and independent_challenge
+    # deliberately present the same issues again, so `_make_choose` passes
+    # the issue's own column as the key - resolving "price" in both rounds
+    # must update one slot, not double the Python Mirror.
+    context = LessonContext()
+
+    first = context.record_action("wrong_option", python_code="a = 1", key="price")
+    second = context.record_action("right_option", python_code="a = 2", key="price")
+
+    assert context.actions == (second,)
+    assert second.id == first.id  # same slot, not a new entry
+    assert second.label_key == "right_option"
+    assert second.python_code == "a = 2"  # latest content wins
+
+
+def test_recording_with_a_different_key_does_not_update_the_other_slot():
+    context = LessonContext()
+
+    price_action = context.record_action("price_fix", python_code="a = 1", key="price")
+    currency_action = context.record_action("currency_fix", python_code="b = 2", key="currency")
+
+    assert context.actions == (price_action, currency_action)
+    assert price_action.id != currency_action.id
+
+
+def test_recording_evidence_with_the_same_key_updates_the_existing_item_in_place():
+    context = LessonContext()
+    action = context.record_action("fixed_price_column", python_code="x = 1", key="price")
+
+    first = context.record_evidence("first observation", source_action=action, key="price")
+    second = context.record_evidence("updated observation", source_action=action, key="price")
+
+    assert context.evidence == (second,)
+    assert second.id == first.id
+    assert second.label_key == "updated observation"
+
+
+def test_recording_evidence_identical_content_twice_with_no_key_still_appends_both():
     context = LessonContext()
     action = context.record_action("fixed_price_column", python_code="x = 1")
 
     one = context.record_evidence("price had a decimal separator issue", source_action=action)
     two = context.record_evidence("price had a decimal separator issue", source_action=action)
 
-    assert one is two
-    assert context.evidence == (one,)
+    assert one.id != two.id
+    assert context.evidence == (one, two)
 
 
 def test_record_evidence_references_a_real_action_id_not_a_hand_typed_string():
@@ -154,6 +192,35 @@ def test_restore_from_dict_ignores_a_malformed_payload_instead_of_raising():
     context = LessonContext()
     context.record_action("a", python_code="a = 1")
 
-    context.restore_from_dict({"next_id": 99, "actions": [{"id": "action_1"}]})  # missing required "label_key"
+    context.restore_from_dict(
+        {"version": CONTEXT_SCHEMA_VERSION, "next_id": 99, "actions": [{"id": "action_1"}]}  # missing "label_key"
+    )
 
     assert len(context.actions) == 1  # unchanged, not crashed
+
+
+def test_restore_from_dict_ignores_an_unrecognized_version():
+    context = LessonContext()
+    context.record_action("a", python_code="a = 1")
+
+    context.restore_from_dict({"version": 999, "next_id": 99, "actions": []})
+
+    assert len(context.actions) == 1  # unchanged - a version this build doesn't understand is not trusted
+
+
+def test_to_dict_includes_the_current_schema_version():
+    assert LessonContext().to_dict()["version"] == CONTEXT_SCHEMA_VERSION
+
+
+def test_key_round_trips_through_to_dict_and_restore_from_dict():
+    original = LessonContext()
+    original.record_action("fixed_price", python_code="x = 1", key="price")
+
+    restored = LessonContext()
+    restored.restore_from_dict(original.to_dict())
+    # Recording again under the same key after a restore must still update
+    # in place, not append - proving `key` itself survived the round trip,
+    # not just label_key/python_code.
+    updated = restored.record_action("fixed_price_v2", python_code="x = 2", key="price")
+
+    assert restored.actions == (updated,)
