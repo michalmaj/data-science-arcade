@@ -5,13 +5,15 @@ import pandas as pd
 import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
+from data_science_arcade.core.fonts import get_font
 from data_science_arcade.core.scenes import Scene
 from data_science_arcade.data_engine.dataset import Dataset
 from data_science_arcade.lessons.framework.repair import RepairIssue, RepairResolution
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
-from data_science_arcade.ui.text import draw_centered_text, draw_single_line, draw_wrapped_text
+from data_science_arcade.ui.text import draw_centered_text, draw_single_line, draw_wrapped_text, wrap_text
+from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 TAB_BAR_Y = 42
@@ -59,9 +61,18 @@ class WorkbenchScene(Scene):
     Continue enables once every issue has a resolution.
 
     guided=True also shows each issue's explanatory hint; guided=False
-    hides it. EVIDENCE/DECISION stay placeholder tabs - no lesson needs
-    them populated yet (spec §15.5: "not every tool must exist" from the
-    start, capabilities unlock progressively)."""
+    hides it. EVIDENCE now renders real findings from `context` (a
+    LessonContext, workbench/context.py) once issues are resolved - one
+    EvidenceItem per resolved issue with a real evidence_key, referencing
+    the AnalyticalAction that produced it. DECISION renders `context`'s
+    decision if one has been set, but nothing in this scene ever calls
+    `context.set_decision(...)` - Lesson 06's actual decision happens in a
+    separate BriefBuilderScene stage this scene has no reference to, so
+    DECISION stays a placeholder in practice here; it's modeled and
+    rendered, not populated, for this lesson. PYTHON is unchanged - it
+    still reads `dataset.python_mirror()`, not `context`'s, since the
+    dataset's own mirror includes a pre-existing load step nothing would
+    ever emit an AnalyticalAction for."""
 
     def __init__(
         self,
@@ -70,12 +81,14 @@ class WorkbenchScene(Scene):
         issues: tuple[RepairIssue, ...],
         on_complete: Callable[[RepairResolution], None],
         guided: bool = True,
+        context: LessonContext | None = None,
     ) -> None:
         super().__init__(app)
         self.dataset = dataset
         self.issues = issues
         self.on_complete = on_complete
         self.guided = guided
+        self.context = context if context is not None else LessonContext()
         self.active_tab = WorkbenchTab.DATA
         self.data_view = DataView.TABLE
         self.resolution: RepairResolution = {}
@@ -193,6 +206,9 @@ class WorkbenchScene(Scene):
                 schema=issue.schema_after,
                 python_code=option.python_code,
             )
+            action = self.context.record_action(label_key=option.label_key, python_code=option.python_code)
+            if issue.evidence_key is not None:
+                self.context.record_evidence(label_key=issue.evidence_key, source_action=action)
             self.resolution[issue.column] = option.key
             self.active_issue = None
             self._rebuild_buttons()
@@ -240,11 +256,11 @@ class WorkbenchScene(Scene):
         elif self.active_tab is WorkbenchTab.PYTHON:
             self._draw_python_tab(surface)
         elif self.active_tab is WorkbenchTab.EVIDENCE:
-            self._draw_placeholder(surface, "workbench.evidence.empty")
+            self._draw_evidence_tab(surface)
         elif self.active_tab is WorkbenchTab.MISSION:
             self._draw_mission_tab(surface)
         elif self.active_tab is WorkbenchTab.DECISION:
-            self._draw_placeholder(surface, "workbench.decision.placeholder")
+            self._draw_decision_tab(surface)
 
     def _draw_placeholder(self, surface: pygame.Surface, text_key: str) -> None:
         draw_wrapped_text(
@@ -333,15 +349,60 @@ class WorkbenchScene(Scene):
         draw_wrapped_text(surface, summary, (left, summary_y), width, 14, colors.BUTTON_TEXT_DISABLED)
 
     def _draw_schema(self, surface: pygame.Surface, top: int) -> None:
+        loc = self.app.localization
         left = CONTENT_RECT.left + 20
         width = CONTENT_RECT.width - 40
         line_height = 26
-        for index, column in enumerate(self.dataset.schema.columns):
-            y = top + index * line_height
+        description_width = width - 12
+        description_font = get_font(13)
+        y = top
+        for column in self.dataset.schema.columns:
             header = f"{column.name} ({column.dtype})" + ("" if not column.nullable else " - nullable")
             draw_single_line(surface, header, (left, y), width, 16, colors.TEXT)
-            if column.description:
-                draw_wrapped_text(surface, column.description, (left + 12, y + 18), width - 12, 13, colors.BUTTON_TEXT_DISABLED)
+            # description_key (localized) wins when a schema author has set
+            # one; the legacy literal `description` string is the fallback
+            # so the ~44 schemas that never set description_key still show
+            # their existing (unlocalized) text rather than nothing.
+            description = loc.t(column.description_key) if column.description_key else column.description
+            if description:
+                draw_wrapped_text(surface, description, (left + 12, y + 18), description_width, 13, colors.BUTTON_TEXT_DISABLED)
+                # A fixed line_height would let a wrapped description bleed
+                # into the next column's header (invisible until now, since
+                # no ColumnSchema had real description text before this) -
+                # advance by however many lines it actually wrapped to. Must
+                # track draw_wrapped_text's own line_spacing default (4).
+                wrapped_lines = len(wrap_text(description, description_font, description_width))
+                y += 18 + wrapped_lines * (description_font.get_linesize() + 4) + 4
+            else:
+                y += line_height
+
+    def _draw_evidence_tab(self, surface: pygame.Surface) -> None:
+        if not self.context.evidence:
+            self._draw_placeholder(surface, "workbench.evidence.empty")
+            return
+        loc = self.app.localization
+        left = CONTENT_RECT.left + 20
+        top = CONTENT_RECT.top + 20
+        width = CONTENT_RECT.width - 40
+        for index, item in enumerate(self.context.evidence):
+            draw_wrapped_text(surface, f"- {loc.t(item.label_key)}", (left, top + index * 26), width, 15, colors.TEXT)
+
+    def _draw_decision_tab(self, surface: pygame.Surface) -> None:
+        # Raw field_key/option_key, not localized text - deliberately
+        # minimal scaffolding, not a bug: nothing calls context.set_decision
+        # for any real lesson yet (Lesson 06's actual decision happens in a
+        # separate BriefBuilderScene this scene never sees), so there's no
+        # real player-facing content to localize here until a future PR
+        # wires a real writer and designs the actual decision-review UX.
+        decision = self.context.decision
+        if decision is None:
+            self._draw_placeholder(surface, "workbench.decision.placeholder")
+            return
+        left = CONTENT_RECT.left + 20
+        top = CONTENT_RECT.top + 20
+        width = CONTENT_RECT.width - 40
+        for index, (field_key, option_key) in enumerate(decision.choices.items()):
+            draw_wrapped_text(surface, f"{field_key}: {option_key}", (left, top + index * 26), width, 15, colors.TEXT)
 
     def _draw_pipeline_tab(self, surface: pygame.Surface) -> None:
         loc = self.app.localization

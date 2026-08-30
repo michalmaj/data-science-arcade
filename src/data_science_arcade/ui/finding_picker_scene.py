@@ -9,6 +9,7 @@ from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
+from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 PROMPT_Y = 72
@@ -33,7 +34,16 @@ class FindingPickerScene(Scene):
     to return to the way every other scene's request-by-request Back does.
 
     guided=True also shows a fixed hint for the whole task; guided=False
-    hides it, matching every other stage scene's guided/independent split."""
+    hides it, matching every other stage scene's guided/independent split.
+
+    Picking a finding also records it into `context` (workbench/context.py)
+    as an AnalyticalAction plus an EvidenceItem - proof that the model
+    isn't tied to Dataset transformations the way Lesson 06's WorkbenchScene
+    integration is: a finding pick doesn't transform any Dataset, it
+    surfaces a fact already computed elsewhere (findings_data.py's own
+    percent_change/point_change). Lesson 29's own scenario.py doesn't pass
+    a context and is unaffected - this is proven via a direct test of this
+    scene, not a played in-game Workbench path."""
 
     def __init__(
         self,
@@ -46,6 +56,7 @@ class FindingPickerScene(Scene):
         guided: bool = True,
         hint_key: str | None = None,
         picked_label_key: str = "findings.picked_label",
+        context: LessonContext | None = None,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -56,6 +67,7 @@ class FindingPickerScene(Scene):
         self.guided = guided
         self.hint_key = hint_key
         self.picked_label_key = picked_label_key
+        self.context = context if context is not None else LessonContext()
         self.picked: list[str] = []
         self._rebuild_buttons()
 
@@ -73,6 +85,10 @@ class FindingPickerScene(Scene):
 
     def _make_pick(self, finding_key: str) -> Callable[[], None]:
         def pick() -> None:
+            finding = next(f for f in self.findings if f.key == finding_key)
+            action = self.context.record_action(label_key=finding.label_key, python_code=finding.python_code)
+            self.context.record_evidence(label_key=finding.label_key, source_action=action)
+
             self.picked.append(finding_key)
             if len(self.picked) == self.target_count:
                 self.on_complete(tuple(self.picked))

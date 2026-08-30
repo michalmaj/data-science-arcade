@@ -8,8 +8,8 @@ RAW_SCHEMA = Schema(
     columns=(
         ColumnSchema("order_id", "int64"),
         ColumnSchema("market", "object"),
-        ColumnSchema("price", "object", description="Stored as text - decimal separator varies by market"),
-        ColumnSchema("currency", "object", description="Casing is inconsistent across source systems"),
+        ColumnSchema("price", "object", description_key="lesson.l06.schema.price.description"),
+        ColumnSchema("currency", "object", description_key="lesson.l06.schema.currency.description"),
     )
 )
 
@@ -17,8 +17,14 @@ PRICE_FIXED_SCHEMA = Schema(
     columns=(
         ColumnSchema("order_id", "int64"),
         ColumnSchema("market", "object"),
-        ColumnSchema("price", "float64"),
-        ColumnSchema("currency", "object"),
+        ColumnSchema("price", "float64", description_key="lesson.l06.schema.price.description_fixed"),
+        # currency has no schema_after of its own (its dtype never changes),
+        # so this schema - and therefore this description - takes effect the
+        # moment *price* is resolved, regardless of whether currency has
+        # been fixed yet. Keep this wording neutral (column meaning, not
+        # "already standardized") so it's never a false claim if the
+        # student fixes price before currency.
+        ColumnSchema("currency", "object", description_key="lesson.l06.schema.currency.description_fixed"),
     )
 )
 
@@ -82,6 +88,7 @@ REPAIR_ISSUES: tuple[RepairIssue, ...] = (
         column="price",
         prompt_key="lesson.l06.issue.price.prompt",
         hint_key="lesson.l06.issue.price.hint",
+        evidence_key="lesson.l06.issue.price.evidence",
         schema_after=PRICE_FIXED_SCHEMA,
         options=(
             RepairOption(
@@ -108,6 +115,7 @@ REPAIR_ISSUES: tuple[RepairIssue, ...] = (
         column="currency",
         prompt_key="lesson.l06.issue.currency.prompt",
         hint_key="lesson.l06.issue.currency.hint",
+        evidence_key="lesson.l06.issue.currency.evidence",
         options=(
             RepairOption(
                 "uppercase",
