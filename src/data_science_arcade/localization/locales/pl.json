@@ -1688,5 +1688,6 @@
   "runtime.objectives_header": "Cele",
   "lesson.feedback.completed": "Wszystkie etapy tej lekcji zostały ukończone.",
   "lesson.feedback.incomplete": "To podejście zakończyło się, zanim ukończono wszystkie etapy.",
-  "lesson.feedback.hints_used": "Po drodze skorzystano z co najmniej jednej podpowiedzi."
+  "lesson.feedback.hints_used": "Po drodze skorzystano z co najmniej jednej podpowiedzi.",
+  "runtime.hint_button": "Podpowiedź"
 }

@@ -1688,5 +1688,6 @@
   "runtime.objectives_header": "Objectives",
   "lesson.feedback.completed": "You completed every stage of this lesson.",
   "lesson.feedback.incomplete": "This attempt ended before every stage was finished.",
-  "lesson.feedback.hints_used": "You used one or more hints along the way."
+  "lesson.feedback.hints_used": "You used one or more hints along the way.",
+  "runtime.hint_button": "Hint"
 }
