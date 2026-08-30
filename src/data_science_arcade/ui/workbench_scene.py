@@ -69,10 +69,14 @@ class WorkbenchScene(Scene):
     `context.set_decision(...)` - Lesson 06's actual decision happens in a
     separate BriefBuilderScene stage this scene has no reference to, so
     DECISION stays a placeholder in practice here; it's modeled and
-    rendered, not populated, for this lesson. PYTHON is unchanged - it
-    still reads `dataset.python_mirror()`, not `context`'s, since the
-    dataset's own mirror includes a pre-existing load step nothing would
-    ever emit an AnalyticalAction for."""
+    rendered, not populated, for this lesson. PYTHON shows a merge of
+    `dataset.python_mirror()` (the dataset's own pre-existing history,
+    e.g. its load step - nothing ever emits an AnalyticalAction for that)
+    followed by `context.python_mirror()` (every choice made in Workbench)
+    - `_make_choose` deliberately does NOT also pass `python_code=` into
+    `Dataset.then()` for a resolved issue, so each choice's code line is
+    recorded exactly once, in `context`, not duplicated across both
+    mirrors."""
 
     def __init__(
         self,
@@ -204,7 +208,6 @@ class WorkbenchScene(Scene):
                 f"{issue.column}_{option.key}",
                 option.apply,
                 schema=issue.schema_after,
-                python_code=option.python_code,
             )
             action = self.context.record_action(label_key=option.label_key, python_code=option.python_code)
             if issue.evidence_key is not None:
@@ -414,8 +417,16 @@ class WorkbenchScene(Scene):
         for index, step in enumerate(self.dataset.history):
             draw_centered_text(surface, f"-> {step.name}", (CENTER_X, top + (index + 1) * 30), 16, colors.TEXT)
 
+    def _python_mirror_text(self) -> str:
+        # Baseline/seed history first (chronologically always predates any
+        # Workbench-driven action in every current usage), then every
+        # choice made in Workbench - each choice's code lives in exactly
+        # one of these two mirrors (see _make_choose), so this is a
+        # concatenation, not a merge that needs its own dedup.
+        return "\n".join(part for part in (self.dataset.python_mirror(), self.context.python_mirror()) if part)
+
     def _draw_python_tab(self, surface: pygame.Surface) -> None:
-        code = self.dataset.python_mirror()
+        code = self._python_mirror_text()
         if not code:
             self._draw_placeholder(surface, "workbench.python.empty")
             return

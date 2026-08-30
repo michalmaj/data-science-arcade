@@ -78,16 +78,31 @@ def test_the_full_lesson_plays_through_all_eight_stages_to_a_result():
         _play_dialogue_to_the_end(app.scenes.current)
 
         assert isinstance(app.scenes.current.inner, WorkbenchScene)  # guided
-        assert app.scenes.current.guided is True
-        _repair_every_issue_correctly(app.scenes.current)
+        guided_scene = app.scenes.current.inner
+        assert guided_scene.guided is True
+        _repair_every_issue_correctly(guided_scene)
+        assert len(guided_scene.context.actions) == len(REPAIR_ISSUES)
+        assert len(guided_scene.context.evidence) == len(REPAIR_ISSUES)
         app.scenes.current.continue_button.on_activate()
 
         assert isinstance(app.scenes.current.inner, DialogueScene)  # independent intro
         _play_dialogue_to_the_end(app.scenes.current)
 
         assert isinstance(app.scenes.current.inner, WorkbenchScene)  # independent
-        assert app.scenes.current.guided is False
-        _repair_every_issue_correctly(app.scenes.current)
+        independent_scene = app.scenes.current.inner
+        assert independent_scene.guided is False
+        # Persistence proof: the independent round's context already holds
+        # the guided round's actions/evidence before the player has done
+        # anything independently - same shared LessonContext, not a fresh
+        # one per stage.
+        assert independent_scene.context is guided_scene.context
+        assert len(independent_scene.context.actions) == len(REPAIR_ISSUES)
+        _repair_every_issue_correctly(independent_scene)
+        # Dedup proof: both rounds resolved every issue with the same
+        # (correct, options[0]) pick, so the shared context must not have
+        # doubled - same count as after the guided round alone.
+        assert len(independent_scene.context.actions) == len(REPAIR_ISSUES)
+        assert len(independent_scene.context.evidence) == len(REPAIR_ISSUES)
         app.scenes.current.continue_button.on_activate()
 
         assert isinstance(app.scenes.current.inner, TwistRevealScene)
@@ -114,3 +129,39 @@ def test_the_full_lesson_plays_through_all_eight_stages_to_a_result():
 @pytest.mark.parametrize("field", list(DECISION_FIELDS))
 def test_every_decision_field_has_at_least_two_options(field):
     assert len(field.options) >= 2
+
+
+def test_analytical_context_survives_a_checkpoint_new_app_and_resume():
+    # Real cross-process resume, not just a second LessonRunner against the
+    # same in-memory App: a fresh App() picks up whatever the redirected
+    # DEFAULT_SAVE_PATH holds on disk (tests/conftest.py's autouse fixture
+    # points it at one tmp_path for this whole test), matching how PR A's
+    # own manual end-to-end verification simulated a real relaunch.
+    app1 = _init_app()
+    try:
+        runner1, _ = build_lesson_six_runner(app1, on_finished=lambda result: None)
+        runner1.start()
+        click_through_mission_briefing(app1)
+        _play_dialogue_to_the_end(app1.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app1.scenes.current)  # investigation
+
+        assert isinstance(app1.scenes.current.inner, WorkbenchScene)  # guided
+        _repair_every_issue_correctly(app1.scenes.current)
+        app1.scenes.current.continue_button.on_activate()  # advances + checkpoints; quit right here
+    finally:
+        pygame.quit()
+
+    app2 = _init_app()  # a brand new App(), same on-disk save - simulates relaunching
+    try:
+        runner2, _ = build_lesson_six_runner(app2, on_finished=lambda result: None)
+        runner2.start()  # resumes straight into independent_intro, skipping the briefing
+
+        assert isinstance(app2.scenes.current.inner, DialogueScene)  # independent intro
+        _play_dialogue_to_the_end(app2.scenes.current)
+
+        assert isinstance(app2.scenes.current.inner, WorkbenchScene)  # independent
+        resumed_context = app2.scenes.current.inner.context
+        assert len(resumed_context.actions) == len(REPAIR_ISSUES)
+        assert len(resumed_context.evidence) == len(REPAIR_ISSUES)
+    finally:
+        pygame.quit()

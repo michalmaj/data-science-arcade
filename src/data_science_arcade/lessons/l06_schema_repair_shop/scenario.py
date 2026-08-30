@@ -13,6 +13,7 @@ from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
+from data_science_arcade.workbench.context import LessonContext
 
 BRIEFING_DIALOGUE = Dialogue(
     lines=(
@@ -74,9 +75,34 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     """Assembles Lesson 06's 8-stage sequence. Returns the runner plus a
     dict that fills in with the player's results as they progress -
     `result` holds the final LessonSixResult once both workbench stages
-    and the decision brief have completed."""
+    and the decision brief have completed.
+
+    One `LessonContext` is built here and shared by both `guided_work` and
+    `independent_challenge` - evidence/actions from the guided round are
+    still visible once the independent round begins (both rounds present
+    the *same* issues on purpose, so `LessonContext`'s own content-based
+    dedup keeps a matching correct pick in both rounds from doubling the
+    Python Mirror or the evidence list). Persisted across checkpoint/resume
+    by stashing its serialized form in `collected["analytical_context"]` -
+    the same generic, per-lesson-arbitrary dict LessonRunner already
+    checkpoints, not a new typed field on LessonCheckpoint."""
     collected: dict = {}
+    context = LessonContext()
     date_results = generate_date_parse_results()
+
+    def _restore_context_if_present() -> None:
+        # Safe to call unconditionally: no-ops on a fresh/never-saved start
+        # (nothing at that key yet), safe on a same-session call (restoring
+        # a snapshot `context` itself just wrote a moment ago - a value
+        # round-trip into itself), and does the real work after an actual
+        # checkpoint -> new App() -> resume, once LessonRunner has already
+        # restored `collected` in place before this closure runs.
+        data = collected.get("analytical_context")
+        if data is not None:
+            context.restore_from_dict(data)
+
+    def _sync_context_into_collected() -> None:
+        collected["analytical_context"] = context.to_dict()
 
     def briefing(advance):
         return DialogueScene(app, BRIEFING_DIALOGUE, on_complete=advance)
@@ -85,21 +111,27 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         return DialogueScene(app, INVESTIGATION_DIALOGUE, on_complete=advance)
 
     def guided_work(advance):
+        _restore_context_if_present()
+
         def on_complete(resolution):
             collected["guided_resolution"] = resolution
+            _sync_context_into_collected()
             advance()
 
-        return WorkbenchScene(app, generate_sales_export(), REPAIR_ISSUES, on_complete, guided=True)
+        return WorkbenchScene(app, generate_sales_export(), REPAIR_ISSUES, on_complete, guided=True, context=context)
 
     def independent_intro(advance):
         return DialogueScene(app, INDEPENDENT_INTRO_DIALOGUE, on_complete=advance)
 
     def independent_challenge(advance):
+        _restore_context_if_present()
+
         def on_complete(resolution):
             collected["independent_resolution"] = resolution
+            _sync_context_into_collected()
             advance()
 
-        return WorkbenchScene(app, generate_sales_export(), REPAIR_ISSUES, on_complete, guided=False)
+        return WorkbenchScene(app, generate_sales_export(), REPAIR_ISSUES, on_complete, guided=False, context=context)
 
     def twist(advance):
         return TwistRevealScene(
