@@ -8,8 +8,8 @@ RAW_SCHEMA = Schema(
     columns=(
         ColumnSchema("order_id", "int64"),
         ColumnSchema("market", "object"),
-        ColumnSchema("price", "object", description="Stored as text - decimal separator varies by market"),
-        ColumnSchema("currency", "object", description="Casing is inconsistent across source systems"),
+        ColumnSchema("price", "object", description_key="lesson.l06.schema.price.description"),
+        ColumnSchema("currency", "object", description_key="lesson.l06.schema.currency.description"),
     )
 )
 
@@ -82,6 +82,7 @@ REPAIR_ISSUES: tuple[RepairIssue, ...] = (
         column="price",
         prompt_key="lesson.l06.issue.price.prompt",
         hint_key="lesson.l06.issue.price.hint",
+        evidence_key="lesson.l06.issue.price.evidence",
         schema_after=PRICE_FIXED_SCHEMA,
         options=(
             RepairOption(
@@ -108,6 +109,7 @@ REPAIR_ISSUES: tuple[RepairIssue, ...] = (
         column="currency",
         prompt_key="lesson.l06.issue.currency.prompt",
         hint_key="lesson.l06.issue.currency.hint",
+        evidence_key="lesson.l06.issue.currency.evidence",
         options=(
             RepairOption(
                 "uppercase",

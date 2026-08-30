@@ -28,6 +28,12 @@ class RepairIssue:
     (e.g. text -> float) - applied regardless of which option was chosen,
     since picking the *wrong* parsing rule still produces that dtype, just
     with wrong values. Omit when the fix only changes values, not type."""
+    evidence_key: str | None = None
+    """The underlying finding this issue represents (e.g. "price had an
+    inconsistent decimal separator"), true regardless of which option gets
+    picked - recorded as an EvidenceItem in the WorkbenchScene's
+    LessonContext once resolved. None if this issue shouldn't surface as
+    evidence."""
 
 
 RepairResolution = dict[str, str]
