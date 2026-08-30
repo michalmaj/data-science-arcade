@@ -38,7 +38,12 @@ class AlertConfigScene(Scene):
     different enough result shape to be its own scene.
 
     guided=True also shows each request's hint; guided=False hides it,
-    matching every other stage scene's guided/independent split."""
+    matching every other stage scene's guided/independent split.
+
+    false_alarm_count_label_key defaults to Lesson 25's own "over 14 days"
+    wording - baked in as a literal default rather than a true constant,
+    since Lesson 25 was this scene's only caller until Lesson 30's own
+    8-week dataset needed different wording for the same number."""
 
     def __init__(
         self,
@@ -51,6 +56,7 @@ class AlertConfigScene(Scene):
         guided: bool = True,
         metric_label_key: str = "alerting.metric_label",
         threshold_label_key: str = "alerting.threshold_label",
+        false_alarm_count_label_key: str = "alerting.false_alarm_count_label",
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -61,6 +67,7 @@ class AlertConfigScene(Scene):
         self.guided = guided
         self.metric_label_key = metric_label_key
         self.threshold_label_key = threshold_label_key
+        self.false_alarm_count_label_key = false_alarm_count_label_key
         self.request_index = 0
         self.choices: MonitoringChoices = {}
         self._metric_choice: str | None = None
@@ -207,7 +214,7 @@ class AlertConfigScene(Scene):
 
         false_alarm_count, incident_caught = self.simulate(self.dataset, metric, threshold, request.target_incident_day)
         caught_text = loc.t("alerting.yes") if incident_caught else loc.t("alerting.no")
-        count_line = f"{loc.t('alerting.false_alarm_count_label')}: {false_alarm_count}"
+        count_line = f"{loc.t(self.false_alarm_count_label_key)}: {false_alarm_count}"
         caught_line = f"{loc.t('alerting.incident_caught_label')}: {caught_text}"
         draw_centered_text(surface, count_line, (CENTER_X, RESULT_RECT.top + 20), 18, colors.TEXT)
         draw_centered_text(surface, caught_line, (CENTER_X, RESULT_RECT.top + 52), 18, colors.BUTTON_FOCUS_BORDER)
