@@ -71,6 +71,7 @@ from data_science_arcade.lessons.l28_chart_crime_lab.requests import CORRECT_OPT
 from data_science_arcade.lessons.l28_chart_crime_lab.scenario import DECISION_FIELDS as L28_DECISION_FIELDS
 from data_science_arcade.lessons.l29_the_executive_brief.findings import CORRECT_FINDING_KEYS as L29_CORRECT_FINDING_KEYS
 from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
+from data_science_arcade.lessons.l30_the_data_incident.scenario import DECISION_FIELDS as L30_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonState
 from data_science_arcade.ui.alert_config_scene import AlertConfigScene
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
@@ -86,6 +87,7 @@ from data_science_arcade.ui.distribution_scene import DistributionScene
 from data_science_arcade.ui.finding_picker_scene import FindingPickerScene
 from data_science_arcade.ui.flow_builder_scene import FlowBuilderScene
 from data_science_arcade.ui.funnel_builder_scene import FunnelBuilderScene
+from data_science_arcade.ui.investigation_hub_scene import InvestigationHubScene
 from data_science_arcade.ui.junction_scene import JunctionScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
@@ -125,22 +127,13 @@ def test_unlocking_a_lesson_in_progress_is_reflected_after_on_enter():
         pygame.quit()
 
 
-def test_clicking_an_unlocked_lesson_with_no_runtime_yet_opens_a_placeholder():
-    app = App()
-    app.init()
-    try:
-        # Lesson 30 has no registry entry yet (only 1-29 do) - Chapter 6's
-        # capstone, once Lesson 29 ("The Executive Brief") is complete.
-        app.progress.unlock(30)
-        course_map = CourseMapScene(app)
-        app.scenes.push(course_map)
-
-        course_map._open_lesson(30)
-
-        assert isinstance(app.scenes.current, PlaceholderScene)
-        assert "30" in app.scenes.current.title
-    finally:
-        pygame.quit()
+# _open_lesson's "no registry entry yet" branch (and PlaceholderScene's use
+# from it specifically - the class itself is still used elsewhere, e.g. the
+# main menu) has no lesson number left to exercise it now that 1-30 all
+# have real runtimes - see decisions/IMPLEMENTATION_STATE.md's technical
+# debt note. There used to be a test here exercising that branch for
+# whichever lesson hadn't shipped yet; it moved forward once per lesson
+# from Lesson 3 onward and is retired for good now that Lesson 30 shipped.
 
 
 def test_clicking_lesson_one_starts_the_real_lesson_not_a_placeholder():
@@ -601,6 +594,22 @@ def test_clicking_lesson_twenty_nine_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(29)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)
+        assert not isinstance(app.scenes.current.inner, PlaceholderScene)
+    finally:
+        pygame.quit()
+
+
+def test_clicking_lesson_thirty_starts_the_real_lesson_once_unlocked():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(30)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+
+        course_map._open_lesson(30)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -1596,6 +1605,60 @@ def test_finishing_lesson_twenty_nine_marks_it_complete_and_unlocks_lesson_thirt
         pygame.quit()
 
 
+def _complete_l30_correlation_or_chart_lead(scene) -> None:
+    scene.buttons.buttons[0].on_activate()
+    scene.next_button.on_activate()
+
+
+def _complete_l30_alert_lead(scene: AlertConfigScene) -> None:
+    scene.buttons.buttons[0].on_activate()  # metric
+    scene.buttons.buttons[len(scene._current_request().metric_options)].on_activate()  # threshold
+    scene.next_button.on_activate()
+
+
+def _investigate_every_l30_lead(app, hub: InvestigationHubScene) -> None:
+    # Each of the 5 leads is a different reused scene type - unlike every
+    # prior lesson's single-scene-type helper, this one has to know which
+    # completion shape applies to whichever lead it just opened.
+    for index in range(len(hub.leads)):
+        hub.buttons.buttons[index].on_activate()
+        lead_scene = app.scenes.current.inner
+        if isinstance(lead_scene, AlertConfigScene):
+            _complete_l30_alert_lead(lead_scene)
+        else:
+            _complete_l30_correlation_or_chart_lead(lead_scene)
+
+
+def test_finishing_lesson_thirty_marks_it_complete():
+    app = App()
+    app.init()
+    try:
+        app.progress.unlock(30)
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(30)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # investigation intro
+        hub = app.scenes.current.inner
+        assert isinstance(hub, InvestigationHubScene)
+        _investigate_every_l30_lead(app, hub)
+        assert hub.conclude_button.enabled
+        hub.conclude_button.on_activate()
+        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
+        _fill_out(app.scenes.current, L30_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+
+        assert app.scenes.current is course_map
+        assert app.progress.state_of(30) == LessonState.COMPLETED
+        # Lesson 30 is the course's last lesson - Progress.complete() only
+        # unlocks lesson_number + 1 while lesson_number < TOTAL_LESSONS, so
+        # there is no lesson 31 to check for, unlike every prior lesson's
+        # finishing test.
+    finally:
+        pygame.quit()
+
+
 def test_dev_mode_shows_every_lesson_as_enabled_without_touching_the_save(monkeypatch):
     monkeypatch.setenv("DSA_DEV_MODE", "1")
     app = App()
@@ -1609,26 +1672,13 @@ def test_dev_mode_shows_every_lesson_as_enabled_without_touching_the_save(monkey
         pygame.quit()
 
 
-def test_dev_mode_click_marks_the_lesson_complete(monkeypatch):
-    monkeypatch.setenv("DSA_DEV_MODE", "1")
-    app = App()
-    app.init()
-    try:
-        course_map = CourseMapScene(app)
-        app.scenes.push(course_map)
-
-        # Lesson 30 has no real runtime yet (only 1-29 are registered) -
-        # it's Chapter 6's capstone and the course's last lesson - so this
-        # exercises the dev-mode shortcut - lessons 1-29 always launch their
-        # real lesson now regardless of dev mode. There is no lesson 31 to
-        # unlock: Progress.complete() only unlocks lesson_number + 1 while
-        # lesson_number < TOTAL_LESSONS, and 30 == TOTAL_LESSONS.
-        course_map._open_lesson(30)
-
-        assert app.progress.state_of(30) == LessonState.COMPLETED
-        assert app.progress.state_of(31) == LessonState.LOCKED
-    finally:
-        pygame.quit()
+# The dev-mode "click an unregistered lesson to auto-complete it via the
+# placeholder shortcut" behavior (_open_lesson's fallback branch) has no
+# lesson number left to exercise it now that lessons 1-30 are all
+# registered - see decisions/IMPLEMENTATION_STATE.md's technical debt
+# note. There used to be a test here for it, moved forward once per
+# lesson from Lesson 3 onward; it's retired for good now that Lesson 30
+# shipped, same as the placeholder-opens test above.
 
 
 def test_completed_lesson_stays_enabled_for_replay():

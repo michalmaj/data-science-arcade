@@ -61,6 +61,14 @@ from data_science_arcade.lessons.l28_chart_crime_lab.requests import CHART_REQUE
 from data_science_arcade.lessons.l28_chart_crime_lab.scenario import DECISION_FIELDS as L28_DECISION_FIELDS
 from data_science_arcade.lessons.l29_the_executive_brief.findings import FINDINGS_POOL as L29_FINDINGS_POOL
 from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
+from data_science_arcade.lessons.l30_the_data_incident.leads import (
+    DASHBOARD_CHART_REQUEST as L30_DASHBOARD_CHART_REQUEST,
+    MONITORING_REQUEST as L30_MONITORING_REQUEST,
+    PROMO_CORRELATION_REQUEST as L30_PROMO_CORRELATION_REQUEST,
+    REDESIGN_CORRELATION_REQUEST as L30_REDESIGN_CORRELATION_REQUEST,
+    REGIONAL_BREAKDOWN_REQUEST as L30_REGIONAL_BREAKDOWN_REQUEST,
+)
+from data_science_arcade.lessons.l30_the_data_incident.scenario import DECISION_FIELDS as L30_DECISION_FIELDS
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.alert_config_scene import OPTION_SIZE as ALERT_OPTION_SIZE
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
@@ -70,6 +78,7 @@ from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPT
 from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
 from data_science_arcade.ui.cohort_matrix_scene import COMPARISON_OPTION_SIZE as COHORT_COMPARISON_OPTION_SIZE
 from data_science_arcade.ui.finding_picker_scene import OPTION_SIZE as FINDING_OPTION_SIZE
+from data_science_arcade.ui.investigation_hub_scene import OPTION_SIZE as INVESTIGATION_OPTION_SIZE
 from data_science_arcade.ui.survey_builder_scene import OPTION_SIZE as SURVEY_OPTION_SIZE
 from data_science_arcade.ui.timeseries_scene import LENS_OPTION_SIZE as TIMESERIES_LENS_OPTION_SIZE
 from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTION_OPTION_SIZE
@@ -128,6 +137,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L27_DECISION_FIELDS,
         *L28_DECISION_FIELDS,
         *L29_DECISION_FIELDS,
+        *L30_DECISION_FIELDS,
     )
     for field in brief_fields:
         for option in field.options:
@@ -179,6 +189,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for request in L28_CHART_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, chart_option_button_width))
+    for option in L30_DASHBOARD_CHART_REQUEST.options:
+        checks.append((f"{L30_DASHBOARD_CHART_REQUEST.key}.{option.key}", option.label_key, chart_option_button_width))
 
     segment_option_button_width = SEGMENT_OPTION_SIZE[0] - BUTTON_PADDING
     for request in L15_SEGMENT_REQUESTS:
@@ -190,6 +202,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for request in L18_ASSIGNMENT_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
+    for option in L30_REGIONAL_BREAKDOWN_REQUEST.options:
+        checks.append((f"{L30_REGIONAL_BREAKDOWN_REQUEST.key}.{option.key}", option.label_key, segment_option_button_width))
 
     # The three PredictionScene direction buttons (Lesson 17) are a fixed
     # shared response scale, not per-request content, so they're checked
@@ -232,12 +246,19 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{request.key}.metric.{option.key}", option.label_key, alert_option_button_width))
         for option in request.threshold_options:
             checks.append((f"{request.key}.threshold.{option.key}", option.label_key, alert_option_button_width))
+    for option in L30_MONITORING_REQUEST.metric_options:
+        checks.append((f"{L30_MONITORING_REQUEST.key}.metric.{option.key}", option.label_key, alert_option_button_width))
+    for option in L30_MONITORING_REQUEST.threshold_options:
+        checks.append((f"{L30_MONITORING_REQUEST.key}.threshold.{option.key}", option.label_key, alert_option_button_width))
 
     correlation_option_button_width = CORRELATION_OPTION_SIZE[0] - BUTTON_PADDING
     for request in L26_CORRELATION_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, correlation_option_button_width))
     for request in L27_CORRELATION_REQUESTS:
+        for option in request.options:
+            checks.append((f"{request.key}.{option.key}", option.label_key, correlation_option_button_width))
+    for request in (L30_REDESIGN_CORRELATION_REQUEST, L30_PROMO_CORRELATION_REQUEST):
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, correlation_option_button_width))
 
@@ -258,6 +279,17 @@ def _collect_checks() -> list[tuple[str, str, int]]:
 
 ALL_CHECKS = _collect_checks()
 
+# InvestigationHubScene (Lesson 30) appends " - <marker>" to a lead's own
+# label once investigated, so the *longer*, post-investigation text is
+# the real worst case to check - not just the bare label.
+L30_LEAD_LABEL_KEYS = (
+    "lesson.l30.lead_label.redesign_correlation",
+    "lesson.l30.lead_label.regional_breakdown",
+    "lesson.l30.lead_label.dashboard_chart",
+    "lesson.l30.lead_label.promo_correlation",
+    "lesson.l30.lead_label.monitoring_review",
+)
+
 
 @pytest.fixture(autouse=True)
 def _pygame_session():
@@ -277,3 +309,16 @@ def test_button_label_fits_within_its_button(locale, owner, label_key, max_width
     width, _height = font.size(text)
 
     assert width <= max_width, f"{locale}/{label_key} ({owner}) is {width}px wide, button only fits {max_width}px: {text!r}"
+
+
+@pytest.mark.parametrize("label_key", L30_LEAD_LABEL_KEYS)
+@pytest.mark.parametrize("locale", SUPPORTED_LOCALES)
+def test_investigation_lead_label_fits_once_marked_investigated(locale, label_key):
+    loc = Localization(locale=locale)
+    text = f"{loc.t(label_key)} - {loc.t('investigation.investigated_marker')}"
+    font = get_font(BUTTON_TEXT_SIZE)
+    max_width = INVESTIGATION_OPTION_SIZE[0] - BUTTON_PADDING
+
+    width, _height = font.size(text)
+
+    assert width <= max_width, f"{locale}/{label_key} is {width}px wide once investigated, button only fits {max_width}px: {text!r}"
