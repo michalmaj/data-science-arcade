@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l21_funnel_factory.definition import LESSON_21
 from data_science_arcade.lessons.l21_funnel_factory.requests import FUNNEL_REQUESTS
 from data_science_arcade.lessons.l21_funnel_factory.scoring import LessonTwentyOneResult
 from data_science_arcade.lessons.l21_funnel_factory.twist_data import generate_onboarding_data, profile_completion_rate, signup_rate
@@ -130,5 +131,7 @@ def build_lesson_twenty_one_runner(app, on_finished) -> tuple[LessonRunner, dict
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=21, collected=collected, definition=LESSON_21
+    )
     return runner, collected

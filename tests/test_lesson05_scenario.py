@@ -20,6 +20,8 @@ from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.sampling_allocator_scene import SamplingAllocatorScene
 from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
 
+from lesson_test_helpers import click_through_mission_briefing
+
 EVEN_SPLIT = TOTAL_BUDGET // len(CUSTOMER_GROUPS)
 assert EVEN_SPLIT % STEP == 0  # otherwise an even split couldn't be reached with whole steps
 
@@ -56,6 +58,7 @@ def test_the_full_lesson_plays_through_all_eight_stages_to_a_result():
             app, on_finished=lambda result: finished_results.append(result)
         )
         runner.start()
+        click_through_mission_briefing(app)
 
         # Every stage is wrapped in Pausable (Escape opens the pause menu);
         # .inner is the actual stage scene the factory returned.

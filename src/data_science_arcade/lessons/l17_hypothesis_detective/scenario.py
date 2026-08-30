@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l17_hypothesis_detective.definition import LESSON_17
 from data_science_arcade.lessons.l17_hypothesis_detective.requests import HYPOTHESIS_REQUESTS
 from data_science_arcade.lessons.l17_hypothesis_detective.scoring import LessonSeventeenResult
 from data_science_arcade.lessons.l17_hypothesis_detective.twist_data import device_repeat_rate, generate_device_split_data
@@ -127,5 +128,7 @@ def build_lesson_seventeen_runner(app, on_finished) -> tuple[LessonRunner, dict]
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=17, collected=collected, definition=LESSON_17
+    )
     return runner, collected

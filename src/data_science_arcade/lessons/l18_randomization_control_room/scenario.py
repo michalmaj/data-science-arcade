@@ -2,6 +2,7 @@ from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.framework.segment import Segment
 from data_science_arcade.lessons.l18_randomization_control_room.assignment_data import relative_imbalance
+from data_science_arcade.lessons.l18_randomization_control_room.definition import LESSON_18
 from data_science_arcade.lessons.l18_randomization_control_room.requests import ASSIGNMENT_REQUESTS
 from data_science_arcade.lessons.l18_randomization_control_room.scoring import LessonEighteenResult
 from data_science_arcade.lessons.l18_randomization_control_room.twist_data import generate_platform_split_data, ios_share
@@ -159,5 +160,7 @@ def build_lesson_eighteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=18, collected=collected, definition=LESSON_18
+    )
     return runner, collected

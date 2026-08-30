@@ -1,6 +1,7 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.l08_duplicate_detective.candidate_pairs import CANDIDATE_PAIRS
+from data_science_arcade.lessons.l08_duplicate_detective.definition import LESSON_08
 from data_science_arcade.lessons.l08_duplicate_detective.scoring import LessonEightResult
 from data_science_arcade.lessons.l08_duplicate_detective.twist_data import (
     generate_match_results,
@@ -138,5 +139,7 @@ def build_lesson_eight_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=8, collected=collected, definition=LESSON_08
+    )
     return runner, collected

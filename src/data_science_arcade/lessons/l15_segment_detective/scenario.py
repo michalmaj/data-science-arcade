@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l15_segment_detective.definition import LESSON_15
 from data_science_arcade.lessons.l15_segment_detective.funnel_data import generate_device_funnel, overall_rate
 from data_science_arcade.lessons.l15_segment_detective.requests import SEGMENT_REQUESTS
 from data_science_arcade.lessons.l15_segment_detective.scoring import LessonFifteenResult
@@ -125,5 +126,7 @@ def build_lesson_fifteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=15, collected=collected, definition=LESSON_15
+    )
     return runner, collected

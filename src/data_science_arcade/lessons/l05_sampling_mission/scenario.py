@@ -1,6 +1,7 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.framework.sampling import SamplingGroup
+from data_science_arcade.lessons.l05_sampling_mission.definition import LESSON_05
 from data_science_arcade.lessons.l05_sampling_mission.scoring import LessonFiveResult
 from data_science_arcade.lessons.l05_sampling_mission.twist_data import (
     DOMINANT_GROUP,
@@ -165,5 +166,7 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=5, collected=collected, definition=LESSON_05
+    )
     return runner, collected

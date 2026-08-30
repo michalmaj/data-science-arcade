@@ -16,6 +16,8 @@ from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.investigation_hub_scene import InvestigationHubScene
 from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
 
+from lesson_test_helpers import click_through_mission_briefing
+
 
 def _init_app() -> App:
     app = App()
@@ -64,6 +66,7 @@ def test_the_full_lesson_plays_through_to_a_result_investigating_exactly_the_min
         finished_results = []
         runner, collected = build_lesson_thirty_runner(app, on_finished=lambda result: finished_results.append(result))
         runner.start()
+        click_through_mission_briefing(app)
 
         # Every stage is wrapped in Pausable (Escape opens the pause menu);
         # .inner is the actual stage scene the factory returned.
@@ -110,6 +113,7 @@ def test_investigating_every_lead_still_completes_thoughtfully():
         finished_results = []
         runner, _collected = build_lesson_thirty_runner(app, on_finished=lambda result: finished_results.append(result))
         runner.start()
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)
         _play_dialogue_to_the_end(app.scenes.current)

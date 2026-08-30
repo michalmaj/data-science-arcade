@@ -1,6 +1,7 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.framework.sampling import SamplingGroup
+from data_science_arcade.lessons.l19_power_plant.definition import LESSON_19
 from data_science_arcade.lessons.l19_power_plant.experiments import EXPERIMENTS, SAMPLING_GROUPS, STEP, TOTAL_WEEKS, detectable_effect_for
 from data_science_arcade.lessons.l19_power_plant.scoring import LessonNineteenResult
 from data_science_arcade.lessons.l19_power_plant.twist_data import conversion_rate, generate_banner_experiment_data
@@ -171,5 +172,7 @@ def build_lesson_nineteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=19, collected=collected, definition=LESSON_19
+    )
     return runner, collected

@@ -1,6 +1,7 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.framework.source import DataSource, SourceAttribute
+from data_science_arcade.lessons.l02_source_scout.definition import LESSON_02
 from data_science_arcade.lessons.l02_source_scout.scoring import LessonTwoResult
 from data_science_arcade.lessons.l02_source_scout.twist_data import generate_analytics_opt_in, opt_in_rate
 from data_science_arcade.narrative.dialogue import Dialogue, DialogueLine
@@ -198,5 +199,7 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=2, collected=collected, definition=LESSON_02
+    )
     return runner, collected

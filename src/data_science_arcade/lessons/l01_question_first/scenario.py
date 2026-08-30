@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l01_question_first.definition import LESSON_01
 from data_science_arcade.lessons.l01_question_first.scoring import LessonOneResult
 from data_science_arcade.lessons.l01_question_first.twist_data import (
     RECENT_WINDOW_START,
@@ -199,5 +200,7 @@ def build_lesson_one_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=1, collected=collected, definition=LESSON_01
+    )
     return runner, collected

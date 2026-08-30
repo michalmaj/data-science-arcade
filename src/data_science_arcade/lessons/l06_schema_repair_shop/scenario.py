@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l06_schema_repair_shop.definition import LESSON_06
 from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPAIR_ISSUES, generate_sales_export
 from data_science_arcade.lessons.l06_schema_repair_shop.scoring import LessonSixResult
 from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import (
@@ -133,5 +134,7 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=6, collected=collected, definition=LESSON_06
+    )
     return runner, collected

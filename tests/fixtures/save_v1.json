@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "language": "pl",
+  "fullscreen": true,
+  "lessons": {
+    "1": "completed",
+    "2": "completed",
+    "3": "unlocked"
+  }
+}

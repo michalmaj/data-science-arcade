@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l23_time_series_control_room.definition import LESSON_23
 from data_science_arcade.lessons.l23_time_series_control_room.kpi_data import build_time_series, generate_kpi_data
 from data_science_arcade.lessons.l23_time_series_control_room.requests import TIME_SERIES_REQUESTS
 from data_science_arcade.lessons.l23_time_series_control_room.scoring import LessonTwentyThreeResult
@@ -131,5 +132,7 @@ def build_lesson_twenty_three_runner(app, on_finished) -> tuple[LessonRunner, di
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=23, collected=collected, definition=LESSON_23
+    )
     return runner, collected

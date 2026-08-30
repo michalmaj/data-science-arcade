@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l24_survey_bureau.definition import LESSON_24
 from data_science_arcade.lessons.l24_survey_bureau.population_data import generate_population_data, simulate_survey
 from data_science_arcade.lessons.l24_survey_bureau.requests import SURVEY_REQUESTS
 from data_science_arcade.lessons.l24_survey_bureau.scoring import LessonTwentyFourResult
@@ -128,5 +129,7 @@ def build_lesson_twenty_four_runner(app, on_finished) -> tuple[LessonRunner, dic
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=24, collected=collected, definition=LESSON_24
+    )
     return runner, collected

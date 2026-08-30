@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l14_chart_designer.definition import LESSON_14
 from data_science_arcade.lessons.l14_chart_designer.requests import CHART_REQUESTS
 from data_science_arcade.lessons.l14_chart_designer.scoring import LessonFourteenResult
 from data_science_arcade.lessons.l14_chart_designer.store_metrics import generate_returns, return_rate
@@ -126,5 +127,7 @@ def build_lesson_fourteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=14, collected=collected, definition=LESSON_14
+    )
     return runner, collected

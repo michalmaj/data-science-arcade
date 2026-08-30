@@ -29,3 +29,9 @@ class LessonDefinition:
     title_key: str
     objective_keys: tuple[str, ...]
     scoring_dimensions: tuple[ScoreDimension, ...]
+    estimated_minutes: int
+    """Current honest single-pass playtime, not the spec's 70-90 minute
+    target these lessons don't hit yet - a false "70 min" estimate on a
+    15-minute lesson would just be a second misleading number. Revised
+    upward lesson by lesson as each one gets its own content-deepening
+    pass."""

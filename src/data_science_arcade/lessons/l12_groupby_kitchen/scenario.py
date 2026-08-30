@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l12_groupby_kitchen.definition import LESSON_12
 from data_science_arcade.lessons.l12_groupby_kitchen.orders import distinct_customers_by_store, generate_orders, order_count_by_store
 from data_science_arcade.lessons.l12_groupby_kitchen.requests import AGGREGATION_REQUESTS
 from data_science_arcade.lessons.l12_groupby_kitchen.scoring import LessonTwelveResult
@@ -128,5 +129,7 @@ def build_lesson_twelve_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=12, collected=collected, definition=LESSON_12
+    )
     return runner, collected

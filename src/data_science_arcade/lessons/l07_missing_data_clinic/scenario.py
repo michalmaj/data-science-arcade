@@ -7,6 +7,7 @@ from data_science_arcade.lessons.l07_missing_data_clinic.customer_data import (
     segment_imputed_mean,
     true_population_mean,
 )
+from data_science_arcade.lessons.l07_missing_data_clinic.definition import LESSON_07
 from data_science_arcade.lessons.l07_missing_data_clinic.scoring import LessonSevenResult
 from data_science_arcade.narrative.dialogue import Dialogue, DialogueLine
 from data_science_arcade.narrative.npc import DATA_ENGINEER, MENTOR, PRODUCT_MANAGER
@@ -199,5 +200,7 @@ def build_lesson_seven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=7, collected=collected, definition=LESSON_07
+    )
     return runner, collected

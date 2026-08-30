@@ -1,6 +1,7 @@
 from data_science_arcade.lessons.framework.api import APIRequestAttempt
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l03_api_courier.definition import LESSON_03
 from data_science_arcade.lessons.l03_api_courier.scoring import LessonThreeResult
 from data_science_arcade.lessons.l03_api_courier.twist_data import (
     SHORTFALL_PAGE,
@@ -162,5 +163,7 @@ def build_lesson_three_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=3, collected=collected, definition=LESSON_03
+    )
     return runner, collected

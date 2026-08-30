@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l27_causality_courtroom.definition import LESSON_27
 from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRELATION_REQUESTS
 from data_science_arcade.lessons.l27_causality_courtroom.scoring import LessonTwentySevenResult
 from data_science_arcade.lessons.l27_causality_courtroom.twist_data import conversion_rate, generate_checkout_beta_data
@@ -131,5 +132,7 @@ def build_lesson_twenty_seven_runner(app, on_finished) -> tuple[LessonRunner, di
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=27, collected=collected, definition=LESSON_27
+    )
     return runner, collected
