@@ -1,6 +1,7 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.l13_join_junction.customers_orders import generate_customers, generate_orders
+from data_science_arcade.lessons.l13_join_junction.definition import LESSON_13
 from data_science_arcade.lessons.l13_join_junction.requests import JOIN_REQUESTS
 from data_science_arcade.lessons.l13_join_junction.scoring import LessonThirteenResult
 from data_science_arcade.lessons.l13_join_junction.twist_data import generate_promotions, naive_joined_revenue, true_total_revenue
@@ -129,5 +130,7 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=13, collected=collected, definition=LESSON_13
+    )
     return runner, collected

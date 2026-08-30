@@ -100,6 +100,8 @@ from data_science_arcade.ui.timeseries_scene import TimeSeriesScene
 from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
 
+from lesson_test_helpers import click_through_mission_briefing
+
 
 def test_only_the_first_lesson_starts_enabled():
     app = App()
@@ -144,6 +146,7 @@ def test_clicking_lesson_one_starts_the_real_lesson_not_a_placeholder():
         app.scenes.push(course_map)
 
         course_map._open_lesson(1)
+        click_through_mission_briefing(app)
 
         # Every lesson stage is wrapped in Pausable (spec: Escape opens a
         # pause menu); .inner is the actual first-stage scene.
@@ -162,6 +165,7 @@ def test_clicking_lesson_two_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(2)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -178,6 +182,7 @@ def test_clicking_lesson_three_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(3)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -194,6 +199,7 @@ def test_clicking_lesson_four_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(4)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -210,6 +216,7 @@ def test_clicking_lesson_five_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(5)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -226,6 +233,7 @@ def test_clicking_lesson_six_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(6)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -242,6 +250,7 @@ def test_clicking_lesson_seven_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(7)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -258,6 +267,7 @@ def test_clicking_lesson_eight_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(8)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -274,6 +284,7 @@ def test_clicking_lesson_nine_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(9)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -290,6 +301,7 @@ def test_clicking_lesson_ten_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(10)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -306,6 +318,7 @@ def test_clicking_lesson_eleven_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(11)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -322,6 +335,7 @@ def test_clicking_lesson_twelve_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(12)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -338,6 +352,7 @@ def test_clicking_lesson_thirteen_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(13)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -354,6 +369,7 @@ def test_clicking_lesson_fourteen_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(14)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -370,6 +386,7 @@ def test_clicking_lesson_fifteen_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(15)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -386,6 +403,7 @@ def test_clicking_lesson_sixteen_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(16)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -402,6 +420,7 @@ def test_clicking_lesson_seventeen_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(17)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -418,6 +437,7 @@ def test_clicking_lesson_eighteen_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(18)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -434,6 +454,7 @@ def test_clicking_lesson_nineteen_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(19)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -450,6 +471,7 @@ def test_clicking_lesson_twenty_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(20)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -466,6 +488,7 @@ def test_clicking_lesson_twenty_one_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(21)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -482,6 +505,7 @@ def test_clicking_lesson_twenty_two_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(22)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -498,6 +522,7 @@ def test_clicking_lesson_twenty_three_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(23)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -514,6 +539,7 @@ def test_clicking_lesson_twenty_four_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(24)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -530,6 +556,7 @@ def test_clicking_lesson_twenty_five_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(25)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -546,6 +573,7 @@ def test_clicking_lesson_twenty_six_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(26)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -562,6 +590,7 @@ def test_clicking_lesson_twenty_seven_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(27)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -578,6 +607,7 @@ def test_clicking_lesson_twenty_eight_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(28)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -594,6 +624,7 @@ def test_clicking_lesson_twenty_nine_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(29)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -610,6 +641,7 @@ def test_clicking_lesson_thirty_starts_the_real_lesson_once_unlocked():
         app.scenes.push(course_map)
 
         course_map._open_lesson(30)
+        click_through_mission_briefing(app)
 
         assert isinstance(app.scenes.current.inner, DialogueScene)
         assert not isinstance(app.scenes.current.inner, PlaceholderScene)
@@ -635,6 +667,7 @@ def test_finishing_lesson_one_marks_it_complete_and_unlocks_lesson_two():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(1)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -660,6 +693,7 @@ def test_finishing_lesson_two_marks_it_complete_and_unlocks_lesson_three():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(2)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -695,6 +729,7 @@ def test_finishing_lesson_three_marks_it_complete_and_unlocks_lesson_four():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(3)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -729,6 +764,7 @@ def test_finishing_lesson_four_marks_it_complete_and_unlocks_lesson_five():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(4)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -762,6 +798,7 @@ def test_finishing_lesson_five_marks_it_complete_and_unlocks_lesson_six():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(5)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -803,6 +840,7 @@ def test_finishing_lesson_six_marks_it_complete_and_unlocks_lesson_seven():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(6)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -836,6 +874,7 @@ def test_finishing_lesson_seven_marks_it_complete_and_unlocks_lesson_eight():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(7)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -869,6 +908,7 @@ def test_finishing_lesson_eight_marks_it_complete_and_unlocks_lesson_nine():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(8)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -903,6 +943,7 @@ def test_finishing_lesson_nine_marks_it_complete_and_unlocks_lesson_ten():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(9)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -937,6 +978,7 @@ def test_finishing_lesson_ten_marks_it_complete_and_unlocks_lesson_eleven():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(10)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -971,6 +1013,7 @@ def test_finishing_lesson_eleven_marks_it_complete_and_unlocks_lesson_twelve():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(11)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1008,6 +1051,7 @@ def test_finishing_lesson_twelve_marks_it_complete_and_unlocks_lesson_thirteen()
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(12)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1042,6 +1086,7 @@ def test_finishing_lesson_thirteen_marks_it_complete_and_unlocks_lesson_fourteen
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(13)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1076,6 +1121,7 @@ def test_finishing_lesson_fourteen_marks_it_complete_and_unlocks_lesson_fifteen(
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(14)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1110,6 +1156,7 @@ def test_finishing_lesson_fifteen_marks_it_complete_and_unlocks_lesson_sixteen()
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(15)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1144,6 +1191,7 @@ def test_finishing_lesson_sixteen_marks_it_complete_and_unlocks_lesson_seventeen
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(16)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1179,6 +1227,7 @@ def test_finishing_lesson_seventeen_marks_it_complete_and_unlocks_lesson_eightee
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(17)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1213,6 +1262,7 @@ def test_finishing_lesson_eighteen_marks_it_complete_and_unlocks_lesson_nineteen
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(18)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1246,6 +1296,7 @@ def test_finishing_lesson_nineteen_marks_it_complete_and_unlocks_lesson_twenty()
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(19)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1277,6 +1328,7 @@ def test_finishing_lesson_twenty_marks_it_complete_and_unlocks_lesson_twenty_one
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(20)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1311,6 +1363,7 @@ def test_finishing_lesson_twenty_one_marks_it_complete_and_unlocks_lesson_twenty
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(21)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1345,6 +1398,7 @@ def test_finishing_lesson_twenty_two_marks_it_complete_and_unlocks_lesson_twenty
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(22)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1379,6 +1433,7 @@ def test_finishing_lesson_twenty_three_marks_it_complete_and_unlocks_lesson_twen
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(23)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1415,6 +1470,7 @@ def test_finishing_lesson_twenty_four_marks_it_complete_and_unlocks_lesson_twent
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(24)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1451,6 +1507,7 @@ def test_finishing_lesson_twenty_five_marks_it_complete_and_unlocks_lesson_twent
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(25)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1485,6 +1542,7 @@ def test_finishing_lesson_twenty_six_marks_it_complete_and_unlocks_lesson_twenty
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(26)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1519,6 +1577,7 @@ def test_finishing_lesson_twenty_seven_marks_it_complete_and_unlocks_lesson_twen
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(27)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1553,6 +1612,7 @@ def test_finishing_lesson_twenty_eight_marks_it_complete_and_unlocks_lesson_twen
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(28)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1588,6 +1648,7 @@ def test_finishing_lesson_twenty_nine_marks_it_complete_and_unlocks_lesson_thirt
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(29)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
@@ -1637,6 +1698,7 @@ def test_finishing_lesson_thirty_marks_it_complete():
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(30)
+        click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation intro

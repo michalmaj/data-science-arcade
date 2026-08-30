@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l11_distribution_observatory.definition import LESSON_11
 from data_science_arcade.lessons.l11_distribution_observatory.lenses import build_distribution_lenses
 from data_science_arcade.lessons.l11_distribution_observatory.order_values import generate_order_values, segment_mean
 from data_science_arcade.lessons.l11_distribution_observatory.scoring import LessonElevenResult
@@ -129,5 +130,7 @@ def build_lesson_eleven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=11, collected=collected, definition=LESSON_11
+    )
     return runner, collected

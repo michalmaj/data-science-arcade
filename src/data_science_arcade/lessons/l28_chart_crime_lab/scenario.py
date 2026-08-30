@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l28_chart_crime_lab.definition import LESSON_28
 from data_science_arcade.lessons.l28_chart_crime_lab.requests import CHART_REQUESTS
 from data_science_arcade.lessons.l28_chart_crime_lab.scoring import LessonTwentyEightResult
 from data_science_arcade.lessons.l28_chart_crime_lab.twist_data import generate_spend_signups_data, percent_change
@@ -130,5 +131,7 @@ def build_lesson_twenty_eight_runner(app, on_finished) -> tuple[LessonRunner, di
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=28, collected=collected, definition=LESSON_28
+    )
     return runner, collected

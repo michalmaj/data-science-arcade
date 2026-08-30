@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l30_the_data_incident.definition import LESSON_30
 from data_science_arcade.lessons.l30_the_data_incident.incident_data import (
     generate_incident_data,
     region_baseline_average,
@@ -180,5 +181,7 @@ def build_lesson_thirty_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation_intro, investigation_hub, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=30, collected=collected, definition=LESSON_30
+    )
     return runner, collected

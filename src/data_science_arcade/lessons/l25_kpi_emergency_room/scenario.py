@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l25_kpi_emergency_room.definition import LESSON_25
 from data_science_arcade.lessons.l25_kpi_emergency_room.incident_log import generate_incident_log, simulate_monitoring
 from data_science_arcade.lessons.l25_kpi_emergency_room.requests import MONITORING_REQUESTS
 from data_science_arcade.lessons.l25_kpi_emergency_room.scoring import LessonTwentyFiveResult
@@ -130,5 +131,7 @@ def build_lesson_twenty_five_runner(app, on_finished) -> tuple[LessonRunner, dic
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=25, collected=collected, definition=LESSON_25
+    )
     return runner, collected

@@ -1,6 +1,7 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.l22_cohort_observatory.cohort_data import build_cohort_matrix, generate_cohort_data, retention_rate
+from data_science_arcade.lessons.l22_cohort_observatory.definition import LESSON_22
 from data_science_arcade.lessons.l22_cohort_observatory.requests import COHORT_REQUESTS
 from data_science_arcade.lessons.l22_cohort_observatory.scoring import LessonTwentyTwoResult
 from data_science_arcade.lessons.l22_cohort_observatory.twist_data import generate_november_cohort_data, november_retention_rate
@@ -132,5 +133,7 @@ def build_lesson_twenty_two_runner(app, on_finished) -> tuple[LessonRunner, dict
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=22, collected=collected, definition=LESSON_22
+    )
     return runner, collected

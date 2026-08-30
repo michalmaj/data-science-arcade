@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l29_the_executive_brief.definition import LESSON_29
 from data_science_arcade.lessons.l29_the_executive_brief.findings import FINDINGS_POOL, TARGET_FINDING_COUNT
 from data_science_arcade.lessons.l29_the_executive_brief.scoring import LessonTwentyNineResult
 from data_science_arcade.lessons.l29_the_executive_brief.twist_data import generate_app_update_data, percent_change
@@ -164,5 +165,7 @@ def build_lesson_twenty_nine_runner(app, on_finished) -> tuple[LessonRunner, dic
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=29, collected=collected, definition=LESSON_29
+    )
     return runner, collected

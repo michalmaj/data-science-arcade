@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l16_metric_forge.definition import LESSON_16
 from data_science_arcade.lessons.l16_metric_forge.requests import METRIC_REQUESTS
 from data_science_arcade.lessons.l16_metric_forge.scoring import LessonSixteenResult
 from data_science_arcade.lessons.l16_metric_forge.twist_data import churn_mean, generate_churn_data
@@ -145,5 +146,7 @@ def build_lesson_sixteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=16, collected=collected, definition=LESSON_16
+    )
     return runner, collected

@@ -1,6 +1,7 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.l20_ab_test_commander.checkpoints import CHECKOUT_CHECKPOINTS
+from data_science_arcade.lessons.l20_ab_test_commander.definition import LESSON_20
 from data_science_arcade.lessons.l20_ab_test_commander.experiment_data import TOTAL_RUNTIME_DAYS
 from data_science_arcade.lessons.l20_ab_test_commander.scoring import LessonTwentyResult
 from data_science_arcade.lessons.l20_ab_test_commander.twist_data import click_through_rate, generate_reranking_data
@@ -144,5 +145,7 @@ def build_lesson_twenty_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=20, collected=collected, definition=LESSON_20
+    )
     return runner, collected

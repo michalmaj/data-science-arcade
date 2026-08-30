@@ -1,6 +1,7 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.flow import FlowEventOption, FlowStep
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l04_event_log_factory.definition import LESSON_04
 from data_science_arcade.lessons.l04_event_log_factory.scoring import LessonFourResult
 from data_science_arcade.lessons.l04_event_log_factory.twist_data import (
     MISSING_EVENT,
@@ -209,5 +210,7 @@ def build_lesson_four_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=4, collected=collected, definition=LESSON_04
+    )
     return runner, collected

@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
+from data_science_arcade.lessons.l09_outlier_patrol.definition import LESSON_09
 from data_science_arcade.lessons.l09_outlier_patrol.scoring import LessonNineResult
 from data_science_arcade.lessons.l09_outlier_patrol.transactions import OUTLIER_CASES
 from data_science_arcade.lessons.l09_outlier_patrol.twist_data import category_rate, generate_flagged_transactions
@@ -130,5 +131,7 @@ def build_lesson_nine_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=9, collected=collected, definition=LESSON_09
+    )
     return runner, collected

@@ -1,6 +1,7 @@
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.l10_validation_gate.checks import VALIDATION_CHECKS
+from data_science_arcade.lessons.l10_validation_gate.definition import LESSON_10
 from data_science_arcade.lessons.l10_validation_gate.scoring import LessonTenResult
 from data_science_arcade.lessons.l10_validation_gate.twist_data import (
     generate_orders_feed,
@@ -134,5 +135,7 @@ def build_lesson_ten_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         on_finished(collected["result"])
 
     stages = [briefing, investigation, guided_work, independent_intro, independent_challenge, twist, decision, debrief]
-    runner = LessonRunner(app, stages, on_finished=finished)
+    runner = LessonRunner(
+        app, stages, on_finished=finished, lesson_number=10, collected=collected, definition=LESSON_10
+    )
     return runner, collected
