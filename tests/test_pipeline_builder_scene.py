@@ -11,6 +11,7 @@ from data_science_arcade.data_engine.dataset import Dataset
 from data_science_arcade.data_engine.schema import ColumnSchema, Schema
 from data_science_arcade.lessons.framework.aggregation import AggregateOption, AggregationRequest, GroupByOption
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
+from data_science_arcade.workbench.context import LessonContext
 
 SCHEMA = Schema(columns=(ColumnSchema("group_a", "object"), ColumnSchema("group_b", "object"), ColumnSchema("amount", "float64")))
 
@@ -161,6 +162,71 @@ def test_the_live_preview_reflects_real_pandas_computation():
         grouped = dict(DATASET.frame.groupby(group_by.column)[request.value_column].agg(aggregate.func).items())
 
         assert grouped == {"x": 30.0, "y": 5.0}
+    finally:
+        pygame.quit()
+
+
+def test_with_no_context_given_a_fresh_one_is_created():
+    app = _init_app()
+    try:
+        scene = _make_scene(app)
+        assert isinstance(scene.context, LessonContext)
+        assert scene.context.actions == ()
+    finally:
+        pygame.quit()
+
+
+def test_committing_a_complete_choice_records_a_real_action_and_evidence_with_realistic_pandas_code():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = PipelineBuilderScene(app, "app.title", DATASET, REQUESTS, lambda choices: None, context=context)
+        scene.buttons.buttons[0].on_activate()  # group_by: by_a (column="group_a")
+        scene.buttons.buttons[2].on_activate()  # aggregate: sum (func="sum")
+
+        assert len(context.actions) == 1
+        action = context.actions[0]
+        assert action.python_code == "synthetic.groupby('group_a')['amount'].sum()"
+        assert len(context.evidence) == 1
+        assert context.evidence[0].source_action_id == action.id
+    finally:
+        pygame.quit()
+
+
+def test_recommitting_the_same_pair_does_not_duplicate_the_recorded_action():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = PipelineBuilderScene(app, "app.title", DATASET, REQUESTS, lambda choices: None, context=context)
+        scene.buttons.buttons[0].on_activate()  # group_by: by_a
+        scene.buttons.buttons[2].on_activate()  # aggregate: sum -> commits (by_a, sum)
+        scene.buttons.buttons[3].on_activate()  # aggregate: count -> commits (by_a, count), a different line
+        scene.buttons.buttons[2].on_activate()  # back to sum -> re-commits (by_a, sum), already recorded
+
+        assert len(context.actions) == 2  # (by_a, sum) and (by_a, count) - not three
+        codes = [a.python_code for a in context.actions]
+        assert codes.count("synthetic.groupby('group_a')['amount'].sum()") == 1
+        assert codes.count("synthetic.groupby('group_a')['amount'].count()") == 1
+    finally:
+        pygame.quit()
+
+
+def test_l12s_own_usage_pattern_is_unaffected_without_a_context():
+    # Mirrors exactly how l12_groupby_kitchen/scenario.py constructs this
+    # scene today - no context kwarg at all - confirming the new param is
+    # fully backward compatible with the one real lesson using it.
+    app = _init_app()
+    try:
+        collected = []
+        scene = PipelineBuilderScene(app, "app.title", DATASET, REQUESTS, lambda choices: collected.append(choices))
+        scene.buttons.buttons[0].on_activate()
+        scene.buttons.buttons[2].on_activate()
+        scene.next_button.on_activate()
+        scene.buttons.buttons[1].on_activate()
+        scene.buttons.buttons[3].on_activate()
+        scene.next_button.on_activate()
+
+        assert collected == [{"request_a": ("by_a", "sum"), "request_b": ("by_b", "count")}]
     finally:
         pygame.quit()
 
