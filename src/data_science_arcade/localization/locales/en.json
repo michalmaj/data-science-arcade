@@ -1681,5 +1681,12 @@
   "lesson.l30.field.follow_up_measurement.hint": "The company-wide total is exactly what hid this region-specific swing.",
   "lesson.l30.option.follow_up_measurement.track_total_only": "Keep watching only the company-wide total",
   "lesson.l30.option.follow_up_measurement.track_per_region": "Track revenue per region, not just the total",
-  "lesson.l30.option.follow_up_measurement.no_further_tracking": "Nothing further - the case is closed"
+  "lesson.l30.option.follow_up_measurement.no_further_tracking": "Nothing further - the case is closed",
+
+  "runtime.start_mission": "Start Mission",
+  "runtime.estimated_duration_label": "Estimated time",
+  "runtime.objectives_header": "Objectives",
+  "lesson.feedback.completed": "You completed every stage of this lesson.",
+  "lesson.feedback.incomplete": "This attempt ended before every stage was finished.",
+  "lesson.feedback.hints_used": "You used one or more hints along the way."
 }

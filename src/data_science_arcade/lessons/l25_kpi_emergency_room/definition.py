@@ -11,4 +11,5 @@ LESSON_25 = LessonDefinition(
         "lesson.l25.objective3",
     ),
     scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.COMMUNICATION, ScoreDimension.OVERCONFIDENCE),
+    estimated_minutes=15,
 )

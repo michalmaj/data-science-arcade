@@ -11,4 +11,5 @@ LESSON_05 = LessonDefinition(
         "lesson.l05.objective3",
     ),
     scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.EVIDENCE, ScoreDimension.UNCERTAINTY),
+    estimated_minutes=15,
 )

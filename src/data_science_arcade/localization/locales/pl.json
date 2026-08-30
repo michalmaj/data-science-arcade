@@ -1681,5 +1681,12 @@
   "lesson.l30.field.follow_up_measurement.hint": "To właśnie łączny wynik firmy ukrył to regionalne wahnięcie.",
   "lesson.l30.option.follow_up_measurement.track_total_only": "Nadal patrzeć tylko na łączny wynik firmy",
   "lesson.l30.option.follow_up_measurement.track_per_region": "Śledzić przychód według regionów",
-  "lesson.l30.option.follow_up_measurement.no_further_tracking": "Nic więcej - sprawa zamknięta"
+  "lesson.l30.option.follow_up_measurement.no_further_tracking": "Nic więcej - sprawa zamknięta",
+
+  "runtime.start_mission": "Rozpocznij misję",
+  "runtime.estimated_duration_label": "Szacowany czas",
+  "runtime.objectives_header": "Cele",
+  "lesson.feedback.completed": "Wszystkie etapy tej lekcji zostały ukończone.",
+  "lesson.feedback.incomplete": "To podejście zakończyło się, zanim ukończono wszystkie etapy.",
+  "lesson.feedback.hints_used": "Po drodze skorzystano z co najmniej jednej podpowiedzi."
 }

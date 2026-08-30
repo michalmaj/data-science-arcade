@@ -19,6 +19,7 @@ DEFINITION = LessonDefinition(
     title_key="x",
     objective_keys=("x",),
     scoring_dimensions=(ScoreDimension.REASONING, ScoreDimension.EVIDENCE),
+    estimated_minutes=15,
 )
 
 
