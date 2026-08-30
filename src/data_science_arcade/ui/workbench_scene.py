@@ -5,13 +5,14 @@ import pandas as pd
 import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
+from data_science_arcade.core.fonts import get_font
 from data_science_arcade.core.scenes import Scene
 from data_science_arcade.data_engine.dataset import Dataset
 from data_science_arcade.lessons.framework.repair import RepairIssue, RepairResolution
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
-from data_science_arcade.ui.text import draw_centered_text, draw_single_line, draw_wrapped_text
+from data_science_arcade.ui.text import draw_centered_text, draw_single_line, draw_wrapped_text, wrap_text
 from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
@@ -352,8 +353,10 @@ class WorkbenchScene(Scene):
         left = CONTENT_RECT.left + 20
         width = CONTENT_RECT.width - 40
         line_height = 26
-        for index, column in enumerate(self.dataset.schema.columns):
-            y = top + index * line_height
+        description_width = width - 12
+        description_font = get_font(13)
+        y = top
+        for column in self.dataset.schema.columns:
             header = f"{column.name} ({column.dtype})" + ("" if not column.nullable else " - nullable")
             draw_single_line(surface, header, (left, y), width, 16, colors.TEXT)
             # description_key (localized) wins when a schema author has set
@@ -362,7 +365,16 @@ class WorkbenchScene(Scene):
             # their existing (unlocalized) text rather than nothing.
             description = loc.t(column.description_key) if column.description_key else column.description
             if description:
-                draw_wrapped_text(surface, description, (left + 12, y + 18), width - 12, 13, colors.BUTTON_TEXT_DISABLED)
+                draw_wrapped_text(surface, description, (left + 12, y + 18), description_width, 13, colors.BUTTON_TEXT_DISABLED)
+                # A fixed line_height would let a wrapped description bleed
+                # into the next column's header (invisible until now, since
+                # no ColumnSchema had real description text before this) -
+                # advance by however many lines it actually wrapped to. Must
+                # track draw_wrapped_text's own line_spacing default (4).
+                wrapped_lines = len(wrap_text(description, description_font, description_width))
+                y += 18 + wrapped_lines * (description_font.get_linesize() + 4) + 4
+            else:
+                y += line_height
 
     def _draw_evidence_tab(self, surface: pygame.Surface) -> None:
         if not self.context.evidence:

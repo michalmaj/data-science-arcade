@@ -17,8 +17,14 @@ PRICE_FIXED_SCHEMA = Schema(
     columns=(
         ColumnSchema("order_id", "int64"),
         ColumnSchema("market", "object"),
-        ColumnSchema("price", "float64"),
-        ColumnSchema("currency", "object"),
+        ColumnSchema("price", "float64", description_key="lesson.l06.schema.price.description_fixed"),
+        # currency has no schema_after of its own (its dtype never changes),
+        # so this schema - and therefore this description - takes effect the
+        # moment *price* is resolved, regardless of whether currency has
+        # been fixed yet. Keep this wording neutral (column meaning, not
+        # "already standardized") so it's never a false claim if the
+        # student fixes price before currency.
+        ColumnSchema("currency", "object", description_key="lesson.l06.schema.currency.description_fixed"),
     )
 )
 

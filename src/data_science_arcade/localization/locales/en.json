@@ -390,6 +390,8 @@
   "lesson.l06.issue.currency.evidence": "Currency codes had inconsistent casing across source systems - now standardized.",
   "lesson.l06.schema.price.description": "Stored as text - decimal separator varies by market",
   "lesson.l06.schema.currency.description": "Casing is inconsistent across source systems",
+  "lesson.l06.schema.price.description_fixed": "Parsed as a real number",
+  "lesson.l06.schema.currency.description_fixed": "Currency code for the order's market",
   "lesson.l06.option.price.comma_as_decimal": "Comma is the decimal separator",
   "lesson.l06.option.price.comma_as_thousands": "Comma is a thousands separator",
   "lesson.l06.option.price.leading_digits_only": "Keep only the digits before any separator",

@@ -390,6 +390,8 @@
   "lesson.l06.issue.currency.evidence": "Kody walut miały niespójną wielkość liter w różnych systemach źródłowych — teraz są ujednolicone.",
   "lesson.l06.schema.price.description": "Zapisana jako tekst — separator dziesiętny zależy od rynku",
   "lesson.l06.schema.currency.description": "Wielkość liter jest niespójna w różnych systemach źródłowych",
+  "lesson.l06.schema.price.description_fixed": "Sparsowana jako liczba rzeczywista",
+  "lesson.l06.schema.currency.description_fixed": "Kod waluty zamówienia",
   "lesson.l06.option.price.comma_as_decimal": "Przecinek to separator dziesiętny",
   "lesson.l06.option.price.comma_as_thousands": "Przecinek to separator tysięcy",
   "lesson.l06.option.price.leading_digits_only": "Zachowaj tylko cyfry przed separatorem",
