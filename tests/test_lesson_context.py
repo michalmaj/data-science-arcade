@@ -20,13 +20,37 @@ def test_record_action_returns_it_and_appends_it_in_order():
     assert second.python_code is None
 
 
-def test_actions_get_unique_ids_even_with_the_same_label():
+def test_actions_get_unique_ids_when_content_actually_differs():
     context = LessonContext()
 
-    one = context.record_action("same_label")
-    two = context.record_action("same_label")
+    one = context.record_action("same_label", python_code="a = 1")
+    two = context.record_action("same_label", python_code="a = 2")
 
     assert one.id != two.id
+
+
+def test_recording_identical_content_again_returns_the_existing_action_not_a_duplicate():
+    # Matters concretely for Lesson 06: guided_work and independent_challenge
+    # deliberately present the same issues again, so a student picking the
+    # same correct option in both rounds must not double the Python Mirror.
+    context = LessonContext()
+
+    one = context.record_action("same_label", python_code="a = 1")
+    two = context.record_action("same_label", python_code="a = 1")
+
+    assert one is two
+    assert context.actions == (one,)
+
+
+def test_recording_identical_evidence_again_returns_the_existing_item_not_a_duplicate():
+    context = LessonContext()
+    action = context.record_action("fixed_price_column", python_code="x = 1")
+
+    one = context.record_evidence("price had a decimal separator issue", source_action=action)
+    two = context.record_evidence("price had a decimal separator issue", source_action=action)
+
+    assert one is two
+    assert context.evidence == (one,)
 
 
 def test_record_evidence_references_a_real_action_id_not_a_hand_typed_string():
@@ -83,5 +107,53 @@ def test_two_separate_contexts_do_not_share_ids_or_state():
     assert first.actions == (action_a,)
     assert second.actions == (action_b,)
     # Both start their own counter at 1 - fine, since uniqueness only needs
-    # to hold *within* one context, matching its fresh-per-stage lifetime.
+    # to hold within one context; two contexts sharing a lesson instance
+    # today are actually the *same* object (see scenario.py), not two.
     assert action_a.id == action_b.id == "action_1"
+
+
+def test_to_dict_and_restore_from_dict_round_trip_actions_evidence_and_decision():
+    original = LessonContext()
+    action = original.record_action("fixed_price", python_code="x = 1")
+    original.record_evidence("price was wrong", source_action=action)
+    original.set_decision(DecisionState(choices={"field": "option"}, supporting_evidence_ids=("evidence_1",)))
+
+    restored = LessonContext()
+    restored.restore_from_dict(original.to_dict())
+
+    assert restored.actions == original.actions
+    assert restored.evidence == original.evidence
+    assert restored.decision == original.decision
+
+
+def test_restore_continues_id_numbering_without_colliding_with_a_new_recording():
+    original = LessonContext()
+    original.record_action("a", python_code="a = 1")  # "action_1"
+    original.record_action("b", python_code="b = 2")  # "action_2"
+
+    restored = LessonContext()
+    restored.restore_from_dict(original.to_dict())
+    new_action = restored.record_action("c", python_code="c = 3")
+
+    assert new_action.id == "action_3"  # continues from next_id, not restarting at 1
+
+
+def test_restore_from_dict_is_a_no_op_when_the_incoming_state_is_not_ahead():
+    context = LessonContext()
+    context.record_action("a", python_code="a = 1")
+    context.record_action("b", python_code="b = 2")
+    snapshot_before_growing_further = context.to_dict()
+    context.record_action("c", python_code="c = 3")  # context is now ahead of the old snapshot
+
+    context.restore_from_dict(snapshot_before_growing_further)
+
+    assert len(context.actions) == 3  # "c" was not rolled back
+
+
+def test_restore_from_dict_ignores_a_malformed_payload_instead_of_raising():
+    context = LessonContext()
+    context.record_action("a", python_code="a = 1")
+
+    context.restore_from_dict({"next_id": 99, "actions": [{"id": "action_1"}]})  # missing required "label_key"
+
+    assert len(context.actions) == 1  # unchanged, not crashed

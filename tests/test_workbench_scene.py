@@ -337,12 +337,11 @@ def test_decision_tab_reflects_a_decision_once_one_is_set():
         pygame.quit()
 
 
-def test_python_tab_still_reads_the_dataset_not_the_context():
-    # The headline design constraint for this PR: switching PYTHON to the
-    # context would silently drop a pre-existing seed step nothing would
-    # ever emit an AnalyticalAction for. Confirm the dataset's own mirror
-    # (including any step from before WorkbenchScene existed) still wins,
-    # even once the context has real actions recorded too.
+def test_python_tab_merges_dataset_seed_history_with_context_actions_without_duplication():
+    # A pre-existing step (from before WorkbenchScene even existed) must
+    # still show up - nothing would ever emit an AnalyticalAction for it -
+    # and a resolved issue's code must show up exactly once, not doubled
+    # across both the dataset's own mirror and the context's.
     app = _init_app()
     try:
         seeded = make_dataset().then("loaded", lambda frame: frame, python_code="raw = pd.read_csv('x.csv')")
@@ -352,9 +351,11 @@ def test_python_tab_still_reads_the_dataset_not_the_context():
         flagged_cell.on_activate()
         scene.picker_buttons["upper"].on_activate()
 
-        assert "raw = pd.read_csv" in scene.dataset.python_mirror()
-        assert context.python_mirror() != scene.dataset.python_mirror()  # context never had the seed step
-        assert "raw = pd.read_csv" not in context.python_mirror()
+        merged = scene._python_mirror_text()
+
+        assert merged.count("raw = pd.read_csv") == 1
+        assert merged.count("x = x.upper()") == 1
+        assert merged.index("raw = pd.read_csv") < merged.index("x = x.upper()")  # seed before action
     finally:
         pygame.quit()
 

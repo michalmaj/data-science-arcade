@@ -11,6 +11,7 @@ from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
+from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 PROMPT_Y = 90
@@ -49,7 +50,17 @@ class PipelineBuilderScene(Scene):
     are made, same as every other stage scene's completion gate.
 
     guided=True also shows each request's hint; guided=False hides it,
-    matching every other stage scene's guided/independent split."""
+    matching every other stage scene's guided/independent split.
+
+    Committing a complete (group-by, aggregate) pair also records it into
+    `context` (workbench/context.py) as an AnalyticalAction with a real,
+    obviously-correct pandas equivalent (e.g. "orders.groupby('store_id')
+    ['revenue'].sum()") - unlike Lesson 29's FindingPickerScene proof,
+    whose python_code calls a helper function rather than real pandas.
+    `_commit_if_complete` fires on every click once both sides are chosen,
+    including if the student changes their mind and re-picks the same
+    pair later - LessonContext's own content-based dedup (not this scene)
+    is what keeps that from duplicating a line in the Python Mirror."""
 
     def __init__(
         self,
@@ -59,6 +70,7 @@ class PipelineBuilderScene(Scene):
         requests: tuple[AggregationRequest, ...],
         on_complete: Callable[[PipelineChoices], None],
         guided: bool = True,
+        context: LessonContext | None = None,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -66,6 +78,7 @@ class PipelineBuilderScene(Scene):
         self.requests = requests
         self.on_complete = on_complete
         self.guided = guided
+        self.context = context if context is not None else LessonContext()
         self.request_index = 0
         self.choices: PipelineChoices = {}
         self._group_by_choice: str | None = None
@@ -134,7 +147,13 @@ class PipelineBuilderScene(Scene):
 
     def _commit_if_complete(self) -> None:
         if self._group_by_choice is not None and self._aggregate_choice is not None:
-            self.choices[self._current_request().key] = (self._group_by_choice, self._aggregate_choice)
+            request = self._current_request()
+            self.choices[request.key] = (self._group_by_choice, self._aggregate_choice)
+            group_by = self._selected_group_by(request)
+            aggregate = self._selected_aggregate(request)
+            python_code = f"{self.dataset.name}.groupby('{group_by.column}')['{request.value_column}'].{aggregate.func}()"
+            action = self.context.record_action(label_key=group_by.label_key, python_code=python_code)
+            self.context.record_evidence(label_key=group_by.label_key, source_action=action)
 
     def _back(self) -> None:
         if self.request_index > 0:
