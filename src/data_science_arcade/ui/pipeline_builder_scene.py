@@ -58,9 +58,10 @@ class PipelineBuilderScene(Scene):
     ['revenue'].sum()") - unlike Lesson 29's FindingPickerScene proof,
     whose python_code calls a helper function rather than real pandas.
     `_commit_if_complete` fires on every click once both sides are chosen,
-    including if the student changes their mind and re-picks the same
-    pair later - LessonContext's own content-based dedup (not this scene)
-    is what keeps that from duplicating a line in the Python Mirror."""
+    including if the student changes their mind and re-picks a different
+    pair for the *same* request - keyed by `request.key`, so that request's
+    one slot in the Python Mirror updates to reflect the current choice
+    instead of accumulating a line per click."""
 
     def __init__(
         self,
@@ -152,8 +153,12 @@ class PipelineBuilderScene(Scene):
             group_by = self._selected_group_by(request)
             aggregate = self._selected_aggregate(request)
             python_code = f"{self.dataset.name}.groupby('{group_by.column}')['{request.value_column}'].{aggregate.func}()"
-            action = self.context.record_action(label_key=group_by.label_key, python_code=python_code)
-            self.context.record_evidence(label_key=group_by.label_key, source_action=action)
+            # key=request.key: changing a pick and coming back to an
+            # earlier one re-commits the *same* request - this updates
+            # that request's one slot to the current choice instead of
+            # accumulating a line per click.
+            action = self.context.record_action(label_key=group_by.label_key, python_code=python_code, key=request.key)
+            self.context.record_evidence(label_key=group_by.label_key, source_action=action, key=request.key)
 
     def _back(self) -> None:
         if self.request_index > 0:
