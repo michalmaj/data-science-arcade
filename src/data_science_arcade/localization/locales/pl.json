@@ -1689,5 +1689,17 @@
   "lesson.feedback.completed": "Wszystkie etapy tej lekcji zostały ukończone.",
   "lesson.feedback.incomplete": "To podejście zakończyło się, zanim ukończono wszystkie etapy.",
   "lesson.feedback.hints_used": "Po drodze skorzystano z co najmniej jednej podpowiedzi.",
-  "runtime.hint_button": "Podpowiedź"
+  "runtime.hint_button": "Podpowiedź",
+  "runtime.continue_button": "Dalej",
+  "runtime.feedback_title": "Informacja zwrotna",
+  "runtime.scores_header": "Wyniki",
+  "runtime.observations_header": "Obserwacje",
+  "score_dimension.data_quality": "Jakość danych",
+  "score_dimension.method": "Metoda",
+  "score_dimension.reasoning": "Rozumowanie",
+  "score_dimension.evidence": "Dowody",
+  "score_dimension.uncertainty": "Niepewność",
+  "score_dimension.reproducibility": "Powtarzalność",
+  "score_dimension.communication": "Komunikacja",
+  "score_dimension.overconfidence": "Nadmierna pewność"
 }

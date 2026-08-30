@@ -1689,5 +1689,17 @@
   "lesson.feedback.completed": "You completed every stage of this lesson.",
   "lesson.feedback.incomplete": "This attempt ended before every stage was finished.",
   "lesson.feedback.hints_used": "You used one or more hints along the way.",
-  "runtime.hint_button": "Hint"
+  "runtime.hint_button": "Hint",
+  "runtime.continue_button": "Continue",
+  "runtime.feedback_title": "Feedback",
+  "runtime.scores_header": "Scores",
+  "runtime.observations_header": "Observations",
+  "score_dimension.data_quality": "Data Quality",
+  "score_dimension.method": "Method",
+  "score_dimension.reasoning": "Reasoning",
+  "score_dimension.evidence": "Evidence",
+  "score_dimension.uncertainty": "Uncertainty",
+  "score_dimension.reproducibility": "Reproducibility",
+  "score_dimension.communication": "Communication",
+  "score_dimension.overconfidence": "Overconfidence"
 }
