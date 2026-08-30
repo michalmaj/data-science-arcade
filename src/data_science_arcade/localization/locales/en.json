@@ -1701,5 +1701,8 @@
   "score_dimension.uncertainty": "Uncertainty",
   "score_dimension.reproducibility": "Reproducibility",
   "score_dimension.communication": "Communication",
-  "score_dimension.overconfidence": "Overconfidence"
+  "score_dimension.overconfidence": "Overconfidence",
+  "runtime.resume_prompt_title": "Resume where you left off?",
+  "runtime.resume_button": "Resume",
+  "runtime.start_over_button": "Start Over"
 }

@@ -1701,5 +1701,8 @@
   "score_dimension.uncertainty": "Niepewność",
   "score_dimension.reproducibility": "Powtarzalność",
   "score_dimension.communication": "Komunikacja",
-  "score_dimension.overconfidence": "Nadmierna pewność"
+  "score_dimension.overconfidence": "Nadmierna pewność",
+  "runtime.resume_prompt_title": "Wznowić tam, gdzie skończono?",
+  "runtime.resume_button": "Wznów",
+  "runtime.start_over_button": "Zacznij od nowa"
 }

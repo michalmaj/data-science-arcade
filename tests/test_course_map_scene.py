@@ -7,7 +7,8 @@ import pygame
 
 from data_science_arcade.app.game import App
 from data_science_arcade.lessons.framework.prediction import DIRECTIONS as L17_DIRECTIONS
-from data_science_arcade.lessons.l01_question_first.scenario import BRIEF_FIELDS, DECISION_FIELDS
+from data_science_arcade.lessons.l01_question_first.definition import LESSON_01
+from data_science_arcade.lessons.l01_question_first.scenario import BRIEF_FIELDS, DECISION_FIELDS, build_lesson_one_runner
 from data_science_arcade.lessons.l02_source_scout.scenario import DECISION_FIELDS as L02_DECISION_FIELDS
 from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import CORRECT_EVENT_BY_STEP as L04_CORRECT_EVENT_BY_STEP
@@ -72,7 +73,7 @@ from data_science_arcade.lessons.l28_chart_crime_lab.scenario import DECISION_FI
 from data_science_arcade.lessons.l29_the_executive_brief.findings import CORRECT_FINDING_KEYS as L29_CORRECT_FINDING_KEYS
 from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
 from data_science_arcade.lessons.l30_the_data_incident.scenario import DECISION_FIELDS as L30_DECISION_FIELDS
-from data_science_arcade.progress.model import TOTAL_LESSONS, LessonState
+from data_science_arcade.progress.model import TOTAL_LESSONS, LessonCheckpoint, LessonState
 from data_science_arcade.ui.alert_config_scene import AlertConfigScene
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
@@ -89,10 +90,12 @@ from data_science_arcade.ui.flow_builder_scene import FlowBuilderScene
 from data_science_arcade.ui.funnel_builder_scene import FunnelBuilderScene
 from data_science_arcade.ui.investigation_hub_scene import InvestigationHubScene
 from data_science_arcade.ui.junction_scene import JunctionScene
+from data_science_arcade.ui.mission_briefing_scene import MissionBriefingScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
 from data_science_arcade.ui.prediction_scene import PredictionScene
 from data_science_arcade.ui.record_pair_scene import RecordPairScene
+from data_science_arcade.ui.resume_confirmation_scene import ResumeConfirmationScene
 from data_science_arcade.ui.sampling_allocator_scene import SamplingAllocatorScene
 from data_science_arcade.ui.segment_slicer_scene import SegmentSlicerScene
 from data_science_arcade.ui.survey_builder_scene import SurveyBuilderScene
@@ -1775,5 +1778,85 @@ def test_draw_does_not_crash_headless():
     try:
         course_map = CourseMapScene(app)
         course_map.draw(app.logical_surface)
+    finally:
+        pygame.quit()
+
+
+def test_finishing_a_lesson_records_a_real_evaluation_alongside_completion():
+    app = App()
+    app.init()
+    try:
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(1)
+        click_through_mission_briefing(app)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # investigation
+        _fill_out(app.scenes.current, BRIEF_FIELDS)  # guided brief
+        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
+        _fill_out(app.scenes.current, BRIEF_FIELDS)  # independent brief
+        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
+        _fill_out(app.scenes.current, DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+
+        evaluation = app.progress.evaluations[1]
+        assert evaluation.completed_thoughtfully is True
+        assert evaluation.hints_used == 0
+        assert set(evaluation.dimension_scores) == set(LESSON_01.scoring_dimensions)
+        assert all(score > 0 for score in evaluation.dimension_scores.values())
+    finally:
+        pygame.quit()
+
+
+def test_opening_a_lesson_with_a_saved_checkpoint_shows_a_resume_prompt():
+    app = App()
+    app.init()
+    try:
+        _, l01_collected = build_lesson_one_runner(app, on_finished=lambda result: None)
+        fingerprint = "briefing|investigation|guided_work|independent_intro|independent_challenge|twist|decision|debrief"
+        app.progress.save_checkpoint(1, LessonCheckpoint(stage_index=2, stage_fingerprint=fingerprint, collected=dict(l01_collected)))
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+
+        course_map._open_lesson(1)
+
+        assert isinstance(app.scenes.current, ResumeConfirmationScene)
+    finally:
+        pygame.quit()
+
+
+def test_choosing_resume_continues_the_lesson_from_the_checkpoint():
+    app = App()
+    app.init()
+    try:
+        fingerprint = "briefing|investigation|guided_work|independent_intro|independent_challenge|twist|decision|debrief"
+        app.progress.save_checkpoint(1, LessonCheckpoint(stage_index=2, stage_fingerprint=fingerprint, collected={}))
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(1)
+
+        app.scenes.current.buttons.buttons[0].on_activate()  # Resume
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # guided_work is stage index 2
+        assert app.progress.checkpoint_for(1) is not None  # untouched by resuming
+    finally:
+        pygame.quit()
+
+
+def test_choosing_start_over_clears_the_checkpoint_and_restarts_from_the_briefing():
+    app = App()
+    app.init()
+    try:
+        fingerprint = "briefing|investigation|guided_work|independent_intro|independent_challenge|twist|decision|debrief"
+        app.progress.save_checkpoint(1, LessonCheckpoint(stage_index=2, stage_fingerprint=fingerprint, collected={}))
+        course_map = CourseMapScene(app)
+        app.scenes.push(course_map)
+        course_map._open_lesson(1)
+
+        app.scenes.current.buttons.buttons[1].on_activate()  # Start Over
+
+        assert isinstance(app.scenes.current.inner, MissionBriefingScene)
+        assert app.progress.checkpoint_for(1) is None
     finally:
         pygame.quit()

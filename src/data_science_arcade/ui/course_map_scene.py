@@ -2,12 +2,14 @@ import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
 from data_science_arcade.core.scenes import Scene
+from data_science_arcade.lessons.framework.evaluation import default_scorer
 from data_science_arcade.lessons.registry import LESSON_RUNNERS
 from data_science_arcade.progress.model import CHAPTER_COUNT, LESSONS_PER_CHAPTER, LessonState
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
+from data_science_arcade.ui.resume_confirmation_scene import ResumeConfirmationScene
 from data_science_arcade.ui.text import draw_centered_text
 
 CENTER_X = LOGICAL_SIZE[0] // 2
@@ -66,6 +68,15 @@ class CourseMapScene(Scene):
 
     def _open_lesson(self, lesson_number: int) -> None:
         if lesson_number in LESSON_RUNNERS:
+            if self.app.progress.checkpoint_for(lesson_number) is not None:
+                self.app.scenes.push(
+                    ResumeConfirmationScene(
+                        self.app,
+                        on_resume=lambda: self._start_lesson(lesson_number),
+                        on_start_over=lambda: self._start_lesson_fresh(lesson_number),
+                    )
+                )
+                return
             self._start_lesson(lesson_number)
             return
 
@@ -85,6 +96,9 @@ class CourseMapScene(Scene):
 
     def _start_lesson(self, lesson_number: int) -> None:
         def on_finished(result) -> None:
+            hints_used = self.app.progress.hints_used.get(lesson_number, 0)
+            evaluation = default_scorer(result, runner.definition, hints_used)
+            self.app.progress.record_evaluation(lesson_number, evaluation)
             self.app.progress.complete(lesson_number)
             self.app.save_progress()
             self._refresh()
@@ -92,6 +106,10 @@ class CourseMapScene(Scene):
         build_runner = LESSON_RUNNERS[lesson_number]
         runner, _ = build_runner(self.app, on_finished)
         runner.start()
+
+    def _start_lesson_fresh(self, lesson_number: int) -> None:
+        self.app.progress.checkpoints.pop(lesson_number, None)
+        self._start_lesson(lesson_number)
 
     def _back(self) -> None:
         self.app.scenes.pop()
