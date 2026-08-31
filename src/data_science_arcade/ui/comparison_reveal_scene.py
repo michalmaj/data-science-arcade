@@ -32,6 +32,18 @@ HINT_GAP = 6
 class InterpretOption:
     key: str
     label_key: str
+    evidence_key: str | None = None
+    """When set, choosing this interpretation also records a real
+    EvidenceItem (label_key=evidence_key), not just an AnalyticalAction -
+    for the one case where the *correct* interpretation of a reveal is
+    itself a fact worth citing later (e.g. "no source resolves this
+    population's status"), not just an engagement record. Deliberately
+    per-option, not per-comparison like RepairIssue.evidence_key (which
+    fires the same evidence regardless of which fix was picked) - here the
+    content of the choice IS the fact being asserted, so only the option
+    that actually asserts something true and supportable should leave
+    evidence behind. Continue still enables regardless of which option is
+    picked; this only changes what ends up citable afterward."""
 
 
 class ComparisonRevealScene(Scene):
@@ -62,7 +74,11 @@ class ComparisonRevealScene(Scene):
     label. `context` has no default (unlike WorkbenchScene/
     PipelineBuilderScene's `context: LessonContext | None = None`) -
     omitting it here would silently starve the Decision Builder's Evidence
-    step of real items to pick from, a soft-lock rather than a crash."""
+    step of real items to pick from, a soft-lock rather than a crash.
+
+    An interpret option itself can also carry evidence - see
+    InterpretOption.evidence_key - for the case where recognizing the
+    correct interpretation of a reveal is itself a citable fact."""
 
     def __init__(
         self,
@@ -137,7 +153,9 @@ class ComparisonRevealScene(Scene):
                 label_key=label_key, source_action=action, key=label_key, detail=self.value_format(value)
             )
         chosen = next(o for o in self.interpret_options if o.key == self._interpret_choice)
-        self.context.record_action(label_key=chosen.label_key)
+        action = self.context.record_action(label_key=chosen.label_key)
+        if chosen.evidence_key is not None:
+            self.context.record_evidence(label_key=chosen.evidence_key, source_action=action, key=chosen.evidence_key)
         self.on_complete(self._interpret_choice)
 
     def handle_event(self, event: pygame.event.Event) -> None:

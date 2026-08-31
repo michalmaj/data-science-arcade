@@ -563,12 +563,14 @@ def build_lesson_one_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         return DecisionBuilderScene(
             app,
             "lesson.l01.decision_title",
-            CLAIM_FIELD,
-            DECISION_EVIDENCE_FIELD,
-            DECISION_LIMITATION_FIELD,
-            DECISION_CONFIDENCE_FIELD,
-            DECISION_RECOMMENDATION_FIELD,
-            DECISION_FOLLOW_UP_FIELD,
+            steps=(
+                CLAIM_FIELD,
+                DECISION_EVIDENCE_FIELD,
+                DECISION_LIMITATION_FIELD,
+                DECISION_CONFIDENCE_FIELD,
+                DECISION_RECOMMENDATION_FIELD,
+                DECISION_FOLLOW_UP_FIELD,
+            ),
             context=context,
             on_complete=on_complete,
         )

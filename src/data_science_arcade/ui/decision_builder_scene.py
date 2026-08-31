@@ -67,36 +67,40 @@ class DecisionBuilderScene(Scene):
     `context: LessonContext | None = None`: a missing/empty context here
     would make the Evidence step's min_count permanently unsatisfiable - a
     silent soft-lock, not a crash, so requiring it turns that mistake into
-    an immediate TypeError instead."""
+    an immediate TypeError instead.
+
+    `steps` is an arbitrary ordered sequence of BriefField/EvidenceField,
+    not six named params - a lesson's own argument shape (how many steps,
+    what they're called, whether Confidence exists at all) is content, not
+    something this scene should hardcode after only one lesson used it.
+    Everything above this constructor already operates on self._steps
+    generically (_rebuild_buttons, _next, _step_satisfied never hardcode
+    which index is which); only the EvidenceField lookup needs a real
+    check, since it's found by scanning `steps` rather than being named
+    explicitly - exactly one is required, and a plain `next(...)` would
+    either raise an opaque StopIteration with none, or silently pick the
+    first of several with more than one, so this validates explicitly and
+    raises a clear ValueError instead."""
 
     def __init__(
         self,
         app,
         title_key: str,
-        claim_field: BriefField,
-        evidence_field: EvidenceField,
-        limitation_field: BriefField,
-        confidence_field: BriefField,
-        recommendation_field: BriefField,
-        follow_up_field: BriefField,
+        steps: tuple[DecisionStep, ...],
         context: LessonContext,
         on_complete: Callable[[DecisionChoices], None],
         guided: bool = True,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
-        self.evidence_field = evidence_field
+        evidence_fields = [step for step in steps if isinstance(step, EvidenceField)]
+        if len(evidence_fields) != 1:
+            raise ValueError(f"DecisionBuilderScene requires exactly one EvidenceField in steps, got {len(evidence_fields)}")
+        self.evidence_field = evidence_fields[0]
         self.context = context
         self.on_complete = on_complete
         self.guided = guided
-        self._steps: tuple[DecisionStep, ...] = (
-            claim_field,
-            evidence_field,
-            limitation_field,
-            confidence_field,
-            recommendation_field,
-            follow_up_field,
-        )
+        self._steps: tuple[DecisionStep, ...] = steps
         self.step_index = 0
         self.single_choices: dict[str, str] = {}
         self._evidence_selected: list[str] = []

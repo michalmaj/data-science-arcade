@@ -178,6 +178,60 @@ def test_custom_value_format_is_used_for_both_display_and_recorded_detail():
         pygame.quit()
 
 
+def test_an_interpret_option_with_an_evidence_key_records_real_evidence():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        options = (
+            InterpretOption("well_scoped", "app.title", evidence_key="lesson.l02.evidence.legacy_status_unresolved"),
+            InterpretOption("its_a_bug", "app.title"),
+        )
+        scene = ComparisonRevealScene(
+            app,
+            title_key="app.title",
+            narrative_keys=(),
+            comparisons=(("common.back", 30.0), ("dialogue.continue_hint", 8.0)),
+            interpret_prompt_key="app.title",
+            interpret_options=options,
+            on_complete=lambda choice: None,
+            context=context,
+        )
+        scene.buttons.buttons[0].on_activate()  # well_scoped
+        scene.continue_button.on_activate()
+
+        assert len(context.evidence) == 3  # 2 comparisons + the interpretation's own evidence
+        assert context.evidence[2].label_key == "lesson.l02.evidence.legacy_status_unresolved"
+        assert context.evidence[2].source_action_id is not None
+    finally:
+        pygame.quit()
+
+
+def test_an_interpret_option_without_an_evidence_key_records_no_extra_evidence():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        options = (
+            InterpretOption("well_scoped", "app.title", evidence_key="lesson.l02.evidence.legacy_status_unresolved"),
+            InterpretOption("its_a_bug", "app.title"),
+        )
+        scene = ComparisonRevealScene(
+            app,
+            title_key="app.title",
+            narrative_keys=(),
+            comparisons=(("common.back", 30.0), ("dialogue.continue_hint", 8.0)),
+            interpret_prompt_key="app.title",
+            interpret_options=options,
+            on_complete=lambda choice: None,
+            context=context,
+        )
+        scene.buttons.buttons[1].on_activate()  # its_a_bug - no evidence_key
+        scene.continue_button.on_activate()
+
+        assert len(context.evidence) == 2  # only the 2 comparisons, no decoy evidence
+    finally:
+        pygame.quit()
+
+
 def test_draw_does_not_crash_guided_or_not_with_or_without_a_hint():
     app = _init_app()
     try:

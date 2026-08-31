@@ -35,16 +35,65 @@ def _make_scene(app, context=None, on_complete=lambda choices: None, **kwargs):
     return DecisionBuilderScene(
         app,
         "app.title",
-        CLAIM,
-        EVIDENCE,
-        LIMITATION,
-        CONFIDENCE,
-        RECOMMENDATION,
-        FOLLOW_UP,
+        steps=(CLAIM, EVIDENCE, LIMITATION, CONFIDENCE, RECOMMENDATION, FOLLOW_UP),
         context=context if context is not None else _context_with_evidence(),
         on_complete=on_complete,
         **kwargs,
     )
+
+
+def test_steps_can_be_an_arbitrary_sequence_not_just_six_fixed_ones():
+    # L02's own decision shape has no Confidence step and different step
+    # names/count than L01's - the scene must not assume six named steps.
+    app = _init_app()
+    try:
+        answer_strategy = BriefField(key="answer_strategy", prompt_key="common.back", options=(BriefOption("floor_and_range", "common.back"),))
+        known_gap = BriefField(key="known_gap", prompt_key="common.back", options=(BriefOption("legacy_gap", "common.back"),))
+        scene = DecisionBuilderScene(
+            app,
+            "app.title",
+            steps=(answer_strategy, EVIDENCE, known_gap),
+            context=_context_with_evidence(),
+            on_complete=lambda choices: None,
+        )
+        assert len(scene._steps) == 3
+        assert scene.evidence_field is EVIDENCE
+    finally:
+        pygame.quit()
+
+
+def test_missing_evidence_field_raises_a_clear_error_not_stopiteration():
+    app = _init_app()
+    try:
+        claim_only = BriefField(key="claim", prompt_key="common.back", options=(BriefOption("a", "common.back"),))
+        try:
+            DecisionBuilderScene(
+                app, "app.title", steps=(claim_only,), context=_context_with_evidence(), on_complete=lambda choices: None
+            )
+            assert False, "expected a ValueError"
+        except ValueError as error:
+            assert "exactly one EvidenceField" in str(error)
+    finally:
+        pygame.quit()
+
+
+def test_two_evidence_fields_raises_a_clear_error_not_a_silent_first_match():
+    app = _init_app()
+    try:
+        second_evidence = EvidenceField(key="evidence_2", prompt_key="common.back", min_count=1, max_count=2)
+        try:
+            DecisionBuilderScene(
+                app,
+                "app.title",
+                steps=(EVIDENCE, second_evidence),
+                context=_context_with_evidence(),
+                on_complete=lambda choices: None,
+            )
+            assert False, "expected a ValueError"
+        except ValueError as error:
+            assert "exactly one EvidenceField" in str(error)
+    finally:
+        pygame.quit()
 
 
 def test_starts_on_claim_with_next_disabled():
