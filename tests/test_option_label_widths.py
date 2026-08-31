@@ -26,8 +26,24 @@ from data_science_arcade.lessons.l01_question_first.scenario import (
     WINDOW_INTERPRET_OPTIONS as L01_WINDOW_INTERPRET_OPTIONS,
     WINDOW_PREDICTION_FIELD as L01_WINDOW_PREDICTION_FIELD,
 )
-from data_science_arcade.lessons.l02_source_scout.scenario import DECISION_FIELDS as L02_DECISION_FIELDS
-from data_science_arcade.lessons.l02_source_scout.scenario import SOURCES as L02_SOURCES
+from data_science_arcade.lessons.l02_source_scout.scenario import (
+    ANSWER_STRATEGY_FIELD as L02_ANSWER_STRATEGY_FIELD,
+    BILLING_INSPECTION as L02_BILLING_INSPECTION,
+    APP_LOG_INSPECTION as L02_APP_LOG_INSPECTION,
+    BILLING_REQUESTS as L02_BILLING_REQUESTS,
+    COMPARISON_1_INTERPRET_OPTIONS as L02_COMPARISON_1_INTERPRET_OPTIONS,
+    COMPARISON_2_INTERPRET_OPTIONS as L02_COMPARISON_2_INTERPRET_OPTIONS,
+    GAP_INTERPRET_OPTIONS as L02_GAP_INTERPRET_OPTIONS,
+    KNOWN_GAP_FIELD as L02_KNOWN_GAP_FIELD,
+    MASTERY_INTERPRET_OPTIONS as L02_MASTERY_INTERPRET_OPTIONS,
+    MASTERY_METRIC_OPTIONS as L02_MASTERY_METRIC_OPTIONS,
+    NOT_SAFE_TO_CLAIM_FIELD as L02_NOT_SAFE_TO_CLAIM_FIELD,
+    RECOMMENDATION_FIELD as L02_RECOMMENDATION_FIELD,
+    REVISION_FIELD as L02_REVISION_FIELD,
+    SAFE_TO_CLAIM_FIELD as L02_SAFE_TO_CLAIM_FIELD,
+    SOURCES as L02_SOURCES,
+    SUPPORT_INTERPRET_OPTIONS as L02_SUPPORT_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import DECISION_FIELDS as L04_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import FLOW_STEPS as L04_FLOW_STEPS
@@ -106,7 +122,7 @@ from data_science_arcade.ui.junction_scene import OPTION_SIZE as JUNCTION_OPTION
 from data_science_arcade.ui.pipeline_builder_scene import OPTION_SIZE as PIPELINE_OPTION_SIZE
 from data_science_arcade.ui.prediction_scene import DIRECTION_BUTTON_SIZE
 from data_science_arcade.ui.segment_slicer_scene import OPTION_SIZE as SEGMENT_OPTION_SIZE
-from data_science_arcade.ui.source_board_scene import HEADER_SIZE, WIDE_HEADER_WIDTH
+from data_science_arcade.ui.source_board_scene import WIDE_HEADER_WIDTH
 from data_science_arcade.ui.workbench_scene import PICKER_OPTION_SIZE
 
 L11_LENSES = build_distribution_lenses(generate_order_values())
@@ -135,7 +151,12 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L01_DECISION_CONFIDENCE_FIELD,
         L01_DECISION_RECOMMENDATION_FIELD,
         L01_DECISION_FOLLOW_UP_FIELD,
-        *L02_DECISION_FIELDS,
+        L02_ANSWER_STRATEGY_FIELD,
+        L02_KNOWN_GAP_FIELD,
+        L02_SAFE_TO_CLAIM_FIELD,
+        L02_NOT_SAFE_TO_CLAIM_FIELD,
+        L02_RECOMMENDATION_FIELD,
+        L02_REVISION_FIELD,
         *L03_DECISION_FIELDS,
         *L04_DECISION_FIELDS,
         *L05_DECISION_FIELDS,
@@ -169,14 +190,13 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         for option in field.options:
             checks.append((f"{field.key}.{option.key}", option.label_key, option_button_width))
 
-    header_button_width = HEADER_SIZE[0] - BUTTON_PADDING
-    for source in L02_SOURCES:
-        checks.append((f"source.{source.key}", source.name_key, header_button_width))
-
-    # L07 has 5 strategies (not L02's 3), so SourceBoardScene renders its
-    # headers at the narrower WIDE_HEADER_WIDTH instead - see
-    # source_board_scene.py's MANY_COLUMNS_THRESHOLD.
+    # L02 now has 4 sources and L07 has 5 strategies - both exceed
+    # SourceBoardScene's MANY_COLUMNS_THRESHOLD (3), so both render their
+    # headers at the narrower WIDE_HEADER_WIDTH rather than HEADER_SIZE (no
+    # lesson today uses SourceBoardScene with 3 or fewer sources).
     wide_header_button_width = WIDE_HEADER_WIDTH - BUTTON_PADDING
+    for source in L02_SOURCES:
+        checks.append((f"source.{source.key}", source.name_key, wide_header_button_width))
     for strategy in L07_STRATEGIES:
         checks.append((f"strategy.{strategy.key}", strategy.name_key, wide_header_button_width))
 
@@ -203,6 +223,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         for option in request.aggregate_options:
             checks.append((f"{request.key}.aggregate.{option.key}", option.label_key, pipeline_option_button_width))
     for request in L12_AGGREGATION_REQUESTS:
+        for option in request.group_by_options:
+            checks.append((f"{request.key}.group_by.{option.key}", option.label_key, pipeline_option_button_width))
+        for option in request.aggregate_options:
+            checks.append((f"{request.key}.aggregate.{option.key}", option.label_key, pipeline_option_button_width))
+    for request in L02_BILLING_REQUESTS:
         for option in request.group_by_options:
             checks.append((f"{request.key}.group_by.{option.key}", option.label_key, pipeline_option_button_width))
         for option in request.aggregate_options:
@@ -299,14 +324,29 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{issue.column}.{option.key}", option.label_key, picker_option_button_width))
     for option in L01_INSPECTION_PROMPT.options:
         checks.append((f"inspection.{option.key}", option.label_key, picker_option_button_width))
+    for prompt in (L02_BILLING_INSPECTION, L02_APP_LOG_INSPECTION):
+        for option in prompt.options:
+            checks.append((f"inspection.{option.key}", option.label_key, picker_option_button_width))
 
     comparison_reveal_option_button_width = COMPARISON_REVEAL_OPTION_SIZE[0] - BUTTON_PADDING
-    for options in (L01_WINDOW_INTERPRET_OPTIONS, L01_ENTITY_INTERPRET_OPTIONS):
+    for options in (
+        L01_WINDOW_INTERPRET_OPTIONS,
+        L01_ENTITY_INTERPRET_OPTIONS,
+        L02_COMPARISON_1_INTERPRET_OPTIONS,
+        L02_COMPARISON_2_INTERPRET_OPTIONS,
+        L02_GAP_INTERPRET_OPTIONS,
+        L02_SUPPORT_INTERPRET_OPTIONS,
+    ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
 
     mastery_option_button_width = MASTERY_OPTION_SIZE[0] - BUTTON_PADDING
-    for options in (L01_MASTERY_METRIC_OPTIONS, L01_MASTERY_INTERPRET_OPTIONS):
+    for options in (
+        L01_MASTERY_METRIC_OPTIONS,
+        L01_MASTERY_INTERPRET_OPTIONS,
+        L02_MASTERY_METRIC_OPTIONS,
+        L02_MASTERY_INTERPRET_OPTIONS,
+    ):
         for option in options:
             checks.append((f"mastery.{option.key}", option.label_key, mastery_option_button_width))
 

@@ -15,7 +15,6 @@ from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
 from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
-from data_science_arcade.lessons.l02_source_scout.scenario import DECISION_FIELDS as L02_DECISION_FIELDS
 from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import CORRECT_EVENT_BY_STEP as L04_CORRECT_EVENT_BY_STEP
 from data_science_arcade.lessons.l04_event_log_factory.scenario import DECISION_FIELDS as L04_DECISION_FIELDS
@@ -796,16 +795,68 @@ def test_finishing_lesson_two_marks_it_complete_and_unlocks_lesson_three():
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
+        _play_dialogue_to_the_end(app.scenes.current)  # framing
+
         source_scene = app.scenes.current
         source_scene.source_buttons[next(iter(source_scene.source_buttons))].on_activate()
-        source_scene.confirm_button.on_activate()  # guided source board
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        source_scene = app.scenes.current
-        source_scene.source_buttons[next(iter(source_scene.source_buttons))].on_activate()
-        source_scene.confirm_button.on_activate()  # independent source board
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L02_DECISION_FIELDS)  # decision
+        source_scene.confirm_button.on_activate()  # source_map
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # meet_billing
+        workbench = app.scenes.current.inner
+        next(iter(workbench.inspection_buttons.values())).on_activate()
+        workbench.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, PipelineBuilderScene)  # compute_billing
+        pipeline = app.scenes.current.inner
+        pipeline.buttons.buttons[0].on_activate()  # first group-by option
+        pipeline.buttons.buttons[2].on_activate()  # the one aggregate option
+        pipeline.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # meet_app_log
+        workbench = app.scenes.current.inner
+        next(iter(workbench.inspection_buttons.values())).on_activate()
+        workbench.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # comparison_1
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # comparison_2
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # gap_discovery
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
+
+        _play_dialogue_to_the_end(app.scenes.current)  # finance_lead_confirms
+        _fill_out(app.scenes.current, range(1))  # gut_check, 1 field
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # support_list
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        decision.buttons.buttons[0].on_activate()  # answer_strategy
+        decision.next_button.on_activate()
+        evidence_ids = list(decision._evidence_toggle_buttons.keys())
+        decision._evidence_toggle_buttons[evidence_ids[0]].on_activate()
+        decision._evidence_toggle_buttons[evidence_ids[1]].on_activate()
+        decision.next_button.on_activate()
+        for _ in range(4):  # known_gap, safe_to_claim, not_safe_to_claim, recommendation
+            decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, MasteryChallengeScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
