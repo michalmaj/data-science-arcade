@@ -232,6 +232,32 @@ def test_an_interpret_option_without_an_evidence_key_records_no_extra_evidence()
         pygame.quit()
 
 
+def test_a_third_narrative_line_grows_the_box_instead_of_overflowing_it():
+    # L01's real narrative_keys never exceeds 2 short lines, which is what
+    # this scene's fixed BOX_RECT height was implicitly validated against
+    # - L02 needed a real 3rd line and it rendered past the box's own
+    # bottom border, overlapping the interpret prompt below, caught only
+    # by a real screenshot with real 3-line content.
+    app = _init_app()
+    try:
+        two_line_scene = _make_scene(app)
+        three_line_scene = ComparisonRevealScene(
+            app,
+            title_key="app.title",
+            narrative_keys=("app.title", "app.title", "app.title"),
+            comparisons=(("common.back", 0.3), ("dialogue.continue_hint", 0.5)),
+            interpret_prompt_key="app.title",
+            interpret_options=OPTIONS,
+            on_complete=lambda choice: None,
+            context=LessonContext(),
+        )
+
+        assert three_line_scene._box_rect().height > two_line_scene._box_rect().height
+        assert three_line_scene._first_option_y() > three_line_scene._box_rect().bottom
+    finally:
+        pygame.quit()
+
+
 def test_draw_does_not_crash_guided_or_not_with_or_without_a_hint():
     app = _init_app()
     try:

@@ -286,6 +286,26 @@ def test_evidence_option_labels_include_the_recorded_detail():
         pygame.quit()
 
 
+def test_a_large_evidence_pool_still_fits_above_the_nav_row():
+    # L01's real pool tops out at 5 items; L02's own Evidence Review
+    # produces 8 - the fixed default spacing/height ran the last few
+    # buttons under Back/Next, caught only by a real screenshot with a
+    # real 8-item pool, not by any test written against L01's smaller one.
+    app = _init_app()
+    try:
+        context = _context_with_evidence(count=8)
+        scene = _make_scene(app, context=context)
+        scene.buttons.buttons[0].on_activate()  # claim
+        scene.next_button.on_activate()
+
+        assert len(scene._evidence_toggle_buttons) == 8
+        last_item_bottom = max(button.rect.bottom for button in scene._evidence_toggle_buttons.values())
+        nav_top = scene.next_button.rect.top
+        assert last_item_bottom <= nav_top
+    finally:
+        pygame.quit()
+
+
 def test_draw_does_not_crash_on_every_step_guided_or_not():
     app = _init_app()
     try:

@@ -19,6 +19,17 @@ OPTION_SPACING = 56
 NAV_BUTTON_Y = 505
 EVIDENCE_OPTION_SIZE = (700, 40)
 EVIDENCE_OPTION_SPACING = 46
+MIN_EVIDENCE_SPACING = 32
+MIN_EVIDENCE_OPTION_HEIGHT = 28
+EVIDENCE_BOTTOM_MARGIN = 48
+"""A real evidence pool can be much larger than the 2-3 the student
+ultimately picks (L02's Evidence Review alone produces 8 real items) - a
+fixed 46px spacing at the fixed default height silently ran the last few
+buttons past NAV_BUTTON_Y, caught only by a real screenshot with a real
+8-item pool, not by any test written against L01's smaller 5-item one.
+Spacing shrinks first (like BriefBuilderScene's own MIN_OPTION_SPACING);
+button height only shrinks alongside it once spacing alone can't fit the
+real pool in the space above NAV_BUTTON_Y."""
 FIRST_EVIDENCE_Y = 185
 EVIDENCE_COUNT_Y = 155
 
@@ -120,6 +131,19 @@ class DecisionBuilderScene(Scene):
             return step.min_count <= len(self._evidence_selected) <= step.max_count
         return step.key in self.single_choices
 
+    def _evidence_layout(self, count: int) -> tuple[int, int]:
+        """(item_height, spacing) - shrinks spacing first, then height
+        alongside it, only once the real pool is too large for the
+        defaults to fit above NAV_BUTTON_Y. Returns the defaults unchanged
+        for any pool small enough not to need this (every case before
+        L02)."""
+        if count <= 1:
+            return EVIDENCE_OPTION_SIZE[1], EVIDENCE_OPTION_SPACING
+        available = (NAV_BUTTON_Y - EVIDENCE_BOTTOM_MARGIN) - FIRST_EVIDENCE_Y
+        spacing = max(MIN_EVIDENCE_SPACING, min(EVIDENCE_OPTION_SPACING, available // (count - 1)))
+        height = max(MIN_EVIDENCE_OPTION_HEIGHT, min(EVIDENCE_OPTION_SIZE[1], spacing - 4))
+        return height, spacing
+
     def _rebuild_buttons(self) -> None:
         loc = self.app.localization
         step = self._current_step()
@@ -127,9 +151,10 @@ class DecisionBuilderScene(Scene):
         self._evidence_toggle_buttons: dict[str, Button] = {}
 
         if isinstance(step, EvidenceField):
+            height, spacing = self._evidence_layout(len(self.context.evidence))
             for index, item in enumerate(self.context.evidence):
-                rect = pygame.Rect(0, 0, *EVIDENCE_OPTION_SIZE)
-                rect.center = (CENTER_X, FIRST_EVIDENCE_Y + index * EVIDENCE_OPTION_SPACING)
+                rect = pygame.Rect(0, 0, EVIDENCE_OPTION_SIZE[0], height)
+                rect.center = (CENTER_X, FIRST_EVIDENCE_Y + index * spacing)
                 label = loc.t(item.label_key) if item.detail is None else f"{loc.t(item.label_key)} {item.detail}"
                 selected = item.id in self._evidence_selected
                 enabled = selected or len(self._evidence_selected) < step.max_count

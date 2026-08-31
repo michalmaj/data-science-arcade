@@ -134,6 +134,41 @@ def test_completing_the_full_path_records_the_comparison_as_evidence_and_fires_o
         pygame.quit()
 
 
+def test_three_interpret_options_still_fit_above_the_finish_button():
+    # L01's real interpret_options has 2 entries, which is what this
+    # scene's layout was implicitly validated against until L02 supplied
+    # a real 3-entry set and the 3rd option rendered under the Finish
+    # button - caught only by a real screenshot, not by any prior test.
+    app = _init_app()
+    try:
+        three_options = (
+            MasteryOption("a", "common.back"),
+            MasteryOption("b", "common.back"),
+            MasteryOption("c", "common.back"),
+        )
+        scene = MasteryChallengeScene(
+            app,
+            title_key="app.title",
+            narrative_keys=("app.title",),
+            metric_prompt_key="app.title",
+            metric_options=METRIC_OPTIONS,
+            compute=_compute,
+            interpret_prompt_key="app.title",
+            interpret_options=three_options,
+            on_complete=lambda engaged, metric, interpretation: None,
+            context=LessonContext(),
+        )
+        scene.buttons.buttons[0].on_activate()  # engage
+        scene.buttons.buttons[0].on_activate()  # pick "total"
+
+        assert scene._phase.name == "RESULT"
+        last_option_bottom = scene.buttons.buttons[2].rect.bottom
+        finish_top = scene.finish_button.rect.top
+        assert last_option_bottom <= finish_top
+    finally:
+        pygame.quit()
+
+
 def test_draw_does_not_crash_in_any_phase():
     app = _init_app()
     try:
