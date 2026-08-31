@@ -8,8 +8,24 @@ import pytest
 
 from data_science_arcade.core import fonts
 from data_science_arcade.core.fonts import get_font
-from data_science_arcade.lessons.l01_question_first.scenario import BRIEF_FIELDS as L01_BRIEF_FIELDS
-from data_science_arcade.lessons.l01_question_first.scenario import DECISION_FIELDS as L01_DECISION_FIELDS
+from data_science_arcade.lessons.l01_question_first.scenario import (
+    BRIEF_FIELDS as L01_BRIEF_FIELDS,
+    CLAIM_FIELD as L01_CLAIM_FIELD,
+    COVERAGE_INTERPRET_FIELD as L01_COVERAGE_INTERPRET_FIELD,
+    DECISION_CONFIDENCE_FIELD as L01_DECISION_CONFIDENCE_FIELD,
+    DECISION_FOLLOW_UP_FIELD as L01_DECISION_FOLLOW_UP_FIELD,
+    DECISION_LIMITATION_FIELD as L01_DECISION_LIMITATION_FIELD,
+    DECISION_RECOMMENDATION_FIELD as L01_DECISION_RECOMMENDATION_FIELD,
+    ENTITY_INTERPRET_OPTIONS as L01_ENTITY_INTERPRET_OPTIONS,
+    ENTITY_REVISION_FIELD as L01_ENTITY_REVISION_FIELD,
+    GRAIN_REQUESTS as L01_GRAIN_REQUESTS,
+    INSPECTION_PROMPT as L01_INSPECTION_PROMPT,
+    MASTERY_INTERPRET_OPTIONS as L01_MASTERY_INTERPRET_OPTIONS,
+    MASTERY_METRIC_OPTIONS as L01_MASTERY_METRIC_OPTIONS,
+    WINDOW_CONFIDENCE_BEFORE_FIELD as L01_WINDOW_CONFIDENCE_BEFORE_FIELD,
+    WINDOW_INTERPRET_OPTIONS as L01_WINDOW_INTERPRET_OPTIONS,
+    WINDOW_PREDICTION_FIELD as L01_WINDOW_PREDICTION_FIELD,
+)
 from data_science_arcade.lessons.l02_source_scout.scenario import DECISION_FIELDS as L02_DECISION_FIELDS
 from data_science_arcade.lessons.l02_source_scout.scenario import SOURCES as L02_SOURCES
 from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
@@ -77,6 +93,8 @@ from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
 from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPTION_SIZE
 from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
 from data_science_arcade.ui.cohort_matrix_scene import COMPARISON_OPTION_SIZE as COHORT_COMPARISON_OPTION_SIZE
+from data_science_arcade.ui.comparison_reveal_scene import OPTION_SIZE as COMPARISON_REVEAL_OPTION_SIZE
+from data_science_arcade.ui.mastery_challenge_scene import OPTION_SIZE as MASTERY_OPTION_SIZE
 from data_science_arcade.ui.finding_picker_scene import OPTION_SIZE as FINDING_OPTION_SIZE
 from data_science_arcade.ui.investigation_hub_scene import OPTION_SIZE as INVESTIGATION_OPTION_SIZE
 from data_science_arcade.ui.survey_builder_scene import OPTION_SIZE as SURVEY_OPTION_SIZE
@@ -108,7 +126,15 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     option_button_width = OPTION_SIZE[0] - BUTTON_PADDING
     brief_fields = (
         *L01_BRIEF_FIELDS,
-        *L01_DECISION_FIELDS,
+        L01_WINDOW_PREDICTION_FIELD,
+        L01_WINDOW_CONFIDENCE_BEFORE_FIELD,
+        L01_ENTITY_REVISION_FIELD,
+        L01_COVERAGE_INTERPRET_FIELD,
+        L01_CLAIM_FIELD,
+        L01_DECISION_LIMITATION_FIELD,
+        L01_DECISION_CONFIDENCE_FIELD,
+        L01_DECISION_RECOMMENDATION_FIELD,
+        L01_DECISION_FOLLOW_UP_FIELD,
         *L02_DECISION_FIELDS,
         *L03_DECISION_FIELDS,
         *L04_DECISION_FIELDS,
@@ -171,6 +197,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{lens.key}.{option.key}", option.label_key, distribution_option_button_width))
 
     pipeline_option_button_width = PIPELINE_OPTION_SIZE[0] - BUTTON_PADDING
+    for request in L01_GRAIN_REQUESTS:
+        for option in request.group_by_options:
+            checks.append((f"{request.key}.group_by.{option.key}", option.label_key, pipeline_option_button_width))
+        for option in request.aggregate_options:
+            checks.append((f"{request.key}.aggregate.{option.key}", option.label_key, pipeline_option_button_width))
     for request in L12_AGGREGATION_REQUESTS:
         for option in request.group_by_options:
             checks.append((f"{request.key}.group_by.{option.key}", option.label_key, pipeline_option_button_width))
@@ -266,6 +297,18 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for issue in L06_REPAIR_ISSUES:
         for option in issue.options:
             checks.append((f"{issue.column}.{option.key}", option.label_key, picker_option_button_width))
+    for option in L01_INSPECTION_PROMPT.options:
+        checks.append((f"inspection.{option.key}", option.label_key, picker_option_button_width))
+
+    comparison_reveal_option_button_width = COMPARISON_REVEAL_OPTION_SIZE[0] - BUTTON_PADDING
+    for options in (L01_WINDOW_INTERPRET_OPTIONS, L01_ENTITY_INTERPRET_OPTIONS):
+        for option in options:
+            checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
+
+    mastery_option_button_width = MASTERY_OPTION_SIZE[0] - BUTTON_PADDING
+    for options in (L01_MASTERY_METRIC_OPTIONS, L01_MASTERY_INTERPRET_OPTIONS):
+        for option in options:
+            checks.append((f"mastery.{option.key}", option.label_key, mastery_option_button_width))
 
     # FindingPickerScene (Lesson 29) has one flat shared pool rather than
     # per-request options, so there's no nested loop here like every other

@@ -1,0 +1,234 @@
+from collections.abc import Callable
+from dataclasses import dataclass
+
+import pygame
+
+from data_science_arcade.core.display import LOGICAL_SIZE
+from data_science_arcade.core.scenes import Scene
+from data_science_arcade.lessons.framework.brief import BriefField
+from data_science_arcade.ui import colors
+from data_science_arcade.ui.button import Button
+from data_science_arcade.ui.button_group import ButtonGroup
+from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text
+from data_science_arcade.workbench.context import LessonContext
+
+CENTER_X = LOGICAL_SIZE[0] // 2
+OPTION_SIZE = (420, 46)
+FIRST_OPTION_Y = 190
+OPTION_SPACING = 56
+NAV_BUTTON_Y = 505
+EVIDENCE_OPTION_SIZE = (700, 40)
+EVIDENCE_OPTION_SPACING = 46
+FIRST_EVIDENCE_Y = 185
+EVIDENCE_COUNT_Y = 155
+
+DecisionChoices = dict[str, str | tuple[str, ...]]
+"""step.key -> chosen BriefOption.key for a single-select step, or ->
+a tuple of EvidenceItem.id values for the evidence step."""
+
+
+@dataclass(frozen=True)
+class EvidenceField:
+    """The one heterogeneous step in an otherwise all-single-select
+    sequence: pick min_count-max_count real EvidenceItems directly from
+    the LessonContext threaded through this scene, not from a fixed
+    options list - unlike every BriefField, this step's real choices
+    aren't known until the student has actually gathered evidence
+    earlier in the lesson."""
+
+    key: str
+    prompt_key: str
+    min_count: int = 2
+    max_count: int = 3
+    hint_key: str | None = None
+
+
+DecisionStep = BriefField | EvidenceField
+
+
+class DecisionBuilderScene(Scene):
+    """The lesson's final argument, composed step by step: Claim -> Evidence
+    -> Limitation -> Confidence -> Recommendation -> Follow-up (spec: a
+    final decision must state what the metric does *not* capture, not just
+    report a number). Five of the six steps are plain single-select fields,
+    sequenced with Back/Next exactly like BriefBuilderScene; the Evidence
+    step is a real multi-select (min_count-max_count) toggled directly
+    from `context.evidence` - the actual items gathered earlier in the
+    lesson, not a fixed options list, which is why this needed a new scene
+    rather than an extra BriefBuilderScene param: BriefBuilderScene has no
+    `context` visibility at all and is single-select only.
+
+    Every step's own BriefOption/EvidenceItem choices are named as explicit
+    constructor params, not one generic `fields:` tuple, so the sequence
+    the spec requires (Claim first, Evidence next, ...) is enforced by the
+    call site rather than left to whoever assembles the tuple correctly.
+
+    `context` has no default, unlike WorkbenchScene/PipelineBuilderScene's
+    `context: LessonContext | None = None`: a missing/empty context here
+    would make the Evidence step's min_count permanently unsatisfiable - a
+    silent soft-lock, not a crash, so requiring it turns that mistake into
+    an immediate TypeError instead."""
+
+    def __init__(
+        self,
+        app,
+        title_key: str,
+        claim_field: BriefField,
+        evidence_field: EvidenceField,
+        limitation_field: BriefField,
+        confidence_field: BriefField,
+        recommendation_field: BriefField,
+        follow_up_field: BriefField,
+        context: LessonContext,
+        on_complete: Callable[[DecisionChoices], None],
+        guided: bool = True,
+    ) -> None:
+        super().__init__(app)
+        self.title_key = title_key
+        self.evidence_field = evidence_field
+        self.context = context
+        self.on_complete = on_complete
+        self.guided = guided
+        self._steps: tuple[DecisionStep, ...] = (
+            claim_field,
+            evidence_field,
+            limitation_field,
+            confidence_field,
+            recommendation_field,
+            follow_up_field,
+        )
+        self.step_index = 0
+        self.single_choices: dict[str, str] = {}
+        self._evidence_selected: list[str] = []
+        self._rebuild_buttons()
+
+    def _current_step(self) -> DecisionStep:
+        return self._steps[self.step_index]
+
+    def _is_last_step(self) -> bool:
+        return self.step_index == len(self._steps) - 1
+
+    def _is_evidence_step(self, step: DecisionStep) -> bool:
+        return isinstance(step, EvidenceField)
+
+    def _step_satisfied(self, step: DecisionStep) -> bool:
+        if isinstance(step, EvidenceField):
+            return step.min_count <= len(self._evidence_selected) <= step.max_count
+        return step.key in self.single_choices
+
+    def _rebuild_buttons(self) -> None:
+        loc = self.app.localization
+        step = self._current_step()
+        buttons: list[Button] = []
+        self._evidence_toggle_buttons: dict[str, Button] = {}
+
+        if isinstance(step, EvidenceField):
+            for index, item in enumerate(self.context.evidence):
+                rect = pygame.Rect(0, 0, *EVIDENCE_OPTION_SIZE)
+                rect.center = (CENTER_X, FIRST_EVIDENCE_Y + index * EVIDENCE_OPTION_SPACING)
+                label = loc.t(item.label_key) if item.detail is None else f"{loc.t(item.label_key)} {item.detail}"
+                selected = item.id in self._evidence_selected
+                enabled = selected or len(self._evidence_selected) < step.max_count
+                button = Button(rect, label, self._make_toggle_evidence(item.id), enabled=enabled)
+                self._evidence_toggle_buttons[item.id] = button
+                buttons.append(button)
+        else:
+            for index, option in enumerate(step.options):
+                rect = pygame.Rect(0, 0, *OPTION_SIZE)
+                rect.center = (CENTER_X, FIRST_OPTION_Y + index * OPTION_SPACING)
+                buttons.append(Button(rect, loc.t(option.label_key), self._make_choose(option.key)))
+
+        back_rect = pygame.Rect(0, 0, 140, 44)
+        back_rect.center = (CENTER_X - 90, NAV_BUTTON_Y)
+        self.back_button = Button(back_rect, loc.t("brief.back"), self._back, enabled=self.step_index > 0)
+        buttons.append(self.back_button)
+
+        next_rect = pygame.Rect(0, 0, 140, 44)
+        next_rect.center = (CENTER_X + 90, NAV_BUTTON_Y)
+        next_label = loc.t("brief.finish") if self._is_last_step() else loc.t("brief.next")
+        self.next_button = Button(next_rect, next_label, self._next, enabled=self._step_satisfied(step))
+        buttons.append(self.next_button)
+
+        self.buttons = ButtonGroup(buttons)
+
+    def _make_choose(self, option_key: str) -> Callable[[], None]:
+        def choose() -> None:
+            self.single_choices[self._current_step().key] = option_key
+            self._rebuild_buttons()
+
+        return choose
+
+    def _make_toggle_evidence(self, item_id: str) -> Callable[[], None]:
+        def toggle() -> None:
+            if item_id in self._evidence_selected:
+                self._evidence_selected.remove(item_id)
+            elif len(self._evidence_selected) < self.evidence_field.max_count:
+                self._evidence_selected.append(item_id)
+            self._rebuild_buttons()
+
+        return toggle
+
+    def _back(self) -> None:
+        if self.step_index > 0:
+            self.step_index -= 1
+            self._rebuild_buttons()
+
+    def _next(self) -> None:
+        step = self._current_step()
+        if not self._step_satisfied(step):
+            return
+        if self._is_last_step():
+            result: DecisionChoices = dict(self.single_choices)
+            result[self.evidence_field.key] = tuple(self._evidence_selected)
+            self.on_complete(result)
+            return
+        self.step_index += 1
+        self._rebuild_buttons()
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        # No special Escape handling needed here: LessonRunner wraps every
+        # stage in Pausable, which intercepts Escape before this scene ever
+        # sees it.
+        self.buttons.handle_event(event)
+
+    def draw(self, surface: pygame.Surface) -> None:
+        loc = self.app.localization
+        surface.fill(colors.BACKGROUND)
+        step = self._current_step()
+
+        progress = f"{self.step_index + 1} / {len(self._steps)}"
+        draw_centered_text(surface, progress, (CENTER_X, 60), 16, colors.BUTTON_TEXT_DISABLED)
+        draw_centered_text(surface, loc.t(self.title_key), (CENTER_X, 90), 28, colors.TEXT)
+        draw_centered_text(surface, loc.t(step.prompt_key), (CENTER_X, 140), 20, colors.TEXT)
+
+        if isinstance(step, EvidenceField):
+            count_text = f"{len(self._evidence_selected)} / {step.min_count}-{step.max_count}"
+            draw_centered_text(surface, count_text, (CENTER_X, EVIDENCE_COUNT_Y), 14, colors.BUTTON_TEXT_DISABLED)
+
+        self.buttons.draw(surface)
+        self._draw_selected_indicators(surface, step)
+
+        if self.guided and step.hint_key:
+            draw_wrapped_text(
+                surface,
+                loc.t(step.hint_key),
+                (CENTER_X - 300, NAV_BUTTON_Y - 40),
+                600,
+                15,
+                colors.BUTTON_TEXT_DISABLED,
+            )
+
+    def _draw_selected_indicators(self, surface: pygame.Surface, step: DecisionStep) -> None:
+        if isinstance(step, EvidenceField):
+            buttons = [self._evidence_toggle_buttons[item_id] for item_id in self._evidence_selected]
+        else:
+            selected_key = self.single_choices.get(step.key)
+            if selected_key is None:
+                return
+            selected_index = next(i for i, option in enumerate(step.options) if option.key == selected_key)
+            buttons = [self.buttons.buttons[selected_index]]
+
+        for button in buttons:
+            rect = button.rect
+            marker = pygame.Rect(rect.left, rect.top + 6, 4, rect.height - 12)
+            pygame.draw.rect(surface, colors.BUTTON_FOCUS_BORDER, marker, border_radius=2)

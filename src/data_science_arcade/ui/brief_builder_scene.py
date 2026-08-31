@@ -8,13 +8,28 @@ from data_science_arcade.lessons.framework.brief import AnalyticalBrief, BriefFi
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
+from data_science_arcade.ui.hint_controller import HintController
 from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 OPTION_SIZE = (420, 46)
-FIRST_OPTION_Y = 190
+FIRST_OPTION_Y = 175
 OPTION_SPACING = 56
-NAV_BUTTON_Y = 470
+MIN_OPTION_SPACING = 48
+"""Never below OPTION_SIZE[1] (46) plus a visible 2px gap - anything
+tighter overlaps adjacent option buttons, a second real bug the same
+screenshot pass caught right after fixing the hint/nav-button one."""
+NAV_BUTTON_Y = 505
+HINT_AREA_MARGIN = 6
+HINT_AREA_RESERVED = 110
+"""Vertical room a tiered hint's button + up to 3 revealed tiers needs
+below the option list - reserved by shrinking option spacing (only for
+fields that actually have a HintController) rather than risking the
+hint area overlapping the nav buttons, the same "shrink to fit real
+content, don't hardcode a content-dependent dimension" principle
+HandbookScene's index rows already established for exactly this failure
+mode. Caught by a real screenshot at the 4-option/3-tier worst case
+before this existed, not by reasoning about it."""
 
 
 class BriefBuilderScene(Scene):
@@ -27,7 +42,18 @@ class BriefBuilderScene(Scene):
 
     guided=True also shows each field's explanatory hint text (spec Act 3
     'receive explanatory feedback'); guided=False hides it (Act 4 'less
-    guidance')."""
+    guidance').
+
+    `tiered_hint_keys`, when given, maps a field's key to 1-3 hint tiers
+    (HintController's own Direction->Concept->Procedure shape) - upgrading
+    that one field from the single always-shown-or-hidden `hint_key` string
+    to a real click-to-reveal-more control. Fields not present in this dict
+    keep today's exact `hint_key` behavior unchanged. HintController
+    instances are built once here, not passed in pre-built, so this scene
+    keeps sole ownership of the button's screen position (computed from
+    that field's own option count, so a longer field doesn't crowd its
+    hint button - the same reason no fixed position could safely cover
+    every field's option count)."""
 
     def __init__(
         self,
@@ -36,6 +62,7 @@ class BriefBuilderScene(Scene):
         fields: tuple[BriefField, ...],
         on_complete: Callable[[AnalyticalBrief], None],
         guided: bool = True,
+        tiered_hint_keys: dict[str, tuple[str, ...]] | None = None,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -44,18 +71,42 @@ class BriefBuilderScene(Scene):
         self.guided = guided
         self.field_index = 0
         self.choices: AnalyticalBrief = {}
+        # Which fields *will* get a HintController is fully known from
+        # tiered_hint_keys alone - _option_spacing/_hint_button_topleft
+        # check this, not self._hint_controllers, since they're needed to
+        # compute the very positions the controllers below are built with.
+        self._tiered_hint_keys = tiered_hint_keys or {}
+        self._hint_controllers: dict[str, HintController] = {
+            field.key: HintController(app, self._tiered_hint_keys[field.key], self._hint_button_topleft(field))
+            for field in fields
+            if field.key in self._tiered_hint_keys
+        }
         self._rebuild_buttons()
 
     def _current_field(self) -> BriefField:
         return self.fields[self.field_index]
 
+    def _option_spacing(self, field: BriefField) -> int:
+        if field.key not in self._tiered_hint_keys or len(field.options) <= 1:
+            return OPTION_SPACING
+        available = (NAV_BUTTON_Y - 20) - FIRST_OPTION_Y - HINT_AREA_RESERVED
+        return max(MIN_OPTION_SPACING, min(OPTION_SPACING, available // len(field.options)))
+
+    def _hint_button_topleft(self, field: BriefField) -> tuple[int, int]:
+        top = FIRST_OPTION_Y + len(field.options) * self._option_spacing(field) + HINT_AREA_MARGIN
+        return (CENTER_X - 300, top)
+
+    def _current_hint_controller(self) -> HintController | None:
+        return self._hint_controllers.get(self._current_field().key)
+
     def _rebuild_buttons(self) -> None:
         loc = self.app.localization
         field = self._current_field()
+        spacing = self._option_spacing(field)
         buttons = []
         for index, option in enumerate(field.options):
             rect = pygame.Rect(0, 0, *OPTION_SIZE)
-            rect.center = (CENTER_X, FIRST_OPTION_Y + index * OPTION_SPACING)
+            rect.center = (CENTER_X, FIRST_OPTION_Y + index * spacing)
             buttons.append(Button(rect, loc.t(option.label_key), self._make_choose(option.key)))
 
         back_rect = pygame.Rect(0, 0, 140, 44)
@@ -101,6 +152,9 @@ class BriefBuilderScene(Scene):
         # sees it (opens the pause menu instead of, say, accidentally
         # abandoning progress on this field).
         self.buttons.handle_event(event)
+        controller = self._current_hint_controller()
+        if self.guided and controller is not None:
+            controller.handle_event(event)
 
     def draw(self, surface: pygame.Surface) -> None:
         loc = self.app.localization
@@ -115,7 +169,11 @@ class BriefBuilderScene(Scene):
         self.buttons.draw(surface)
         self._draw_selected_indicator(surface, field)
 
-        if self.guided and field.hint_key:
+        controller = self._current_hint_controller()
+        if self.guided and controller is not None:
+            text_top = self._hint_button_topleft(field)[1] + 34
+            controller.draw(surface, (CENTER_X - 300, text_top))
+        elif self.guided and field.hint_key:
             draw_wrapped_text(
                 surface,
                 loc.t(field.hint_key),
