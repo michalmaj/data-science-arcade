@@ -1,4 +1,5 @@
 import os
+from unittest.mock import patch
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
@@ -7,6 +8,7 @@ import pygame
 
 from data_science_arcade.app.game import App
 from data_science_arcade.core.fonts import get_font
+from data_science_arcade.handbook.entries import HandbookEntry
 from data_science_arcade.handbook.registry import GLOSSARY_ENTRIES, HANDBOOK_ENTRIES
 from data_science_arcade.ui.handbook_scene import CONTENT_RECT, HandbookScene, HandbookTab
 
@@ -230,6 +232,80 @@ def test_every_index_row_fits_inside_content_rect_for_both_tabs():
             assert len(index_buttons) == len(entries)
             for button in index_buttons:
                 assert CONTENT_RECT.top <= button.rect.top and button.rect.bottom <= CONTENT_RECT.bottom
+    finally:
+        pygame.quit()
+
+
+def test_sources_line_uses_the_dedicated_sources_label_not_related():
+    app = _init_app()
+    try:
+        synthetic = HandbookEntry(
+            id="synthetic_with_sources",
+            title_key="app.title",
+            category_key="handbook.category.foundations",
+            body_paragraph_keys=("app.title",),
+            source_keys=("app.title",),
+        )
+        with patch("data_science_arcade.handbook.registry.HANDBOOK_ENTRIES", (synthetic,)):
+            scene = HandbookScene(app, initial_entry_id="synthetic_with_sources")
+            line = scene._sources_line_text(synthetic)
+
+        assert line is not None
+        assert line.startswith(app.localization.t("handbook.sources_label"))
+        assert not line.startswith(app.localization.t("handbook.related_label"))
+    finally:
+        pygame.quit()
+
+
+def test_sources_line_only_appears_on_the_last_page():
+    app = _init_app()
+    try:
+        synthetic = HandbookEntry(
+            id="synthetic_with_sources",
+            title_key="app.title",
+            category_key="handbook.category.foundations",
+            body_paragraph_keys=("app.title",),
+            source_keys=("app.title",),
+        )
+        with patch("data_science_arcade.handbook.registry.HANDBOOK_ENTRIES", (synthetic,)):
+            scene = HandbookScene(app, initial_entry_id="synthetic_with_sources")
+            scene.pages = [["line one"], ["line two"]]  # force a 2-page article regardless of real content length
+
+            scene.page_index = 0
+            assert scene._sources_line_text(synthetic) is None
+
+            scene.page_index = 1
+            assert scene._sources_line_text(synthetic) is not None
+    finally:
+        pygame.quit()
+
+
+def test_pagination_reserves_extra_height_when_an_article_has_sources():
+    # A real gap until now: nothing reserved room for the sources line,
+    # so on a full last page it could land in (or past) the nav/related
+    # rows below it - untested because no real article used source_keys.
+    # Reuses a real, already-long body paragraph (repeated to guarantee
+    # more than one page's worth of lines) rather than fabricating text
+    # or monkeypatching localization globally.
+    app = _init_app()
+    try:
+        long_key = "handbook.article.observation_unit_and_grain.body.1"
+        with_sources = HandbookEntry(
+            id="with_sources", title_key="app.title", category_key="handbook.category.foundations",
+            body_paragraph_keys=(long_key, long_key, long_key), source_keys=("app.title",),
+        )
+        without_sources = HandbookEntry(
+            id="without_sources", title_key="app.title", category_key="handbook.category.foundations",
+            body_paragraph_keys=(long_key, long_key, long_key),
+        )
+
+        with patch("data_science_arcade.handbook.registry.HANDBOOK_ENTRIES", (with_sources, without_sources)):
+            scene = HandbookScene(app, initial_entry_id="with_sources")
+            lines_with_sources = len(scene.pages[0])
+            scene._open_entry("without_sources")
+            lines_without_sources = len(scene.pages[0])
+
+        assert lines_with_sources < lines_without_sources
     finally:
         pygame.quit()
 
