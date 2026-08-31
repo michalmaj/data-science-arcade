@@ -34,6 +34,7 @@ RELATED_Y_OFFSET = 10  # from the bottom of the reserved footer
 RELATED_BUTTON_HEIGHT = 30
 RELATED_BUTTON_PADDING = 28  # horizontal padding added to each label's own measured width
 RELATED_BUTTON_GAP = 10
+SOURCES_RESERVED_HEIGHT = 40  # extra vertical space reserved on every page when an article has source_keys
 
 
 class HandbookTab(Enum):
@@ -108,9 +109,26 @@ class HandbookScene(Scene):
         font = get_font(BODY_FONT_SIZE)
         line_height = font.get_linesize() + BODY_LINE_SPACING
         available_height = CONTENT_RECT.height - BODY_TOP_OFFSET - NAV_RESERVED_HEIGHT
+        if article.source_keys:
+            # Reserved on every page, not just the last one that ends up
+            # showing it: pagination doesn't know in advance which page
+            # will be last, so a per-page budget that only shrinks for
+            # "the last page" can't be computed in one pass. Reserving
+            # this uniformly costs at most one extra page for an article
+            # with sources, in exchange for the sources line never
+            # competing with the nav/related rows below it - a real gap
+            # until now, since no real article populated source_keys yet.
+            available_height -= SOURCES_RESERVED_HEIGHT
         max_lines_per_page = max(1, available_height // line_height)
         self.pages = paginate(paragraphs, font, CONTENT_RECT.width - 40, max_lines_per_page)
         self.page_index = 0
+
+    def _sources_line_text(self, article: HandbookEntry) -> str | None:
+        if not article.source_keys or self.page_index != len(self.pages) - 1:
+            return None
+        loc = self.app.localization
+        sources_text = "; ".join(loc.t(key) for key in article.source_keys)
+        return f"{loc.t('handbook.sources_label')}: {sources_text}"
 
     def _open_entry(self, entry_id: str) -> None:
         entry = find_entry(entry_id)
@@ -333,11 +351,11 @@ class HandbookScene(Scene):
             progress = f"{self.page_index + 1} / {len(self.pages)}"
             draw_centered_text(surface, progress, (CENTER_X, CONTENT_RECT.bottom - PAGE_NAV_Y_OFFSET - 26), 13, colors.BUTTON_TEXT_DISABLED)
 
-        if article.source_keys and self.page_index == len(self.pages) - 1:
-            sources_text = "; ".join(loc.t(key) for key in article.source_keys)
+        sources_line = self._sources_line_text(article)
+        if sources_line is not None:
             draw_wrapped_text(
                 surface,
-                f"{loc.t('handbook.related_label')}: {sources_text}",
+                sources_line,
                 (left, body_top + len(page) * line_height + 10),
                 width,
                 12,
