@@ -35,3 +35,8 @@ class LessonDefinition:
     15-minute lesson would just be a second misleading number. Revised
     upward lesson by lesson as each one gets its own content-deepening
     pass."""
+    related_handbook_entry_id: str | None = None
+    """When set, MissionBriefingScene shows an extra "Learn More" button
+    linking to this Handbook entry (handbook/registry.py). Only Lesson 01
+    sets this today - proof-of-concept, not a pattern the other 29 lessons
+    need to adopt."""

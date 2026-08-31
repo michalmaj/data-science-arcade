@@ -12,4 +12,5 @@ LESSON_01 = LessonDefinition(
     ),
     scoring_dimensions=(ScoreDimension.REASONING, ScoreDimension.EVIDENCE, ScoreDimension.UNCERTAINTY),
     estimated_minutes=15,
+    related_handbook_entry_id="asking_an_analytical_question",
 )
