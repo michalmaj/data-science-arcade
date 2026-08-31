@@ -8,7 +8,35 @@ import pygame
 from data_science_arcade.app.game import App
 from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
+from data_science_arcade.ui.handbook_scene import HandbookScene
 from data_science_arcade.world.hub_scene import HubScene
+
+
+def test_opening_the_handbook_pushes_a_handbook_scene():
+    app = App()
+    app.init()
+    try:
+        hub = HubScene(app)
+        app.scenes.push(hub)
+
+        hub._open_handbook()
+
+        assert isinstance(app.scenes.current, HandbookScene)
+    finally:
+        pygame.quit()
+
+
+def test_the_three_hotspots_and_back_button_do_not_overlap():
+    app = App()
+    app.init()
+    try:
+        hub = HubScene(app)
+        rects = [hub.terminal_button.rect, hub.mentor_button.rect, hub.handbook_button.rect, hub.back_button.rect]
+        for i, a in enumerate(rects):
+            for b in rects[i + 1 :]:
+                assert not a.colliderect(b), (a, b)
+    finally:
+        pygame.quit()
 
 
 def test_mission_terminal_opens_the_course_map():
