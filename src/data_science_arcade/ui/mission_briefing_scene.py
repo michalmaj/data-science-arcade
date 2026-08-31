@@ -9,6 +9,7 @@ from data_science_arcade.lessons.framework.definition import LessonDefinition
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
+from data_science_arcade.ui.handbook_scene import HandbookScene
 from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text, wrap_text
 
 CENTER_X = LOGICAL_SIZE[0] // 2
@@ -23,6 +24,13 @@ OBJECTIVE_LEFT_X = CENTER_X - 300
 OBJECTIVE_MAX_WIDTH = 600
 START_BUTTON_SIZE = (240, 48)
 START_BUTTON_Y = 460
+# Fixed position, not dynamic-position machinery: Lesson 01's real
+# objectives (3 lines, none wrapping) end well above this, with room to
+# spare before START_BUTTON_Y - safe for the one lesson that uses this
+# today. Revisit with real wrap-count math (see _draw_objectives) if a
+# future lesson's own objectives run long enough to need it.
+LEARN_MORE_BUTTON_SIZE = (220, 40)
+LEARN_MORE_BUTTON_Y = 400
 
 
 class MissionBriefingScene(Scene):
@@ -41,7 +49,17 @@ class MissionBriefingScene(Scene):
         loc = app.localization
         start_rect = pygame.Rect(0, 0, *START_BUTTON_SIZE)
         start_rect.center = (CENTER_X, START_BUTTON_Y)
-        self.buttons = ButtonGroup([Button(start_rect, loc.t("runtime.start_mission"), self.on_start)])
+        buttons = [Button(start_rect, loc.t("runtime.start_mission"), self.on_start)]
+
+        if definition.related_handbook_entry_id is not None:
+            learn_more_rect = pygame.Rect(0, 0, *LEARN_MORE_BUTTON_SIZE)
+            learn_more_rect.center = (CENTER_X, LEARN_MORE_BUTTON_Y)
+            buttons.append(Button(learn_more_rect, loc.t("mission_briefing.learn_more"), self._open_handbook))
+
+        self.buttons = ButtonGroup(buttons)
+
+    def _open_handbook(self) -> None:
+        self.app.scenes.push(HandbookScene(self.app, initial_entry_id=self.definition.related_handbook_entry_id))
 
     def handle_event(self, event: pygame.event.Event) -> None:
         # No special Escape handling needed: LessonRunner wraps this stage
