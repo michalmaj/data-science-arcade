@@ -8,6 +8,7 @@ from data_science_arcade.core.display import LOGICAL_SIZE
 from data_science_arcade.core.fonts import get_font
 from data_science_arcade.core.scenes import Scene
 from data_science_arcade.data_engine.dataset import Dataset
+from data_science_arcade.lessons.framework.inspection import InspectionPrompt
 from data_science_arcade.lessons.framework.repair import RepairIssue, RepairResolution
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
@@ -80,7 +81,23 @@ class WorkbenchScene(Scene):
     guarantee independent of that call-site discipline). `_make_choose`
     also records under `key=issue.column`, since guided_work and
     independent_challenge deliberately resolve the same issues again -
-    resolving one twice updates its one slot instead of doubling it."""
+    resolving one twice updates its one slot instead of doubling it.
+
+    `visible_tabs` restricts the tab bar to a subset of WorkbenchTab
+    (default: all of them) - lets a lesson show this scene as a focused
+    "cockpit" (e.g. just MISSION+DATA for a first look, or DATA+EVIDENCE+
+    PYTHON for a review) without ever showing a tab whose content would be
+    genuinely empty at that point in the lesson. The per-tab render
+    dispatch is unchanged either way - a tab left out of `visible_tabs`
+    just never gets a button to click into.
+
+    `inspection_prompt`, when given, is an ungraded micro-decision shown
+    once, the first time the DATA tab opens with `issues=()` (no repair
+    task active) - e.g. "what does one row represent here?" Continue stays
+    disabled until it's answered (`_all_resolved()`), same non-punitive
+    "record the choice, don't gate on correctness" discipline as repair
+    issues resolving right or wrong today - which option gets picked
+    doesn't matter for gating, only that real engagement happened."""
 
     def __init__(
         self,
@@ -90,6 +107,8 @@ class WorkbenchScene(Scene):
         on_complete: Callable[[RepairResolution], None],
         guided: bool = True,
         context: LessonContext | None = None,
+        visible_tabs: tuple["WorkbenchTab", ...] = tuple(WorkbenchTab),
+        inspection_prompt: InspectionPrompt | None = None,
     ) -> None:
         super().__init__(app)
         self.dataset = dataset
@@ -97,6 +116,9 @@ class WorkbenchScene(Scene):
         self.on_complete = on_complete
         self.guided = guided
         self.context = context if context is not None else LessonContext()
+        self.visible_tabs = visible_tabs
+        self.inspection_prompt = inspection_prompt
+        self._inspection_answered = False
         self.active_tab = WorkbenchTab.DATA
         self.data_view = DataView.TABLE
         self.resolution: RepairResolution = {}
@@ -106,23 +128,29 @@ class WorkbenchScene(Scene):
     def _issue_for_column(self, column: str) -> RepairIssue | None:
         return next((issue for issue in self.issues if issue.column == column), None)
 
+    def _inspection_pending(self) -> bool:
+        return self.inspection_prompt is not None and not self._inspection_answered
+
     def _all_resolved(self) -> bool:
-        return len(self.resolution) == len(self.issues)
+        return len(self.resolution) == len(self.issues) and not self._inspection_pending()
 
     def _rebuild_buttons(self) -> None:
         loc = self.app.localization
         buttons: list[Button] = []
-        for index, tab in enumerate(WorkbenchTab):
+        for index, tab in enumerate(self.visible_tabs):
             rect = pygame.Rect(0, 0, *TAB_SIZE)
-            first_center_x = CENTER_X - (len(WorkbenchTab) - 1) * TAB_SPACING // 2
+            first_center_x = CENTER_X - (len(self.visible_tabs) - 1) * TAB_SPACING // 2
             rect.center = (first_center_x + index * TAB_SPACING, TAB_BAR_Y)
             buttons.append(Button(rect, loc.t(tab.value), self._make_switch_tab(tab)))
 
         self.table_view_button = None
         self.schema_view_button = None
         self.picker_buttons: dict[str, Button] = {}
+        self.inspection_buttons: dict[str, Button] = {}
         if self.active_tab is WorkbenchTab.DATA:
-            if self.active_issue is not None:
+            if self._inspection_pending():
+                buttons.extend(self._build_inspection_buttons())
+            elif self.active_issue is not None:
                 buttons.extend(self._build_picker_buttons())
             else:
                 table_rect = pygame.Rect(0, 0, 120, 30)
@@ -147,7 +175,7 @@ class WorkbenchScene(Scene):
         # ButtonGroup defaults focus to the first button; keep it on the tab
         # that's actually showing instead of always snapping back to the
         # first tab whenever anything triggers a rebuild.
-        self.buttons.focus_index = list(WorkbenchTab).index(self.active_tab)
+        self.buttons.focus_index = list(self.visible_tabs).index(self.active_tab)
 
     def _build_cell_buttons(self) -> list[Button]:
         table_top = CONTENT_RECT.top + 46
@@ -169,6 +197,19 @@ class WorkbenchScene(Scene):
                 text = _format_cell(shown_rows.iloc[row_index][column])
                 button = Button(rect, text, self._make_open_issue(issue))
                 buttons.append(button)
+        return buttons
+
+    def _build_inspection_buttons(self) -> list[Button]:
+        loc = self.app.localization
+        prompt = self.inspection_prompt
+        assert prompt is not None
+        buttons = []
+        for index, option in enumerate(prompt.options):
+            rect = pygame.Rect(0, 0, *PICKER_OPTION_SIZE)
+            rect.center = (CENTER_X, CONTENT_RECT.top + 120 + index * PICKER_OPTION_SPACING)
+            button = Button(rect, loc.t(option.label_key), self._make_answer_inspection(option.key))
+            self.inspection_buttons[option.key] = button
+            buttons.append(button)
         return buttons
 
     def _build_picker_buttons(self) -> list[Button]:
@@ -226,6 +267,20 @@ class WorkbenchScene(Scene):
             self._rebuild_buttons()
 
         return choose
+
+    def _make_answer_inspection(self, option_key: str) -> Callable[[], None]:
+        def answer() -> None:
+            prompt = self.inspection_prompt
+            assert prompt is not None
+            option = next(o for o in prompt.options if o.key == option_key)
+            # key=prompt.prompt_key: defensive parity with RepairIssue's own
+            # key=issue.column (guided/independent re-showing the same
+            # prompt updates one slot rather than appending a second).
+            self.context.record_action(label_key=option.label_key, key=prompt.prompt_key)
+            self._inspection_answered = True
+            self._rebuild_buttons()
+
+        return answer
 
     def _continue(self) -> None:
         if self._all_resolved():
@@ -301,12 +356,24 @@ class WorkbenchScene(Scene):
             draw_single_line(surface, text, (left, y), width, 16, color)
 
     def _draw_data_tab(self, surface: pygame.Surface) -> None:
-        if self.active_issue is not None:
+        if self._inspection_pending():
+            self._draw_inspection_prompt(surface)
+        elif self.active_issue is not None:
             self._draw_picker(surface)
         elif self.data_view is DataView.TABLE:
             self._draw_table(surface, CONTENT_RECT.top + 46)
         else:
             self._draw_schema(surface, CONTENT_RECT.top + 46)
+
+    def _draw_inspection_prompt(self, surface: pygame.Surface) -> None:
+        loc = self.app.localization
+        prompt = self.inspection_prompt
+        assert prompt is not None
+        draw_centered_text(surface, loc.t(prompt.prompt_key), (CENTER_X, CONTENT_RECT.top + 50), 20, colors.TEXT)
+        if self.guided and prompt.hint_key:
+            draw_wrapped_text(
+                surface, loc.t(prompt.hint_key), (CENTER_X - 350, CONTENT_RECT.bottom - 60), 700, 15, colors.BUTTON_TEXT_DISABLED
+            )
 
     def _draw_picker(self, surface: pygame.Surface) -> None:
         loc = self.app.localization
@@ -397,7 +464,8 @@ class WorkbenchScene(Scene):
         top = CONTENT_RECT.top + 20
         width = CONTENT_RECT.width - 40
         for index, item in enumerate(self.context.evidence):
-            draw_wrapped_text(surface, f"- {loc.t(item.label_key)}", (left, top + index * 26), width, 15, colors.TEXT)
+            label = loc.t(item.label_key) if item.detail is None else f"{loc.t(item.label_key)} {item.detail}"
+            draw_wrapped_text(surface, f"- {label}", (left, top + index * 26), width, 15, colors.TEXT)
 
     def _draw_decision_tab(self, surface: pygame.Surface) -> None:
         # Raw field_key/option_key, not localized text - deliberately

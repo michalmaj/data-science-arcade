@@ -164,6 +164,26 @@ def test_to_dict_and_restore_from_dict_round_trip_actions_evidence_and_decision(
     assert restored.decision == original.decision
 
 
+def test_evidence_detail_round_trips_through_to_dict_and_restore_from_dict():
+    original = LessonContext()
+    original.record_evidence("30-day repeat rate", detail="42%")
+
+    restored = LessonContext()
+    restored.restore_from_dict(original.to_dict())
+
+    assert restored.evidence[0].detail == "42%"
+
+
+def test_recording_evidence_with_the_same_key_updates_its_detail_too():
+    context = LessonContext()
+    context.record_evidence("repeat rate", key="window", detail="38%")
+
+    context.record_evidence("repeat rate", key="window", detail="41%")
+
+    assert len(context.evidence) == 1
+    assert context.evidence[0].detail == "41%"
+
+
 def test_restore_continues_id_numbering_without_colliding_with_a_new_recording():
     original = LessonContext()
     original.record_action("a", python_code="a = 1")  # "action_1"

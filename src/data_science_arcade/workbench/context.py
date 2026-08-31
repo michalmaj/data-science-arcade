@@ -34,12 +34,21 @@ class EvidenceItem:
     which assesses the *student's own reasoning quality*, not a fact about
     the data. source_action_id, when set, is a real AnalyticalAction.id
     this evidence came from - never a hand-typed string, so it can't drift
-    out of sync with the action it actually references."""
+    out of sync with the action it actually references.
+
+    `detail`, when set, is an already-formatted, non-localized string
+    shown appended to the localized label (e.g. "42%") - matching how
+    TwistRevealScene already composes a label_key with a live-computed
+    value via string concatenation, not by hand-typing the number into a
+    bilingual string (which would create two sources of truth for one
+    computed number, and drift the moment the underlying data changes).
+    Only the label needs translation; the number doesn't."""
 
     id: str
     label_key: str
     source_action_id: str | None = None
     key: str | None = None
+    detail: str | None = None
 
 
 @dataclass(frozen=True)
@@ -117,16 +126,24 @@ class LessonContext:
         return action
 
     def record_evidence(
-        self, label_key: str, source_action: AnalyticalAction | None = None, key: str | None = None
+        self,
+        label_key: str,
+        source_action: AnalyticalAction | None = None,
+        key: str | None = None,
+        detail: str | None = None,
     ) -> EvidenceItem:
         source_action_id = source_action.id if source_action is not None else None
         if key is not None:
             for index, existing in enumerate(self._evidence):
                 if existing.key == key:
-                    updated = EvidenceItem(id=existing.id, label_key=label_key, source_action_id=source_action_id, key=key)
+                    updated = EvidenceItem(
+                        id=existing.id, label_key=label_key, source_action_id=source_action_id, key=key, detail=detail
+                    )
                     self._evidence[index] = updated
                     return updated
-        evidence = EvidenceItem(id=self._new_id("evidence"), label_key=label_key, source_action_id=source_action_id, key=key)
+        evidence = EvidenceItem(
+            id=self._new_id("evidence"), label_key=label_key, source_action_id=source_action_id, key=key, detail=detail
+        )
         self._evidence.append(evidence)
         return evidence
 
@@ -155,7 +172,13 @@ class LessonContext:
                 {"id": a.id, "label_key": a.label_key, "python_code": a.python_code, "key": a.key} for a in self._actions
             ],
             "evidence": [
-                {"id": e.id, "label_key": e.label_key, "source_action_id": e.source_action_id, "key": e.key}
+                {
+                    "id": e.id,
+                    "label_key": e.label_key,
+                    "source_action_id": e.source_action_id,
+                    "key": e.key,
+                    "detail": e.detail,
+                }
                 for e in self._evidence
             ],
             "decision": (
@@ -192,7 +215,11 @@ class LessonContext:
             )
             evidence = tuple(
                 EvidenceItem(
-                    id=e["id"], label_key=e["label_key"], source_action_id=e.get("source_action_id"), key=e.get("key")
+                    id=e["id"],
+                    label_key=e["label_key"],
+                    source_action_id=e.get("source_action_id"),
+                    key=e.get("key"),
+                    detail=e.get("detail"),
                 )
                 for e in data.get("evidence", [])
             )

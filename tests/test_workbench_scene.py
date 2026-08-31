@@ -9,9 +9,15 @@ import pygame
 from data_science_arcade.app.game import App
 from data_science_arcade.data_engine.dataset import Dataset
 from data_science_arcade.data_engine.schema import ColumnSchema, Schema
+from data_science_arcade.lessons.framework.inspection import InspectionOption, InspectionPrompt
 from data_science_arcade.lessons.framework.repair import RepairIssue, RepairOption
 from data_science_arcade.ui.workbench_scene import DataView, WorkbenchScene, WorkbenchTab
 from data_science_arcade.workbench.context import DecisionState, LessonContext
+
+PROMPT = InspectionPrompt(
+    prompt_key="app.title",
+    options=(InspectionOption("order", "app.title"), InspectionOption("customer", "app.title")),
+)
 
 SCHEMA = Schema(
     columns=(
@@ -321,6 +327,20 @@ def test_evidence_tab_shows_the_placeholder_until_something_is_resolved():
         pygame.quit()
 
 
+def test_evidence_tab_appends_detail_after_the_localized_label_when_present():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        context.record_evidence("app.title", detail="42%")
+        scene = WorkbenchScene(app, make_dataset(), (), lambda resolution: None, context=context)
+        scene.active_tab = WorkbenchTab.EVIDENCE
+        scene._rebuild_buttons()
+
+        scene.draw(app.logical_surface)  # doesn't crash composing label + detail
+    finally:
+        pygame.quit()
+
+
 def test_decision_tab_reflects_a_decision_once_one_is_set():
     app = _init_app()
     try:
@@ -397,5 +417,80 @@ def test_schema_description_key_is_preferred_over_the_legacy_literal_description
         scene._rebuild_buttons()
 
         scene.draw(app.logical_surface)  # doesn't crash mixing a description_key column and a legacy-only one
+    finally:
+        pygame.quit()
+
+
+def test_visible_tabs_restricts_the_tab_bar_and_keeps_focus_correct():
+    app = _init_app()
+    try:
+        scene = WorkbenchScene(
+            app, make_dataset(), (), lambda resolution: None, visible_tabs=(WorkbenchTab.MISSION, WorkbenchTab.DATA)
+        )
+        tab_labels = {app.localization.t(WorkbenchTab.MISSION.value), app.localization.t(WorkbenchTab.DATA.value)}
+        shown_labels = {b.label for b in scene.buttons.buttons if b.label in tab_labels}
+        assert shown_labels == tab_labels
+        assert app.localization.t(WorkbenchTab.PIPELINE.value) not in [b.label for b in scene.buttons.buttons]
+        assert scene.buttons.focus_index == list(scene.visible_tabs).index(WorkbenchTab.DATA)
+    finally:
+        pygame.quit()
+
+
+def test_omitting_visible_tabs_shows_every_tab_same_as_before():
+    app = _init_app()
+    try:
+        scene = _make_scene(app)
+        assert scene.visible_tabs == tuple(WorkbenchTab)
+    finally:
+        pygame.quit()
+
+
+def test_inspection_prompt_blocks_continue_until_answered():
+    app = _init_app()
+    try:
+        scene = WorkbenchScene(app, make_dataset(), (), lambda resolution: None, inspection_prompt=PROMPT)
+        assert scene.continue_button.enabled is False
+
+        scene.inspection_buttons["order"].on_activate()
+
+        assert scene._inspection_answered is True
+        assert scene.continue_button.enabled is True
+    finally:
+        pygame.quit()
+
+
+def test_inspection_prompt_records_a_real_action_and_doesnt_touch_resolution():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = WorkbenchScene(app, make_dataset(), (), lambda resolution: None, context=context, inspection_prompt=PROMPT)
+
+        scene.inspection_buttons["customer"].on_activate()
+
+        assert len(context.actions) == 1
+        assert scene.resolution == {}
+    finally:
+        pygame.quit()
+
+
+def test_no_inspection_prompt_behaves_exactly_as_before():
+    app = _init_app()
+    try:
+        scene = WorkbenchScene(app, make_dataset(), (), lambda resolution: None)
+        assert scene.continue_button.enabled is True
+    finally:
+        pygame.quit()
+
+
+def test_repair_issues_are_unreachable_while_an_inspection_prompt_is_pending():
+    app = _init_app()
+    try:
+        scene = WorkbenchScene(app, make_dataset(), ISSUES, lambda resolution: None, inspection_prompt=PROMPT)
+        assert scene.picker_buttons == {}
+        assert len(scene.inspection_buttons) == len(PROMPT.options)
+        # No cell buttons for the flagged "code" column either - only the
+        # inspection picker's own 2 options plus the (disabled) Continue.
+        assert len(scene.buttons.buttons) == len(scene.visible_tabs) + len(PROMPT.options) + 1
+        scene.draw(app.logical_surface)  # inspection prompt renders instead of the table/picker, doesn't crash
     finally:
         pygame.quit()
