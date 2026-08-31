@@ -61,7 +61,18 @@ class PipelineBuilderScene(Scene):
     including if the student changes their mind and re-picks a different
     pair for the *same* request - keyed by `request.key`, so that request's
     one slot in the Python Mirror updates to reflect the current choice
-    instead of accumulating a line per click."""
+    instead of accumulating a line per click.
+
+    `record_evidence` (default True, matching every existing caller's
+    behavior unchanged) controls only the EvidenceItem half of that -
+    the AnalyticalAction/Python Mirror line is always recorded when a
+    real `context` is given. Pass False for a lesson where this scene's
+    own picks (a bare group-by choice, no number attached) would land in
+    a later evidence-picking UI as content-free noise irrelevant to
+    whatever claim that UI is meant to help defend - real exploratory
+    work should still show up in Dataset history/Python Mirror, just not
+    as a pickable "finding" with nothing to distinguish one instance from
+    another."""
 
     def __init__(
         self,
@@ -72,6 +83,7 @@ class PipelineBuilderScene(Scene):
         on_complete: Callable[[PipelineChoices], None],
         guided: bool = True,
         context: LessonContext | None = None,
+        record_evidence: bool = True,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -80,6 +92,7 @@ class PipelineBuilderScene(Scene):
         self.on_complete = on_complete
         self.guided = guided
         self.context = context if context is not None else LessonContext()
+        self.record_evidence_enabled = record_evidence
         self.request_index = 0
         self.choices: PipelineChoices = {}
         self._group_by_choice: str | None = None
@@ -158,7 +171,8 @@ class PipelineBuilderScene(Scene):
             # that request's one slot to the current choice instead of
             # accumulating a line per click.
             action = self.context.record_action(label_key=group_by.label_key, python_code=python_code, key=request.key)
-            self.context.record_evidence(label_key=group_by.label_key, source_action=action, key=request.key)
+            if self.record_evidence_enabled:
+                self.context.record_evidence(label_key=group_by.label_key, source_action=action, key=request.key)
 
     def _back(self) -> None:
         if self.request_index > 0:
