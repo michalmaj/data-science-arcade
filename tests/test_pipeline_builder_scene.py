@@ -193,6 +193,40 @@ def test_committing_a_complete_choice_records_a_real_action_and_evidence_with_re
         pygame.quit()
 
 
+def test_record_evidence_false_still_records_the_action_but_not_the_evidence():
+    # PR D's Lesson 01 "Grain in Action" act needs exactly this: a real
+    # AnalyticalAction/Python Mirror line for genuine exploratory work,
+    # without that work becoming a pickable "finding" later - a bare
+    # group-by choice carries no number and no way to tell two different
+    # requests' identical choices apart once it's just one more entry in
+    # a list of evidence.
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = PipelineBuilderScene(
+            app, "app.title", DATASET, REQUESTS, lambda choices: None, context=context, record_evidence=False
+        )
+        scene.buttons.buttons[0].on_activate()
+        scene.buttons.buttons[2].on_activate()
+
+        assert len(context.actions) == 1
+        assert context.actions[0].python_code == "synthetic.groupby('group_a')['amount'].sum()"
+        assert context.evidence == ()
+    finally:
+        pygame.quit()
+
+
+def test_record_evidence_defaults_to_true_matching_every_existing_caller():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = PipelineBuilderScene(app, "app.title", DATASET, REQUESTS, lambda choices: None, context=context)
+
+        assert scene.record_evidence_enabled is True
+    finally:
+        pygame.quit()
+
+
 def test_committing_two_different_requests_records_two_separate_actions():
     app = _init_app()
     try:
