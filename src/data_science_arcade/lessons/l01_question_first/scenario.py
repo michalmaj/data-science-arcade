@@ -390,11 +390,24 @@ def build_lesson_one_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     # --- Act 3 ---
 
     def grain_in_action(advance):
+        # Deliberately NOT passed the shared `context`: this act's real
+        # payoff is the live preview inside the scene itself (order rows
+        # becoming customer rows, in front of the student), not a lasting
+        # evidence trail. Group-by choice alone ("By customer") carries no
+        # number and no request-specific meaning once recorded as a bare
+        # AnalyticalAction/EvidenceItem - threading it into the shared
+        # context produced two visually-identical, content-free "By
+        # customer" entries in the Decision Builder's evidence pool
+        # (order_count's and total_spend's group-by choices collide on
+        # label text with nothing to tell them apart), for a claim
+        # (repeat-purchase rate) this act's own numbers don't actually
+        # speak to anyway. A fresh throwaway LessonContext (this scene's
+        # own default) keeps that live preview without polluting the real
+        # investigation's evidence trail.
         def on_complete(_choices):
-            _sync_context_into_collected()
             advance()
 
-        return PipelineBuilderScene(app, "lesson.l01.grain.title", dataset, GRAIN_REQUESTS, on_complete, context=context)
+        return PipelineBuilderScene(app, "lesson.l01.grain.title", dataset, GRAIN_REQUESTS, on_complete)
 
     # --- Act 4 ---
 
