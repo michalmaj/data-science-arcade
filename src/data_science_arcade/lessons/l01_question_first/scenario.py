@@ -390,24 +390,25 @@ def build_lesson_one_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     # --- Act 3 ---
 
     def grain_in_action(advance):
-        # Deliberately NOT passed the shared `context`: this act's real
-        # payoff is the live preview inside the scene itself (order rows
-        # becoming customer rows, in front of the student), not a lasting
-        # evidence trail. Group-by choice alone ("By customer") carries no
-        # number and no request-specific meaning once recorded as a bare
-        # AnalyticalAction/EvidenceItem - threading it into the shared
-        # context produced two visually-identical, content-free "By
-        # customer" entries in the Decision Builder's evidence pool
-        # (order_count's and total_spend's group-by choices collide on
-        # label text with nothing to tell them apart), for a claim
-        # (repeat-purchase rate) this act's own numbers don't actually
-        # speak to anyway. A fresh throwaway LessonContext (this scene's
-        # own default) keeps that live preview without polluting the real
-        # investigation's evidence trail.
+        # Real context IS threaded through here, so the two real groupby/
+        # aggregate operations still show up as real AnalyticalActions in
+        # the shared Python Mirror (visible later in Act 9's Evidence
+        # Review) - this act's own real analytical work should be part of
+        # that trail. record_evidence=False is the one thing turned off:
+        # a bare group-by choice ("By customer," no number attached) has
+        # no request-specific content once recorded as an EvidenceItem -
+        # order_count's and total_spend's choices collided on identical
+        # label text with nothing to tell them apart - and neither speaks
+        # to the claim (repeat-purchase rate) this lesson's Decision
+        # Builder is actually about anyway. Action: yes. Python Mirror:
+        # yes. Pickable evidence for the final claim: no.
         def on_complete(_choices):
+            _sync_context_into_collected()
             advance()
 
-        return PipelineBuilderScene(app, "lesson.l01.grain.title", dataset, GRAIN_REQUESTS, on_complete)
+        return PipelineBuilderScene(
+            app, "lesson.l01.grain.title", dataset, GRAIN_REQUESTS, on_complete, context=context, record_evidence=False
+        )
 
     # --- Act 4 ---
 
