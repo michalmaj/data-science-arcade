@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
@@ -40,3 +41,11 @@ class LessonDefinition:
     linking to this Handbook entry (handbook/registry.py). Only Lesson 01
     sets this today - proof-of-concept, not a pattern the other 29 lessons
     need to adopt."""
+    scorer: Callable[[object, "LessonDefinition", int], object] | None = None
+    """A lesson-specific replacement for evaluation.py's default_scorer,
+    same (result, definition, hints_used) -> LessonEvaluation shape -
+    course_map_scene.py's _start_lesson uses `definition.scorer or
+    default_scorer`, so leaving this None (every lesson but one, today)
+    is exactly today's behavior. Typed loosely (object, not
+    LessonEvaluation) to avoid a circular import - evaluation.py already
+    imports LessonDefinition from this module."""

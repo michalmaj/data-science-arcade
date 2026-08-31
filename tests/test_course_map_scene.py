@@ -8,7 +8,13 @@ import pygame
 from data_science_arcade.app.game import App
 from data_science_arcade.lessons.framework.prediction import DIRECTIONS as L17_DIRECTIONS
 from data_science_arcade.lessons.l01_question_first.definition import LESSON_01
-from data_science_arcade.lessons.l01_question_first.scenario import BRIEF_FIELDS, DECISION_FIELDS, build_lesson_one_runner
+from data_science_arcade.lessons.l01_question_first.scenario import build_lesson_one_runner
+from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
+from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene
+from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
+from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene
+from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
+from data_science_arcade.ui.workbench_scene import WorkbenchScene
 from data_science_arcade.lessons.l02_source_scout.scenario import DECISION_FIELDS as L02_DECISION_FIELDS
 from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import CORRECT_EVENT_BY_STEP as L04_CORRECT_EVENT_BY_STEP
@@ -657,10 +663,108 @@ def _play_dialogue_to_the_end(scene: DialogueScene) -> None:
         scene.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))
 
 
+L01_STAGE_FINGERPRINT = "|".join(
+    (
+        "briefing",
+        "investigation",
+        "meet_the_data",
+        "grain_in_action",
+        "guided_brief",
+        "predict_window",
+        "compute_window",
+        "household_reveal",
+        "revise_entity",
+        "compute_entity",
+        "coverage_reveal",
+        "coverage_interpret",
+        "the_twist",
+        "evidence_review",
+        "final_decision",
+        "mastery_challenge",
+        "feedback",
+        "debrief",
+    )
+)
+"""Must match the exact stage-factory function names/order in
+lessons/l01_question_first/scenario.py::build_lesson_one_runner - a stale
+copy here is exactly the kind of drift LessonRunner's own fingerprint
+check exists to catch, so keep this list in sync by hand when that
+function's stage list changes."""
+
+
 def _fill_out(scene: BriefBuilderScene, fields) -> None:
     for _ in fields:
         scene.buttons.buttons[0].on_activate()
         scene.next_button.on_activate()
+
+
+def _click(surface_pos=(1, 1)) -> pygame.event.Event:
+    return pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=surface_pos, button=1)
+
+
+def _play_lesson_one_to_completion(app) -> None:
+    """The real 18-stage flow (decisions/IMPLEMENTATION_STATE.md has the
+    full act-by-act rationale) - a from-scratch replacement for the old
+    8-stage click sequence every prior version of this test used. Skips
+    the optional mastery act via its own Skip button rather than playing
+    it out, since it isn't required for a real playthrough to finish."""
+    _play_dialogue_to_the_end(app.scenes.current)  # briefing
+    _play_dialogue_to_the_end(app.scenes.current)  # investigation
+
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # meet_the_data
+    workbench = app.scenes.current.inner
+    first_inspection_option = next(iter(workbench.inspection_buttons.values()))
+    first_inspection_option.on_activate()
+    workbench.continue_button.on_activate()
+
+    assert isinstance(app.scenes.current.inner, PipelineBuilderScene)  # grain_in_action
+    pipeline = app.scenes.current.inner
+    for _ in range(2):  # 2 GRAIN_REQUESTS, each with 2 group-by options + 1 aggregate option
+        pipeline.buttons.buttons[0].on_activate()  # first group-by option
+        pipeline.buttons.buttons[2].on_activate()  # the one aggregate option
+        pipeline.next_button.on_activate()
+
+    _fill_out(app.scenes.current.inner, range(6))  # guided_brief, 6 fields
+    _fill_out(app.scenes.current.inner, range(2))  # predict_window, 2 fields
+
+    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # compute_window
+    app.scenes.current.inner.buttons.buttons[0].on_activate()
+    app.scenes.current.inner.continue_button.on_activate()
+
+    _play_dialogue_to_the_end(app.scenes.current)  # household_reveal
+    _fill_out(app.scenes.current.inner, range(1))  # revise_entity, 1 field
+
+    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # compute_entity
+    app.scenes.current.inner.buttons.buttons[0].on_activate()
+    app.scenes.current.inner.continue_button.on_activate()
+
+    _play_dialogue_to_the_end(app.scenes.current)  # coverage_reveal
+    _fill_out(app.scenes.current.inner, range(1))  # coverage_interpret, 1 field
+
+    app.scenes.current.handle_event(_click())  # the_twist
+
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
+    app.scenes.current.inner.continue_button.on_activate()
+
+    assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+    decision = app.scenes.current.inner
+    decision.buttons.buttons[0].on_activate()  # claim
+    decision.next_button.on_activate()
+    evidence_ids = list(decision._evidence_toggle_buttons.keys())
+    decision._evidence_toggle_buttons[evidence_ids[0]].on_activate()
+    decision._evidence_toggle_buttons[evidence_ids[1]].on_activate()
+    decision.next_button.on_activate()
+    for _ in range(4):  # limitation, confidence, recommendation, follow_up
+        decision.buttons.buttons[0].on_activate()
+        decision.next_button.on_activate()
+
+    assert isinstance(app.scenes.current.inner, MasteryChallengeScene)  # mastery_challenge - skipped
+    app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+    assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+    app.scenes.current.inner.buttons.buttons[0].on_activate()
+
+    _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
 
 def test_finishing_lesson_one_marks_it_complete_and_unlocks_lesson_two():
@@ -672,14 +776,7 @@ def test_finishing_lesson_one_marks_it_complete_and_unlocks_lesson_two():
         course_map._open_lesson(1)
         click_through_mission_briefing(app)
 
-        _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _fill_out(app.scenes.current, BRIEF_FIELDS)  # guided work
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _fill_out(app.scenes.current, BRIEF_FIELDS)  # independent challenge
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, DECISION_FIELDS)  # decision
-        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+        _play_lesson_one_to_completion(app)
 
         assert app.scenes.current is course_map
         assert app.progress.state_of(1) == LessonState.COMPLETED
@@ -1791,14 +1888,7 @@ def test_finishing_a_lesson_records_a_real_evaluation_alongside_completion():
         course_map._open_lesson(1)
         click_through_mission_briefing(app)
 
-        _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _fill_out(app.scenes.current, BRIEF_FIELDS)  # guided brief
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _fill_out(app.scenes.current, BRIEF_FIELDS)  # independent brief
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, DECISION_FIELDS)  # decision
-        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+        _play_lesson_one_to_completion(app)
 
         evaluation = app.progress.evaluations[1]
         assert evaluation.completed_thoughtfully is True
@@ -1814,7 +1904,7 @@ def test_opening_a_lesson_with_a_saved_checkpoint_shows_a_resume_prompt():
     app.init()
     try:
         _, l01_collected = build_lesson_one_runner(app, on_finished=lambda result: None)
-        fingerprint = "briefing|investigation|guided_work|independent_intro|independent_challenge|twist|decision|debrief"
+        fingerprint = L01_STAGE_FINGERPRINT
         app.progress.save_checkpoint(1, LessonCheckpoint(stage_index=2, stage_fingerprint=fingerprint, collected=dict(l01_collected)))
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
@@ -1830,15 +1920,15 @@ def test_choosing_resume_continues_the_lesson_from_the_checkpoint():
     app = App()
     app.init()
     try:
-        fingerprint = "briefing|investigation|guided_work|independent_intro|independent_challenge|twist|decision|debrief"
-        app.progress.save_checkpoint(1, LessonCheckpoint(stage_index=2, stage_fingerprint=fingerprint, collected={}))
+        fingerprint = L01_STAGE_FINGERPRINT
+        app.progress.save_checkpoint(1, LessonCheckpoint(stage_index=4, stage_fingerprint=fingerprint, collected={}))
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(1)
 
         app.scenes.current.buttons.buttons[0].on_activate()  # Resume
 
-        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # guided_work is stage index 2
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # guided_brief is stage index 4
         assert app.progress.checkpoint_for(1) is not None  # untouched by resuming
     finally:
         pygame.quit()
@@ -1848,8 +1938,8 @@ def test_choosing_start_over_clears_the_checkpoint_and_restarts_from_the_briefin
     app = App()
     app.init()
     try:
-        fingerprint = "briefing|investigation|guided_work|independent_intro|independent_challenge|twist|decision|debrief"
-        app.progress.save_checkpoint(1, LessonCheckpoint(stage_index=2, stage_fingerprint=fingerprint, collected={}))
+        fingerprint = L01_STAGE_FINGERPRINT
+        app.progress.save_checkpoint(1, LessonCheckpoint(stage_index=4, stage_fingerprint=fingerprint, collected={}))
         course_map = CourseMapScene(app)
         app.scenes.push(course_map)
         course_map._open_lesson(1)

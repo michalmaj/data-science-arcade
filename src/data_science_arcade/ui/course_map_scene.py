@@ -97,7 +97,8 @@ class CourseMapScene(Scene):
     def _start_lesson(self, lesson_number: int) -> None:
         def on_finished(result) -> None:
             hints_used = self.app.progress.hints_used.get(lesson_number, 0)
-            evaluation = default_scorer(result, runner.definition, hints_used)
+            scorer = runner.definition.scorer or default_scorer
+            evaluation = scorer(result, runner.definition, hints_used)
             self.app.progress.record_evaluation(lesson_number, evaluation)
             self.app.progress.complete(lesson_number)
             self.app.save_progress()
