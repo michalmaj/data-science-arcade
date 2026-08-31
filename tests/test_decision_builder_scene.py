@@ -35,16 +35,65 @@ def _make_scene(app, context=None, on_complete=lambda choices: None, **kwargs):
     return DecisionBuilderScene(
         app,
         "app.title",
-        CLAIM,
-        EVIDENCE,
-        LIMITATION,
-        CONFIDENCE,
-        RECOMMENDATION,
-        FOLLOW_UP,
+        steps=(CLAIM, EVIDENCE, LIMITATION, CONFIDENCE, RECOMMENDATION, FOLLOW_UP),
         context=context if context is not None else _context_with_evidence(),
         on_complete=on_complete,
         **kwargs,
     )
+
+
+def test_steps_can_be_an_arbitrary_sequence_not_just_six_fixed_ones():
+    # L02's own decision shape has no Confidence step and different step
+    # names/count than L01's - the scene must not assume six named steps.
+    app = _init_app()
+    try:
+        answer_strategy = BriefField(key="answer_strategy", prompt_key="common.back", options=(BriefOption("floor_and_range", "common.back"),))
+        known_gap = BriefField(key="known_gap", prompt_key="common.back", options=(BriefOption("legacy_gap", "common.back"),))
+        scene = DecisionBuilderScene(
+            app,
+            "app.title",
+            steps=(answer_strategy, EVIDENCE, known_gap),
+            context=_context_with_evidence(),
+            on_complete=lambda choices: None,
+        )
+        assert len(scene._steps) == 3
+        assert scene.evidence_field is EVIDENCE
+    finally:
+        pygame.quit()
+
+
+def test_missing_evidence_field_raises_a_clear_error_not_stopiteration():
+    app = _init_app()
+    try:
+        claim_only = BriefField(key="claim", prompt_key="common.back", options=(BriefOption("a", "common.back"),))
+        try:
+            DecisionBuilderScene(
+                app, "app.title", steps=(claim_only,), context=_context_with_evidence(), on_complete=lambda choices: None
+            )
+            assert False, "expected a ValueError"
+        except ValueError as error:
+            assert "exactly one EvidenceField" in str(error)
+    finally:
+        pygame.quit()
+
+
+def test_two_evidence_fields_raises_a_clear_error_not_a_silent_first_match():
+    app = _init_app()
+    try:
+        second_evidence = EvidenceField(key="evidence_2", prompt_key="common.back", min_count=1, max_count=2)
+        try:
+            DecisionBuilderScene(
+                app,
+                "app.title",
+                steps=(EVIDENCE, second_evidence),
+                context=_context_with_evidence(),
+                on_complete=lambda choices: None,
+            )
+            assert False, "expected a ValueError"
+        except ValueError as error:
+            assert "exactly one EvidenceField" in str(error)
+    finally:
+        pygame.quit()
 
 
 def test_starts_on_claim_with_next_disabled():
@@ -233,6 +282,26 @@ def test_evidence_option_labels_include_the_recorded_detail():
 
         item_id = list(scene._evidence_toggle_buttons.keys())[0]
         assert scene._evidence_toggle_buttons[item_id].label.endswith("42%")
+    finally:
+        pygame.quit()
+
+
+def test_a_large_evidence_pool_still_fits_above_the_nav_row():
+    # L01's real pool tops out at 5 items; L02's own Evidence Review
+    # produces 8 - the fixed default spacing/height ran the last few
+    # buttons under Back/Next, caught only by a real screenshot with a
+    # real 8-item pool, not by any test written against L01's smaller one.
+    app = _init_app()
+    try:
+        context = _context_with_evidence(count=8)
+        scene = _make_scene(app, context=context)
+        scene.buttons.buttons[0].on_activate()  # claim
+        scene.next_button.on_activate()
+
+        assert len(scene._evidence_toggle_buttons) == 8
+        last_item_bottom = max(button.rect.bottom for button in scene._evidence_toggle_buttons.values())
+        nav_top = scene.next_button.rect.top
+        assert last_item_bottom <= nav_top
     finally:
         pygame.quit()
 

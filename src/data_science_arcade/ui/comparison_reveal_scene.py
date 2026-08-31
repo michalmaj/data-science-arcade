@@ -4,18 +4,36 @@ from dataclasses import dataclass
 import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
+from data_science_arcade.core.fonts import get_font
 from data_science_arcade.core.scenes import Scene
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
-from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text
+from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text, wrap_text
 from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
-BOX_RECT = pygame.Rect(40, 110, 880, 170)
-INTERPRET_PROMPT_Y = 300
+BOX_LEFT = 40
+BOX_TOP = 110
+BOX_WIDTH = 880
+BOX_PADDING = 16
+NARRATIVE_TEXT_SIZE = 16
+NARRATIVE_LINE_SPACING = 4
+COMPARISON_TEXT_SIZE = 20
+COMPARISON_ROW_HEIGHT = 32
+NARRATIVE_COMPARISON_GAP = 10
+"""The box's height used to be a fixed BOX_RECT constant sized for
+whatever narrative_keys happened to be short enough to fit - real content
+with a longer or third narrative line (or a longer translation) can wrap
+past a fixed single-line-per-key budget, caught only by a real screenshot
+overlapping the box's own bottom border. Box height (and everything
+below it) is now computed from the real wrapped line count of the actual
+narrative_keys/comparisons, the same "advance by however many lines it
+actually wrapped to" principle WorkbenchScene._draw_schema already
+established for schema descriptions."""
+INTERPRET_PROMPT_GAP = 20
+FIRST_OPTION_GAP = 30
 OPTION_SIZE = (420, 44)
-FIRST_OPTION_Y = 330
 OPTION_SPACING = 46
 CONTINUE_BUTTON_SIZE = (200, 44)
 CONTINUE_GAP = 24
@@ -32,6 +50,18 @@ HINT_GAP = 6
 class InterpretOption:
     key: str
     label_key: str
+    evidence_key: str | None = None
+    """When set, choosing this interpretation also records a real
+    EvidenceItem (label_key=evidence_key), not just an AnalyticalAction -
+    for the one case where the *correct* interpretation of a reveal is
+    itself a fact worth citing later (e.g. "no source resolves this
+    population's status"), not just an engagement record. Deliberately
+    per-option, not per-comparison like RepairIssue.evidence_key (which
+    fires the same evidence regardless of which fix was picked) - here the
+    content of the choice IS the fact being asserted, so only the option
+    that actually asserts something true and supportable should leave
+    evidence behind. Continue still enables regardless of which option is
+    picked; this only changes what ends up citable afterward."""
 
 
 class ComparisonRevealScene(Scene):
@@ -62,7 +92,11 @@ class ComparisonRevealScene(Scene):
     label. `context` has no default (unlike WorkbenchScene/
     PipelineBuilderScene's `context: LessonContext | None = None`) -
     omitting it here would silently starve the Decision Builder's Evidence
-    step of real items to pick from, a soft-lock rather than a crash."""
+    step of real items to pick from, a soft-lock rather than a crash.
+
+    An interpret option itself can also carry evidence - see
+    InterpretOption.evidence_key - for the case where recognizing the
+    correct interpretation of a reveal is itself a citable fact."""
 
     def __init__(
         self,
@@ -92,8 +126,35 @@ class ComparisonRevealScene(Scene):
         self._interpret_choice: str | None = None
         self._rebuild_buttons()
 
+    def _content_width(self) -> int:
+        return BOX_WIDTH - 40
+
+    def _narrative_height(self) -> int:
+        loc = self.app.localization
+        font = get_font(NARRATIVE_TEXT_SIZE)
+        width = self._content_width()
+        line_height = font.get_linesize() + NARRATIVE_LINE_SPACING
+        total_lines = sum(len(wrap_text(loc.t(key), font, width)) for key in self.narrative_keys)
+        return total_lines * line_height
+
+    def _box_rect(self) -> pygame.Rect:
+        height = (
+            BOX_PADDING
+            + self._narrative_height()
+            + NARRATIVE_COMPARISON_GAP
+            + len(self.comparisons) * COMPARISON_ROW_HEIGHT
+            + BOX_PADDING
+        )
+        return pygame.Rect(BOX_LEFT, BOX_TOP, BOX_WIDTH, height)
+
+    def _interpret_prompt_y(self) -> int:
+        return self._box_rect().bottom + INTERPRET_PROMPT_GAP
+
+    def _first_option_y(self) -> int:
+        return self._interpret_prompt_y() + FIRST_OPTION_GAP
+
     def _options_bottom(self) -> int:
-        return FIRST_OPTION_Y + (len(self.interpret_options) - 1) * OPTION_SPACING + OPTION_SIZE[1] // 2
+        return self._first_option_y() + (len(self.interpret_options) - 1) * OPTION_SPACING + OPTION_SIZE[1] // 2
 
     def _hint_top(self) -> int:
         return self._options_bottom() + HINT_GAP
@@ -107,9 +168,10 @@ class ComparisonRevealScene(Scene):
     def _rebuild_buttons(self) -> None:
         loc = self.app.localization
         buttons = []
+        first_option_y = self._first_option_y()
         for index, option in enumerate(self.interpret_options):
             rect = pygame.Rect(0, 0, *OPTION_SIZE)
-            rect.center = (CENTER_X, FIRST_OPTION_Y + index * OPTION_SPACING)
+            rect.center = (CENTER_X, first_option_y + index * OPTION_SPACING)
             buttons.append(Button(rect, loc.t(option.label_key), self._make_choose(option.key)))
 
         continue_rect = pygame.Rect(0, 0, *CONTINUE_BUTTON_SIZE)
@@ -137,7 +199,9 @@ class ComparisonRevealScene(Scene):
                 label_key=label_key, source_action=action, key=label_key, detail=self.value_format(value)
             )
         chosen = next(o for o in self.interpret_options if o.key == self._interpret_choice)
-        self.context.record_action(label_key=chosen.label_key)
+        action = self.context.record_action(label_key=chosen.label_key)
+        if chosen.evidence_key is not None:
+            self.context.record_evidence(label_key=chosen.evidence_key, source_action=action, key=chosen.evidence_key)
         self.on_complete(self._interpret_choice)
 
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -151,23 +215,27 @@ class ComparisonRevealScene(Scene):
 
         draw_centered_text(surface, loc.t(self.title_key), (CENTER_X, 60), 28, colors.TEXT)
 
-        pygame.draw.rect(surface, colors.PANEL_BACKGROUND, BOX_RECT, border_radius=8)
-        pygame.draw.rect(surface, colors.BUTTON_FOCUS_BORDER, BOX_RECT, width=1, border_radius=8)
+        box = self._box_rect()
+        pygame.draw.rect(surface, colors.PANEL_BACKGROUND, box, border_radius=8)
+        pygame.draw.rect(surface, colors.BUTTON_FOCUS_BORDER, box, width=1, border_radius=8)
 
-        left = BOX_RECT.left + 20
-        width = BOX_RECT.width - 40
-        y = BOX_RECT.top + 16
+        left = box.left + 20
+        width = self._content_width()
+        font = get_font(NARRATIVE_TEXT_SIZE)
+        line_height = font.get_linesize() + NARRATIVE_LINE_SPACING
+        y = box.top + BOX_PADDING
         for key in self.narrative_keys:
-            draw_wrapped_text(surface, loc.t(key), (left, y), width, 16, colors.TEXT)
-            y += 40
+            text = loc.t(key)
+            draw_wrapped_text(surface, text, (left, y), width, NARRATIVE_TEXT_SIZE, colors.TEXT, line_spacing=NARRATIVE_LINE_SPACING)
+            y += len(wrap_text(text, font, width)) * line_height
 
-        y += 10
+        y += NARRATIVE_COMPARISON_GAP
         for label_key, value in self.comparisons:
             text = f"{loc.t(label_key)} {self.value_format(value)}"
-            draw_wrapped_text(surface, text, (left, y), width, 20, colors.BUTTON_FOCUS_BORDER)
-            y += 32
+            draw_wrapped_text(surface, text, (left, y), width, COMPARISON_TEXT_SIZE, colors.BUTTON_FOCUS_BORDER)
+            y += COMPARISON_ROW_HEIGHT
 
-        draw_centered_text(surface, loc.t(self.interpret_prompt_key), (CENTER_X, INTERPRET_PROMPT_Y), 18, colors.TEXT)
+        draw_centered_text(surface, loc.t(self.interpret_prompt_key), (CENTER_X, self._interpret_prompt_y()), 18, colors.TEXT)
 
         self.buttons.draw(surface)
         self._draw_selected_indicator(surface)

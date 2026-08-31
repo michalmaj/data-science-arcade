@@ -178,6 +178,86 @@ def test_custom_value_format_is_used_for_both_display_and_recorded_detail():
         pygame.quit()
 
 
+def test_an_interpret_option_with_an_evidence_key_records_real_evidence():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        options = (
+            InterpretOption("well_scoped", "app.title", evidence_key="lesson.l02.evidence.legacy_status_unresolved"),
+            InterpretOption("its_a_bug", "app.title"),
+        )
+        scene = ComparisonRevealScene(
+            app,
+            title_key="app.title",
+            narrative_keys=(),
+            comparisons=(("common.back", 30.0), ("dialogue.continue_hint", 8.0)),
+            interpret_prompt_key="app.title",
+            interpret_options=options,
+            on_complete=lambda choice: None,
+            context=context,
+        )
+        scene.buttons.buttons[0].on_activate()  # well_scoped
+        scene.continue_button.on_activate()
+
+        assert len(context.evidence) == 3  # 2 comparisons + the interpretation's own evidence
+        assert context.evidence[2].label_key == "lesson.l02.evidence.legacy_status_unresolved"
+        assert context.evidence[2].source_action_id is not None
+    finally:
+        pygame.quit()
+
+
+def test_an_interpret_option_without_an_evidence_key_records_no_extra_evidence():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        options = (
+            InterpretOption("well_scoped", "app.title", evidence_key="lesson.l02.evidence.legacy_status_unresolved"),
+            InterpretOption("its_a_bug", "app.title"),
+        )
+        scene = ComparisonRevealScene(
+            app,
+            title_key="app.title",
+            narrative_keys=(),
+            comparisons=(("common.back", 30.0), ("dialogue.continue_hint", 8.0)),
+            interpret_prompt_key="app.title",
+            interpret_options=options,
+            on_complete=lambda choice: None,
+            context=context,
+        )
+        scene.buttons.buttons[1].on_activate()  # its_a_bug - no evidence_key
+        scene.continue_button.on_activate()
+
+        assert len(context.evidence) == 2  # only the 2 comparisons, no decoy evidence
+    finally:
+        pygame.quit()
+
+
+def test_a_third_narrative_line_grows_the_box_instead_of_overflowing_it():
+    # L01's real narrative_keys never exceeds 2 short lines, which is what
+    # this scene's fixed BOX_RECT height was implicitly validated against
+    # - L02 needed a real 3rd line and it rendered past the box's own
+    # bottom border, overlapping the interpret prompt below, caught only
+    # by a real screenshot with real 3-line content.
+    app = _init_app()
+    try:
+        two_line_scene = _make_scene(app)
+        three_line_scene = ComparisonRevealScene(
+            app,
+            title_key="app.title",
+            narrative_keys=("app.title", "app.title", "app.title"),
+            comparisons=(("common.back", 0.3), ("dialogue.continue_hint", 0.5)),
+            interpret_prompt_key="app.title",
+            interpret_options=OPTIONS,
+            on_complete=lambda choice: None,
+            context=LessonContext(),
+        )
+
+        assert three_line_scene._box_rect().height > two_line_scene._box_rect().height
+        assert three_line_scene._first_option_y() > three_line_scene._box_rect().bottom
+    finally:
+        pygame.quit()
+
+
 def test_draw_does_not_crash_guided_or_not_with_or_without_a_hint():
     app = _init_app()
     try:

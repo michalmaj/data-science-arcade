@@ -19,7 +19,20 @@ PROMPT_GAP = 30
 COMPARISON_LINE_HEIGHT = 28
 OPTION_SIZE = (420, 46)
 OPTION_SPACING = 56
+MIN_OPTION_SPACING = 32
+MIN_OPTION_HEIGHT = 26
+"""The RESULT phase's option count depends entirely on the calling
+lesson's own interpret_options (2 for L01, 3 for L02) - a fixed
+OPTION_SPACING/OPTION_SIZE sized for 2 silently ran a 3rd real option
+(and the Finish button) past NAV_BUTTON_Y, caught only by a real
+screenshot with L02's real 3-option content. Spacing shrinks first (like
+BriefBuilderScene's own MIN_OPTION_SPACING); height shrinks alongside it
+only once spacing alone still can't fit the real option count above
+NAV_BUTTON_Y - shrinking spacing without also shrinking height caps how
+much room shrinking spacing alone can actually recover, since the last
+button's own half-height still counts against the same budget."""
 NAV_BUTTON_Y = 505
+OPTION_BOTTOM_MARGIN = 35
 """Both draw() and _rebuild_buttons() must agree on exactly where the
 PICK/RESULT phases' prompt text and option buttons land - computed once
 via _prompt_y()/_options_top() rather than each method keeping its own
@@ -100,6 +113,18 @@ class MasteryChallengeScene(Scene):
             return self._prompt_y() + len(self._comparison) * COMPARISON_LINE_HEIGHT + PROMPT_GAP + 20
         return self._prompt_y() + PROMPT_GAP
 
+    def _options_layout(self, top: int, count: int) -> tuple[int, int]:
+        """(spacing, height) - shrinks spacing first, then height alongside
+        it, only once the real option count is too large for the defaults
+        to fit above NAV_BUTTON_Y. Returns the defaults unchanged for any
+        count small enough not to need this (every case before L02)."""
+        if count <= 1:
+            return OPTION_SPACING, OPTION_SIZE[1]
+        available = (NAV_BUTTON_Y - OPTION_BOTTOM_MARGIN) - top
+        spacing = max(MIN_OPTION_SPACING, min(OPTION_SPACING, (available - OPTION_SIZE[1] // 2) // (count - 1)))
+        height = max(MIN_OPTION_HEIGHT, min(OPTION_SIZE[1], spacing - 4))
+        return spacing, height
+
     def _rebuild_buttons(self) -> None:
         loc = self.app.localization
         buttons: list[Button] = []
@@ -107,21 +132,23 @@ class MasteryChallengeScene(Scene):
         if self._phase is _Phase.OFFER:
             engage_rect = pygame.Rect(0, 0, *OPTION_SIZE)
             engage_rect.center = (CENTER_X, OFFER_OPTION_Y)
-            buttons.append(Button(engage_rect, loc.t("lesson.l01.mastery.engage"), self._engage))
+            buttons.append(Button(engage_rect, loc.t("mastery.engage"), self._engage))
             skip_rect = pygame.Rect(0, 0, *OPTION_SIZE)
             skip_rect.center = (CENTER_X, OFFER_OPTION_Y + OPTION_SPACING)
-            buttons.append(Button(skip_rect, loc.t("lesson.l01.mastery.skip"), self._skip))
+            buttons.append(Button(skip_rect, loc.t("mastery.skip"), self._skip))
         elif self._phase is _Phase.PICK:
             top = self._options_top()
+            spacing, height = self._options_layout(top, len(self.metric_options))
             for index, option in enumerate(self.metric_options):
-                rect = pygame.Rect(0, 0, *OPTION_SIZE)
-                rect.center = (CENTER_X, top + index * OPTION_SPACING)
+                rect = pygame.Rect(0, 0, OPTION_SIZE[0], height)
+                rect.center = (CENTER_X, top + index * spacing)
                 buttons.append(Button(rect, loc.t(option.label_key), self._make_choose_metric(option.key)))
         else:
             top = self._options_top()
+            spacing, height = self._options_layout(top, len(self.interpret_options))
             for index, option in enumerate(self.interpret_options):
-                rect = pygame.Rect(0, 0, *OPTION_SIZE)
-                rect.center = (CENTER_X, top + index * OPTION_SPACING)
+                rect = pygame.Rect(0, 0, OPTION_SIZE[0], height)
+                rect.center = (CENTER_X, top + index * spacing)
                 buttons.append(Button(rect, loc.t(option.label_key), self._make_choose_interpret(option.key)))
 
             finish_rect = pygame.Rect(0, 0, 200, 44)
