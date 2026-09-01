@@ -364,7 +364,6 @@ def build_lesson_one_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     # --- Act 1 ---
 
     def briefing(advance):
-        _restore_context_if_present()
         return DialogueScene(app, BRIEFING_DIALOGUE, on_complete=advance)
 
     def investigation(advance):
@@ -683,6 +682,12 @@ def build_lesson_one_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         debrief,
     ]
     runner = LessonRunner(
-        app, stages, on_finished=finished, lesson_number=1, collected=collected, definition=LESSON_01
+        app,
+        stages,
+        on_finished=finished,
+        lesson_number=1,
+        collected=collected,
+        definition=LESSON_01,
+        on_resume=_restore_context_if_present,
     )
     return runner, collected
