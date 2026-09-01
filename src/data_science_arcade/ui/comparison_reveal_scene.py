@@ -47,6 +47,24 @@ HINT_GAP = 6
 
 
 @dataclass(frozen=True)
+class ComparisonValue:
+    label_key: str
+    value: float
+    python_code: str | None = None
+    """The real pandas equivalent that produced `value`, shown in the
+    Python Mirror once recorded - e.g. "billing.groupby('status')
+    ['customer_id'].count()". None for a value that genuinely has no
+    single-line equivalent worth showing. When a value depends on a
+    dataset not yet referenced anywhere else in the mirror (nothing
+    upstream ever showed its own load line), this should be a
+    self-contained multi-line string that loads it first - e.g.
+    "marketing = pd.read_csv(...)\\nmarketing.customer_id.nunique()" -
+    since a bare "marketing.customer_id.nunique()" would otherwise read
+    as a script using an undefined variable to anyone reading the
+    Evidence Review's own Python tab top to bottom."""
+
+
+@dataclass(frozen=True)
 class InterpretOption:
     key: str
     label_key: str
@@ -65,31 +83,35 @@ class InterpretOption:
 
 
 class ComparisonRevealScene(Scene):
-    """Shows exactly two real, caller-computed values side by side (e.g.
-    the 30-day vs. 12-month repeat rate, holding entity/population fixed -
-    or customer-level vs. household-level, holding the window fixed), then
+    """Shows exactly two real, caller-computed values side by side, then
     asks the student to interpret the gap before continuing. Deliberately
-    a fixed pair, not TwistRevealScene's variadic N-way comparisons: this
-    scene exists specifically for a single-variable sensitivity check
-    (change exactly one definition, recompute, interpret), and a 3rd or
-    4th value here would mean two things changed at once - the exact
-    confound this scene exists to avoid. TwistRevealScene itself (used
-    once, for the lesson's own narrative twist reveal showing all the
-    student's gathered numbers together) is untouched by this scene.
+    a fixed pair, not TwistRevealScene's variadic N-way comparisons - a
+    3rd or 4th value here would mean the student can no longer tell which
+    of several differences actually explains the gap. TwistRevealScene
+    itself (a lesson's own narrative twist reveal showing every gathered
+    number together at once) is untouched by this scene.
 
-    Reused across three real moments with the same underlying shape (pick
-    nothing here - both values are already computed by the caller; the
-    only real decision is the interpret pick): time-window sensitivity,
-    entity sensitivity, and the optional mastery challenge's own
-    comparison. Recording both comparison values as real AnalyticalAction/
-    EvidenceItem pairs (via the required `context`) happens here, not in
-    the calling scenario.py, matching every other scene in this codebase -
+    Two real shapes of "why do these two values differ," both real uses
+    today: a single-variable sensitivity check (one definition changed,
+    everything else held fixed - e.g. the same rate at two time windows),
+    and a cross-source conflict (two different real sources answering a
+    related but not identical question - e.g. two systems' own counts of
+    "active"). Both share the same mechanics: nothing to pick here besides
+    the interpretation, since both values are already computed by the
+    caller.
+
+    Recording both comparison values as real AnalyticalAction/EvidenceItem
+    pairs (via the required `context`) happens here, not in the calling
+    scenario.py, matching every other scene in this codebase -
     record_action/record_evidence are only ever called from inside a
     scene, never from stage-wiring code. Each comparison's `detail` is set
     to the live-formatted value itself (see EvidenceItem's own docstring
     for why that's a plain formatted string, not baked into label_key),
-    so Act 8's Evidence Review later shows the real number, not just the
-    label. `context` has no default (unlike WorkbenchScene/
+    so a later Evidence Review shows the real number, not just the label;
+    `python_code`, when a ComparisonValue sets it, is recorded onto the
+    same AnalyticalAction, so the Python Mirror can show real multi-source
+    analysis, not just whichever single scene happened to use
+    PipelineBuilderScene. `context` has no default (unlike WorkbenchScene/
     PipelineBuilderScene's `context: LessonContext | None = None`) -
     omitting it here would silently starve the Decision Builder's Evidence
     step of real items to pick from, a soft-lock rather than a crash.
@@ -103,7 +125,7 @@ class ComparisonRevealScene(Scene):
         app,
         title_key: str,
         narrative_keys: tuple[str, ...],
-        comparisons: tuple[tuple[str, float], tuple[str, float]],
+        comparisons: tuple[ComparisonValue, ComparisonValue],
         interpret_prompt_key: str,
         interpret_options: tuple[InterpretOption, ...],
         on_complete: Callable[[str], None],
@@ -193,10 +215,10 @@ class ComparisonRevealScene(Scene):
     def _continue(self) -> None:
         if self._interpret_choice is None:
             return
-        for label_key, value in self.comparisons:
-            action = self.context.record_action(label_key=label_key, key=label_key)
+        for item in self.comparisons:
+            action = self.context.record_action(label_key=item.label_key, python_code=item.python_code, key=item.label_key)
             self.context.record_evidence(
-                label_key=label_key, source_action=action, key=label_key, detail=self.value_format(value)
+                label_key=item.label_key, source_action=action, key=item.label_key, detail=self.value_format(item.value)
             )
         chosen = next(o for o in self.interpret_options if o.key == self._interpret_choice)
         action = self.context.record_action(label_key=chosen.label_key)
@@ -230,8 +252,8 @@ class ComparisonRevealScene(Scene):
             y += len(wrap_text(text, font, width)) * line_height
 
         y += NARRATIVE_COMPARISON_GAP
-        for label_key, value in self.comparisons:
-            text = f"{loc.t(label_key)} {self.value_format(value)}"
+        for item in self.comparisons:
+            text = f"{loc.t(item.label_key)} {self.value_format(item.value)}"
             draw_wrapped_text(surface, text, (left, y), width, COMPARISON_TEXT_SIZE, colors.BUTTON_FOCUS_BORDER)
             y += COMPARISON_ROW_HEIGHT
 

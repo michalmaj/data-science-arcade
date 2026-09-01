@@ -14,7 +14,7 @@ from data_science_arcade.lessons.l01_question_first.twist_data import (
 from data_science_arcade.narrative.dialogue import Dialogue, DialogueLine
 from data_science_arcade.narrative.npc import DATA_ENGINEER, FINANCE_LEAD, MENTOR, PRODUCT_MANAGER
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
-from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, InterpretOption
+from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, ComparisonValue, InterpretOption
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene, EvidenceField
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene, MasteryOption
@@ -449,8 +449,19 @@ def build_lesson_one_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l01.window_compute.title",
             narrative_keys=("dialogue.l01_window_compute.line1", "dialogue.l01_window_compute.line2"),
             comparisons=(
-                ("lesson.l01.evidence.window_30d_label", recent_rate),
-                ("lesson.l01.evidence.window_12m_label", full_period_rate),
+                ComparisonValue(
+                    "lesson.l01.evidence.window_30d_label",
+                    recent_rate,
+                    python_code=(
+                        "recent_window_start = pd.Timestamp('2024-12-31') - pd.Timedelta(days=30)\n"
+                        "orders[orders.order_date >= recent_window_start].groupby('customer_id').size().ge(2).mean()"
+                    ),
+                ),
+                ComparisonValue(
+                    "lesson.l01.evidence.window_12m_label",
+                    full_period_rate,
+                    python_code="orders.groupby('customer_id').size().ge(2).mean()",
+                ),
             ),
             interpret_prompt_key="lesson.l01.window_interpret.prompt",
             interpret_options=WINDOW_INTERPRET_OPTIONS,
@@ -483,8 +494,16 @@ def build_lesson_one_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l01.entity_compute.title",
             narrative_keys=("dialogue.l01_entity_compute.line1",),
             comparisons=(
-                ("lesson.l01.evidence.entity_customer_label", customer_rate),
-                ("lesson.l01.evidence.entity_household_label", household_rate),
+                ComparisonValue(
+                    "lesson.l01.evidence.entity_customer_label",
+                    customer_rate,
+                    python_code="orders[orders.order_date >= recent_window_start].groupby('customer_id').size().ge(2).mean()",
+                ),
+                ComparisonValue(
+                    "lesson.l01.evidence.entity_household_label",
+                    household_rate,
+                    python_code="orders[orders.order_date >= recent_window_start].groupby('household_id').size().ge(2).mean()",
+                ),
             ),
             interpret_prompt_key="lesson.l01.entity_interpret.prompt",
             interpret_options=ENTITY_INTERPRET_OPTIONS,

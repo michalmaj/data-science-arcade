@@ -22,7 +22,7 @@ from data_science_arcade.lessons.l02_source_scout.twist_data import (
 from data_science_arcade.narrative.dialogue import Dialogue, DialogueLine
 from data_science_arcade.narrative.npc import DATA_ENGINEER, FINANCE_LEAD, MENTOR, PRODUCT_MANAGER
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
-from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, InterpretOption
+from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, ComparisonValue, InterpretOption
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene, EvidenceField
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene, MasteryOption
@@ -420,8 +420,20 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 "dialogue.l02_comparison1.line3",
             ),
             comparisons=(
-                ("lesson.l02.evidence.billing_active_label", float(billing_active_count(billing))),
-                ("lesson.l02.evidence.app_log_active_label", float(app_log_active_count(app_log))),
+                ComparisonValue(
+                    "lesson.l02.evidence.billing_active_label",
+                    float(billing_active_count(billing)),
+                    python_code="(billing.status == 'active').sum()",
+                ),
+                ComparisonValue(
+                    "lesson.l02.evidence.app_log_active_label",
+                    float(app_log_active_count(app_log)),
+                    python_code=(
+                        "app_log = pd.read_json('go_app_activity_snapshot.json')\n"
+                        "cutoff = pd.Timestamp('2026-06-01') - pd.Timedelta(days=30)\n"
+                        "app_log[app_log.last_open >= cutoff].customer_id.nunique()"
+                    ),
+                ),
             ),
             interpret_prompt_key="lesson.l02.comparison1_interpret.prompt",
             interpret_options=COMPARISON_1_INTERPRET_OPTIONS,
@@ -460,8 +472,18 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l02.comparison2.title",
             narrative_keys=("dialogue.l02_comparison2.line1", "dialogue.l02_comparison2.line2"),
             comparisons=(
-                ("lesson.l02.evidence.billing_active_label", float(billing_active_count(billing))),
-                ("lesson.l02.evidence.marketing_enrolled_label", float(marketing_enrolled_count(marketing))),
+                ComparisonValue(
+                    "lesson.l02.evidence.billing_active_label",
+                    float(billing_active_count(billing)),
+                    python_code="(billing.status == 'active').sum()",
+                ),
+                ComparisonValue(
+                    "lesson.l02.evidence.marketing_enrolled_label",
+                    float(marketing_enrolled_count(marketing)),
+                    python_code=(
+                        "marketing = pd.read_csv('crm_plus_enrollment_export.csv')\nmarketing.customer_id.nunique()"
+                    ),
+                ),
             ),
             interpret_prompt_key="lesson.l02.comparison2_interpret.prompt",
             interpret_options=COMPARISON_2_INTERPRET_OPTIONS,
@@ -484,8 +506,19 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l02.gap.title",
             narrative_keys=("dialogue.l02_gap.line1", "dialogue.l02_gap.line2"),
             comparisons=(
-                ("lesson.l02.evidence.legacy_missing_label", float(counts.get("legacypay", 0))),
-                ("lesson.l02.evidence.trial_pending_missing_label", float(counts.get("trial_pending", 0))),
+                ComparisonValue(
+                    "lesson.l02.evidence.legacy_missing_label",
+                    float(counts.get("legacypay", 0)),
+                    python_code=(
+                        "missing = marketing[~marketing.customer_id.isin(billing.customer_id)]\n"
+                        "missing.payment_processor.value_counts()['legacypay']"
+                    ),
+                ),
+                ComparisonValue(
+                    "lesson.l02.evidence.trial_pending_missing_label",
+                    float(counts.get("trial_pending", 0)),
+                    python_code="missing.payment_processor.value_counts()['trial_pending']",
+                ),
             ),
             interpret_prompt_key="lesson.l02.gap_interpret.prompt",
             interpret_options=GAP_INTERPRET_OPTIONS,
@@ -529,8 +562,20 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l02.support.title",
             narrative_keys=("dialogue.l02_support.line1", "dialogue.l02_support.line2"),
             comparisons=(
-                ("lesson.l02.evidence.support_raw_label", float(raw_legacypay)),
-                ("lesson.l02.evidence.support_unique_label", float(unique_legacypay)),
+                ComparisonValue(
+                    "lesson.l02.evidence.support_raw_label",
+                    float(raw_legacypay),
+                    python_code=(
+                        "support = pd.read_excel('customer_success_vip_list.xlsx')\n"
+                        "legacy_rows = support[support.payment_processor == 'legacypay']\n"
+                        "len(legacy_rows)"
+                    ),
+                ),
+                ComparisonValue(
+                    "lesson.l02.evidence.support_unique_label",
+                    float(unique_legacypay),
+                    python_code="legacy_rows.customer_id.nunique()",
+                ),
             ),
             interpret_prompt_key="lesson.l02.support_interpret.prompt",
             interpret_options=SUPPORT_INTERPRET_OPTIONS,
