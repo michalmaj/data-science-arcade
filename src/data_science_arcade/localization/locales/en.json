@@ -328,7 +328,7 @@
   "lesson.l02.support_interpret.option.dedupe_before_trusting": "Check for duplicate IDs before trusting the count",
   "lesson.l02.support_interpret.option.duplicates_dont_matter": "2 duplicates out of 22 is close enough to ignore",
   "lesson.l02.support_interpret.option.list_is_unusable": "The duplicates make this whole list worthless",
-  "lesson.l02.decision_title": "The Real Number",
+  "lesson.l02.decision_title": "A Defensible Answer",
   "lesson.l02.decision.answer_strategy.prompt": "How should this actually be reported?",
   "lesson.l02.decision.answer_strategy.option.false_precision": "130 active (100 confirmed + all 30 missing)",
   "lesson.l02.decision.answer_strategy.option.naive_exclusion": "100 confirmed active - the missing 30 don't count",

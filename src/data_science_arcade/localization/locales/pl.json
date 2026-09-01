@@ -328,7 +328,7 @@
   "lesson.l02.support_interpret.option.dedupe_before_trusting": "Sprawdź duplikaty ID, zanim zaufasz małej liście",
   "lesson.l02.support_interpret.option.duplicates_dont_matter": "2 duplikaty na 22 to wystarczająco blisko",
   "lesson.l02.support_interpret.option.list_is_unusable": "Duplikaty czynią całą listę bezwartościową",
-  "lesson.l02.decision_title": "Prawdziwa liczba",
+  "lesson.l02.decision_title": "Odpowiedź, którą możemy obronić",
   "lesson.l02.decision.answer_strategy.prompt": "Jak to właściwie zaraportować?",
   "lesson.l02.decision.answer_strategy.option.false_precision": "130 aktywnych (100 + 30 brakujących)",
   "lesson.l02.decision.answer_strategy.option.naive_exclusion": "100 aktywnych - brakujące 30 się nie liczy",
