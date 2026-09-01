@@ -25,7 +25,7 @@ from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, ComparisonValue, InterpretOption
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene, EvidenceField
 from data_science_arcade.ui.dialogue_scene import DialogueScene
-from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene, MasteryOption
+from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene, MasteryOption, MetricValue
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.source_board_scene import SourceBoardScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene, WorkbenchTab
@@ -649,16 +649,38 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             _sync_context_into_collected()
             advance()
 
-        def compute(metric_key: str) -> tuple[tuple[str, float], tuple[str, float]]:
+        def compute(metric_key: str) -> tuple[MetricValue, MetricValue]:
             _, unique_legacypay = support_legacypay_counts(support)
             if metric_key == "raw_counts":
                 return (
-                    ("lesson.l02.mastery.support_count_label", float(unique_legacypay)),
-                    ("lesson.l02.mastery.population_count_label", float(len(LEGACYPAY))),
+                    MetricValue(
+                        "lesson.l02.mastery.support_count_label",
+                        float(unique_legacypay),
+                        python_code="legacy_rows.customer_id.nunique()",
+                    ),
+                    MetricValue(
+                        "lesson.l02.mastery.population_count_label",
+                        float(len(LEGACYPAY)),
+                        python_code="missing.payment_processor.value_counts()['legacypay']",
+                    ),
                 )
             return (
-                ("lesson.l02.mastery.support_share_label", support_legacypay_share(support)),
-                ("lesson.l02.mastery.population_share_label", population_legacypay_share(marketing)),
+                MetricValue(
+                    "lesson.l02.mastery.support_share_label",
+                    support_legacypay_share(support),
+                    python_code=(
+                        "deduped = support.drop_duplicates(subset='customer_id')\n"
+                        "len(deduped[deduped.payment_processor == 'legacypay']) / len(deduped)"
+                    ),
+                ),
+                MetricValue(
+                    "lesson.l02.mastery.population_share_label",
+                    population_legacypay_share(marketing),
+                    python_code=(
+                        "real_customers = marketing[marketing.payment_processor != 'trial_pending']\n"
+                        "len(real_customers[real_customers.payment_processor == 'legacypay']) / len(real_customers)"
+                    ),
+                ),
             )
 
         def format_value(value: float) -> str:

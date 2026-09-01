@@ -53,6 +53,23 @@ class MasteryOption:
     label_key: str
 
 
+@dataclass(frozen=True)
+class MetricValue:
+    label_key: str
+    value: float
+    python_code: str | None = None
+    """Same role as ComparisonRevealScene's own ComparisonValue.python_code
+    - the real pandas equivalent that produced `value`, recorded onto the
+    same AnalyticalAction so a later Evidence Review shows real code, not
+    a script referencing an undefined variable. Since `compute` only ever
+    runs after the student picks a metric in the PICK phase, and this
+    scene is always the last real analytical stage before Feedback, any
+    dataset this references will already have been loaded by an earlier
+    stage in every current usage - unlike ComparisonValue, there's no
+    established case here yet that needs a self-contained load line, but
+    the option stays open the same way."""
+
+
 class MasteryChallengeScene(Scene):
     """The optional bonus act: a real transfer task on the same dataset,
     not a repeat of the required acts. Always exactly one LessonRunner
@@ -80,7 +97,7 @@ class MasteryChallengeScene(Scene):
         narrative_keys: tuple[str, ...],
         metric_prompt_key: str,
         metric_options: tuple[MasteryOption, ...],
-        compute: Callable[[str], tuple[tuple[str, float], tuple[str, float]]],
+        compute: Callable[[str], tuple[MetricValue, MetricValue]],
         interpret_prompt_key: str,
         interpret_options: tuple[MasteryOption, ...],
         on_complete: Callable[[bool, str | None, str | None], None],
@@ -101,7 +118,7 @@ class MasteryChallengeScene(Scene):
         self._phase = _Phase.OFFER
         self._metric_choice: str | None = None
         self._interpret_choice: str | None = None
-        self._comparison: tuple[tuple[str, float], tuple[str, float]] | None = None
+        self._comparison: tuple[MetricValue, MetricValue] | None = None
         self._rebuild_buttons()
 
     def _prompt_y(self) -> int:
@@ -186,10 +203,10 @@ class MasteryChallengeScene(Scene):
     def _finish(self) -> None:
         if self._interpret_choice is None or self._comparison is None:
             return
-        for label_key, value in self._comparison:
-            action = self.context.record_action(label_key=label_key, key=label_key)
+        for item in self._comparison:
+            action = self.context.record_action(label_key=item.label_key, python_code=item.python_code, key=item.label_key)
             self.context.record_evidence(
-                label_key=label_key, source_action=action, key=label_key, detail=self.value_format(value)
+                label_key=item.label_key, source_action=action, key=item.label_key, detail=self.value_format(item.value)
             )
         self.on_complete(True, self._metric_choice, self._interpret_choice)
 
@@ -215,8 +232,8 @@ class MasteryChallengeScene(Scene):
         elif self._phase is _Phase.RESULT:
             assert self._comparison is not None
             result_y = self._prompt_y()
-            for label_key, value in self._comparison:
-                text = f"{loc.t(label_key)} {self.value_format(value)}"
+            for item in self._comparison:
+                text = f"{loc.t(item.label_key)} {self.value_format(item.value)}"
                 draw_wrapped_text(surface, text, (left, result_y), width, 18, colors.BUTTON_FOCUS_BORDER)
                 result_y += COMPARISON_LINE_HEIGHT
             draw_centered_text(surface, loc.t(self.interpret_prompt_key), (CENTER_X, result_y + 10), 16, colors.TEXT)

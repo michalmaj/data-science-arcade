@@ -17,7 +17,7 @@ from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, ComparisonValue, InterpretOption
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene, EvidenceField
 from data_science_arcade.ui.dialogue_scene import DialogueScene
-from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene, MasteryOption
+from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene, MasteryOption, MetricValue
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene, WorkbenchTab
@@ -604,20 +604,50 @@ def build_lesson_one_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             _sync_context_into_collected()
             advance()
 
-        def compute(metric_key: str) -> tuple[tuple[str, float], tuple[str, float]]:
+        def compute(metric_key: str) -> tuple[MetricValue, MetricValue]:
             if metric_key == "total":
                 returning = total_value_by_household_group(dataset, returning=True)
                 one_time = total_value_by_household_group(dataset, returning=False)
-            else:
-                returning_households = {
-                    hid for hid in dataset.frame["household_id"].unique() if is_returning_household(dataset, hid)
-                }
-                one_time_households = set(dataset.frame["household_id"].unique()) - returning_households
-                returning = total_value_by_household_group(dataset, returning=True) / max(len(returning_households), 1)
-                one_time = total_value_by_household_group(dataset, returning=False) / max(len(one_time_households), 1)
+                return (
+                    MetricValue(
+                        "lesson.l01.mastery.returning_label",
+                        returning,
+                        python_code=(
+                            "household_orders = orders.groupby('household_id').size()\n"
+                            "returning_ids = household_orders[household_orders >= 2].index\n"
+                            "orders[orders.household_id.isin(returning_ids)].order_value.sum()"
+                        ),
+                    ),
+                    MetricValue(
+                        "lesson.l01.mastery.one_time_label",
+                        one_time,
+                        python_code="orders[~orders.household_id.isin(returning_ids)].order_value.sum()",
+                    ),
+                )
+            returning_households = {
+                hid for hid in dataset.frame["household_id"].unique() if is_returning_household(dataset, hid)
+            }
+            one_time_households = set(dataset.frame["household_id"].unique()) - returning_households
+            returning = total_value_by_household_group(dataset, returning=True) / max(len(returning_households), 1)
+            one_time = total_value_by_household_group(dataset, returning=False) / max(len(one_time_households), 1)
             return (
-                ("lesson.l01.mastery.returning_label", returning),
-                ("lesson.l01.mastery.one_time_label", one_time),
+                MetricValue(
+                    "lesson.l01.mastery.returning_label",
+                    returning,
+                    python_code=(
+                        "household_orders = orders.groupby('household_id').size()\n"
+                        "returning_ids = household_orders[household_orders >= 2].index\n"
+                        "orders[orders.household_id.isin(returning_ids)].order_value.sum() / len(returning_ids)"
+                    ),
+                ),
+                MetricValue(
+                    "lesson.l01.mastery.one_time_label",
+                    one_time,
+                    python_code=(
+                        "one_time_ids = household_orders[household_orders < 2].index\n"
+                        "orders[orders.household_id.isin(one_time_ids)].order_value.sum() / len(one_time_ids)"
+                    ),
+                ),
             )
 
         return MasteryChallengeScene(

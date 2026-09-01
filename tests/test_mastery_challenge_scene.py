@@ -6,7 +6,7 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import pygame
 
 from data_science_arcade.app.game import App
-from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene, MasteryOption
+from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene, MasteryOption, MetricValue
 from data_science_arcade.workbench.context import LessonContext
 
 METRIC_OPTIONS = (MasteryOption("total", "common.back"), MasteryOption("average", "common.back"))
@@ -19,8 +19,11 @@ def _init_app() -> App:
     return app
 
 
-def _compute(metric_key: str) -> tuple[tuple[str, float], tuple[str, float]]:
-    return (("common.back", 100.0), ("dialogue.continue_hint", 50.0))
+def _compute(metric_key: str) -> tuple[MetricValue, MetricValue]:
+    return (
+        MetricValue("common.back", 100.0, python_code="orders.groupby('household_id').size().ge(2).sum()"),
+        MetricValue("dialogue.continue_hint", 50.0),
+    )
 
 
 def _make_scene(app, on_complete=lambda engaged, metric, interpretation: None, context=None):
@@ -93,7 +96,10 @@ def test_picking_a_metric_computes_and_moves_to_the_result_phase():
         scene.buttons.buttons[0].on_activate()  # pick "total"
 
         assert scene._phase.name == "RESULT"
-        assert scene._comparison == (("common.back", 100.0), ("dialogue.continue_hint", 50.0))
+        assert scene._comparison == (
+            MetricValue("common.back", 100.0, python_code="orders.groupby('household_id').size().ge(2).sum()"),
+            MetricValue("dialogue.continue_hint", 50.0),
+        )
         assert scene.finish_button.enabled is False  # no interpretation picked yet
     finally:
         pygame.quit()
@@ -130,6 +136,25 @@ def test_completing_the_full_path_records_the_comparison_as_evidence_and_fires_o
         assert len(context.evidence) == 2
         assert context.evidence[0].detail == "$100"
         assert context.evidence[1].detail == "$50"
+    finally:
+        pygame.quit()
+
+
+def test_finishing_records_a_metrics_own_python_code_onto_its_action():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = _make_scene(app, context=context)
+
+        scene.buttons.buttons[0].on_activate()  # engage
+        scene.buttons.buttons[0].on_activate()  # pick "total"
+        scene.buttons.buttons[0].on_activate()  # interpret "returning_higher"
+        scene.finish_button.on_activate()
+
+        coded = next(a for a in context.actions if a.label_key == "common.back")
+        assert coded.python_code == "orders.groupby('household_id').size().ge(2).sum()"
+        uncoded = next(a for a in context.actions if a.label_key == "dialogue.continue_hint")
+        assert uncoded.python_code is None
     finally:
         pygame.quit()
 
