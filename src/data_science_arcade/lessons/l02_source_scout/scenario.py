@@ -51,14 +51,22 @@ FRAMING_DIALOGUE = Dialogue(
 # --- Source Map -----------------------------------------------------------
 
 SOURCES: tuple[DataSource, ...] = (
+    # Deliberately 4 neutral facts per source - owner, format, documented
+    # purpose, freshness - none of them High/Medium/Low rated and none of
+    # them the thing this lesson's real comparisons exist to make the
+    # student discover firsthand: which customers a source actually
+    # covers, and what it counts as "active." A dossier that already
+    # states "Currently billed subscribers" or "Active means payment
+    # status not cancelled" up front would hand the student comparison_1's
+    # and comparison_2's own conclusions before they ever open the data.
     DataSource(
         key="billing",
         name_key="lesson.l02.source.billing.name",
         attributes=(
             SourceAttribute("lesson.l02.attr.owner", "lesson.l02.fact.billing.owner"),
             SourceAttribute("lesson.l02.attr.format", "lesson.l02.fact.billing.format"),
-            SourceAttribute("lesson.l02.attr.population", "lesson.l02.fact.billing.population"),
-            SourceAttribute("lesson.l02.attr.definition", "lesson.l02.fact.billing.definition"),
+            SourceAttribute("lesson.l02.attr.documented_purpose", "lesson.l02.fact.billing.documented_purpose"),
+            SourceAttribute("lesson.l02.attr.freshness", "lesson.l02.fact.billing.freshness"),
         ),
     ),
     DataSource(
@@ -67,8 +75,8 @@ SOURCES: tuple[DataSource, ...] = (
         attributes=(
             SourceAttribute("lesson.l02.attr.owner", "lesson.l02.fact.app_log.owner"),
             SourceAttribute("lesson.l02.attr.format", "lesson.l02.fact.app_log.format"),
-            SourceAttribute("lesson.l02.attr.population", "lesson.l02.fact.app_log.population"),
-            SourceAttribute("lesson.l02.attr.definition", "lesson.l02.fact.app_log.definition"),
+            SourceAttribute("lesson.l02.attr.documented_purpose", "lesson.l02.fact.app_log.documented_purpose"),
+            SourceAttribute("lesson.l02.attr.freshness", "lesson.l02.fact.app_log.freshness"),
         ),
     ),
     DataSource(
@@ -77,8 +85,8 @@ SOURCES: tuple[DataSource, ...] = (
         attributes=(
             SourceAttribute("lesson.l02.attr.owner", "lesson.l02.fact.marketing.owner"),
             SourceAttribute("lesson.l02.attr.format", "lesson.l02.fact.marketing.format"),
-            SourceAttribute("lesson.l02.attr.population", "lesson.l02.fact.marketing.population"),
-            SourceAttribute("lesson.l02.attr.definition", "lesson.l02.fact.marketing.definition"),
+            SourceAttribute("lesson.l02.attr.documented_purpose", "lesson.l02.fact.marketing.documented_purpose"),
+            SourceAttribute("lesson.l02.attr.freshness", "lesson.l02.fact.marketing.freshness"),
         ),
     ),
     DataSource(
@@ -87,8 +95,8 @@ SOURCES: tuple[DataSource, ...] = (
         attributes=(
             SourceAttribute("lesson.l02.attr.owner", "lesson.l02.fact.support.owner"),
             SourceAttribute("lesson.l02.attr.format", "lesson.l02.fact.support.format"),
-            SourceAttribute("lesson.l02.attr.population", "lesson.l02.fact.support.population"),
-            SourceAttribute("lesson.l02.attr.definition", "lesson.l02.fact.support.definition"),
+            SourceAttribute("lesson.l02.attr.documented_purpose", "lesson.l02.fact.support.documented_purpose"),
+            SourceAttribute("lesson.l02.attr.freshness", "lesson.l02.fact.support.freshness"),
         ),
     ),
 )
