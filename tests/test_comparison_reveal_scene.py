@@ -6,7 +6,7 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import pygame
 
 from data_science_arcade.app.game import App
-from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, InterpretOption
+from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, ComparisonValue, InterpretOption
 from data_science_arcade.workbench.context import LessonContext
 
 OPTIONS = (
@@ -26,7 +26,10 @@ def _make_scene(app, on_complete=lambda choice: None, context=None, **kwargs):
         app,
         title_key="app.title",
         narrative_keys=("app.title",),
-        comparisons=(("common.back", 0.3), ("dialogue.continue_hint", 0.5)),  # 2 distinct keys - see dedup note below
+        comparisons=(
+            ComparisonValue("common.back", 0.3, python_code="orders.groupby('customer_id').size().ge(2).mean()"),
+            ComparisonValue("dialogue.continue_hint", 0.5),
+        ),  # 2 distinct keys - see dedup note below
         interpret_prompt_key="app.title",
         interpret_options=OPTIONS,
         on_complete=on_complete,
@@ -92,6 +95,23 @@ def test_continue_records_both_comparisons_as_real_evidence_with_the_formatted_v
         pygame.quit()
 
 
+def test_continue_records_a_comparisons_own_python_code_onto_its_action():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = _make_scene(app, context=context)
+
+        scene.buttons.buttons[0].on_activate()
+        scene.continue_button.on_activate()
+
+        coded = next(a for a in context.actions if a.label_key == "common.back")
+        assert coded.python_code == "orders.groupby('customer_id').size().ge(2).mean()"
+        uncoded = next(a for a in context.actions if a.label_key == "dialogue.continue_hint")
+        assert uncoded.python_code is None
+    finally:
+        pygame.quit()
+
+
 def test_continue_also_records_the_interpretation_itself_as_an_action():
     app = _init_app()
     try:
@@ -120,7 +140,7 @@ def test_two_comparisons_sharing_a_label_key_collapse_to_one_evidence_slot():
             app,
             title_key="app.title",
             narrative_keys=(),
-            comparisons=(("common.back", 0.3), ("common.back", 0.5)),
+            comparisons=(ComparisonValue("common.back", 0.3), ComparisonValue("common.back", 0.5)),
             interpret_prompt_key="app.title",
             interpret_options=OPTIONS,
             on_complete=lambda choice: None,
@@ -161,7 +181,7 @@ def test_custom_value_format_is_used_for_both_display_and_recorded_detail():
             app,
             title_key="app.title",
             narrative_keys=(),
-            comparisons=(("common.back", 120.0), ("dialogue.continue_hint", 340.0)),
+            comparisons=(ComparisonValue("common.back", 120.0), ComparisonValue("dialogue.continue_hint", 340.0)),
             interpret_prompt_key="app.title",
             interpret_options=OPTIONS,
             on_complete=lambda choice: None,
@@ -190,7 +210,7 @@ def test_an_interpret_option_with_an_evidence_key_records_real_evidence():
             app,
             title_key="app.title",
             narrative_keys=(),
-            comparisons=(("common.back", 30.0), ("dialogue.continue_hint", 8.0)),
+            comparisons=(ComparisonValue("common.back", 30.0), ComparisonValue("dialogue.continue_hint", 8.0)),
             interpret_prompt_key="app.title",
             interpret_options=options,
             on_complete=lambda choice: None,
@@ -218,7 +238,7 @@ def test_an_interpret_option_without_an_evidence_key_records_no_extra_evidence()
             app,
             title_key="app.title",
             narrative_keys=(),
-            comparisons=(("common.back", 30.0), ("dialogue.continue_hint", 8.0)),
+            comparisons=(ComparisonValue("common.back", 30.0), ComparisonValue("dialogue.continue_hint", 8.0)),
             interpret_prompt_key="app.title",
             interpret_options=options,
             on_complete=lambda choice: None,
@@ -245,7 +265,7 @@ def test_a_third_narrative_line_grows_the_box_instead_of_overflowing_it():
             app,
             title_key="app.title",
             narrative_keys=("app.title", "app.title", "app.title"),
-            comparisons=(("common.back", 0.3), ("dialogue.continue_hint", 0.5)),
+            comparisons=(ComparisonValue("common.back", 0.3), ComparisonValue("dialogue.continue_hint", 0.5)),
             interpret_prompt_key="app.title",
             interpret_options=OPTIONS,
             on_complete=lambda choice: None,

@@ -17,9 +17,10 @@ COLUMN_SPACING = 300
 COLUMN_WIDTH = 260
 HEADER_SIZE = (240, 44)
 HEADER_Y = 150
-# Lesson 02 never has more than 3 sources, where the numbers above fit the
-# 960px canvas comfortably. Lesson 07 needs 5 - narrower spacing/columns
-# past that count, verified to still leave a clear gap between columns.
+# COLUMN_SPACING/COLUMN_WIDTH above fit the 960px canvas comfortably up
+# to 3 sources. Lesson 02 has 4 and Lesson 07 has 5 - both past that
+# count use the narrower WIDE_* spacing/columns below, verified to still
+# leave a clear gap between columns.
 WIDE_COLUMN_SPACING = 170
 WIDE_COLUMN_WIDTH = 150
 WIDE_HEADER_WIDTH = 150
@@ -43,8 +44,8 @@ CONFIRM_BUTTON_Y = 470
 
 
 class SourceBoardScene(Scene):
-    """A side-by-side comparison board (spec §25 Lesson 02 'Source Scout'):
-    each DataSource is a column showing its trade-off attributes; pick one
+    """A side-by-side comparison board: each DataSource is a column
+    showing its trade-off attributes; pick one
     (doesn't auto-confirm, matching the brief builder's Confirm-not-click
     pattern) and confirm. guided=True also shows a general hint about how
     to weigh the trade-offs; guided=False hides it.

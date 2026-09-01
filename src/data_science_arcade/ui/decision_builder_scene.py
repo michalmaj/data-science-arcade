@@ -58,21 +58,28 @@ DecisionStep = BriefField | EvidenceField
 
 
 class DecisionBuilderScene(Scene):
-    """The lesson's final argument, composed step by step: Claim -> Evidence
-    -> Limitation -> Confidence -> Recommendation -> Follow-up (spec: a
-    final decision must state what the metric does *not* capture, not just
-    report a number). Five of the six steps are plain single-select fields,
-    sequenced with Back/Next exactly like BriefBuilderScene; the Evidence
-    step is a real multi-select (min_count-max_count) toggled directly
-    from `context.evidence` - the actual items gathered earlier in the
-    lesson, not a fixed options list, which is why this needed a new scene
-    rather than an extra BriefBuilderScene param: BriefBuilderScene has no
-    `context` visibility at all and is single-select only.
+    """The lesson's final argument, composed step by step and sequenced
+    with Back/Next exactly like BriefBuilderScene. `steps` is an arbitrary
+    ordered sequence of BriefField/EvidenceField, not a fixed set of named
+    params - a lesson's own argument shape (how many steps, what they're
+    called, whether a confidence step even exists) is content, not
+    something this scene should hardcode after only one lesson used it.
+    L01 sequences Claim -> Evidence -> Limitation -> Confidence ->
+    Recommendation -> Follow-up; L02's own shape drops Confidence entirely
+    and has two steps L01 has no equivalent of (Safe/Not-Safe to claim) -
+    both are just different `steps` tuples through the same scene.
 
-    Every step's own BriefOption/EvidenceItem choices are named as explicit
-    constructor params, not one generic `fields:` tuple, so the sequence
-    the spec requires (Claim first, Evidence next, ...) is enforced by the
-    call site rather than left to whoever assembles the tuple correctly.
+    Exactly one step in the sequence must be an EvidenceField: a real
+    multi-select (min_count-max_count) toggled directly from
+    `context.evidence` - the actual items gathered earlier in the lesson,
+    not a fixed options list, which is why this needed a new scene rather
+    than an extra BriefBuilderScene param (BriefBuilderScene has no
+    `context` visibility at all and is single-select only). It's found by
+    scanning `steps` rather than being passed separately; a plain
+    `next(...)` would either raise an opaque StopIteration with none, or
+    silently pick the first of several with more than one, so the
+    constructor validates explicitly and raises a clear ValueError
+    instead.
 
     `context` has no default, unlike WorkbenchScene/PipelineBuilderScene's
     `context: LessonContext | None = None`: a missing/empty context here
@@ -80,18 +87,10 @@ class DecisionBuilderScene(Scene):
     silent soft-lock, not a crash, so requiring it turns that mistake into
     an immediate TypeError instead.
 
-    `steps` is an arbitrary ordered sequence of BriefField/EvidenceField,
-    not six named params - a lesson's own argument shape (how many steps,
-    what they're called, whether Confidence exists at all) is content, not
-    something this scene should hardcode after only one lesson used it.
-    Everything above this constructor already operates on self._steps
-    generically (_rebuild_buttons, _next, _step_satisfied never hardcode
-    which index is which); only the EvidenceField lookup needs a real
-    check, since it's found by scanning `steps` rather than being named
-    explicitly - exactly one is required, and a plain `next(...)` would
-    either raise an opaque StopIteration with none, or silently pick the
-    first of several with more than one, so this validates explicitly and
-    raises a clear ValueError instead."""
+    Everything in this scene already operates on self._steps generically
+    (_rebuild_buttons, _next, _step_satisfied never hardcode which index
+    is which) - only the EvidenceField lookup above needed the explicit
+    check."""
 
     def __init__(
         self,

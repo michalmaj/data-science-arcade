@@ -30,6 +30,7 @@ from data_science_arcade.lessons.l02_source_scout.scenario import (
     ANSWER_STRATEGY_FIELD as L02_ANSWER_STRATEGY_FIELD,
     BILLING_INSPECTION as L02_BILLING_INSPECTION,
     APP_LOG_INSPECTION as L02_APP_LOG_INSPECTION,
+    MARKETING_INSPECTION as L02_MARKETING_INSPECTION,
     BILLING_REQUESTS as L02_BILLING_REQUESTS,
     COMPARISON_1_INTERPRET_OPTIONS as L02_COMPARISON_1_INTERPRET_OPTIONS,
     COMPARISON_2_INTERPRET_OPTIONS as L02_COMPARISON_2_INTERPRET_OPTIONS,
@@ -324,7 +325,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{issue.column}.{option.key}", option.label_key, picker_option_button_width))
     for option in L01_INSPECTION_PROMPT.options:
         checks.append((f"inspection.{option.key}", option.label_key, picker_option_button_width))
-    for prompt in (L02_BILLING_INSPECTION, L02_APP_LOG_INSPECTION):
+    for prompt in (L02_BILLING_INSPECTION, L02_APP_LOG_INSPECTION, L02_MARKETING_INSPECTION):
         for option in prompt.options:
             checks.append((f"inspection.{option.key}", option.label_key, picker_option_button_width))
 

@@ -9,6 +9,7 @@ from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text
+from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 BOX_RECT = pygame.Rect(40, 380, 880, 140)
@@ -30,7 +31,19 @@ class DialogueScene(Scene):
 
     background, if provided, is drawn (dimmed) behind the dialogue box
     instead of a flat fill, so the scene the conversation is happening in
-    stays visible - e.g. the hub behind an NPC's dialogue."""
+    stays visible - e.g. the hub behind an NPC's dialogue.
+
+    `context`/`record_label_key`/`record_evidence_key`/`record_key`, when
+    given together, record a real fact once the dialogue finishes - for
+    the case where an NPC states something authoritatively that the
+    student should be able to cite afterward (e.g. confirming a data gap's
+    real cause), not just an engagement record. Deliberately unconditional
+    on how the dialogue was reached (no per-choice branching support) -
+    every real caller today is a linear, choice-less confirmation; a
+    dialogue with real choices needing different recording per branch can
+    extend this once one actually exists. All four default to None (no
+    recording at all), so every other lesson's plain DialogueScene calls
+    are unaffected."""
 
     def __init__(
         self,
@@ -38,11 +51,19 @@ class DialogueScene(Scene):
         dialogue: Dialogue,
         on_complete: Callable[[], None],
         background: Scene | None = None,
+        context: LessonContext | None = None,
+        record_label_key: str | None = None,
+        record_evidence_key: str | None = None,
+        record_key: str | None = None,
     ) -> None:
         super().__init__(app)
         self.dialogue = dialogue
         self.background = background
         self.on_complete = on_complete
+        self.context = context
+        self.record_label_key = record_label_key
+        self.record_evidence_key = record_evidence_key
+        self.record_key = record_key
         self.index = 0
         self.choice_buttons: ButtonGroup | None = None
         self._build_choice_buttons()
@@ -83,6 +104,10 @@ class DialogueScene(Scene):
         self._advance_to(next_index if next_index < len(self.dialogue.lines) else None)
 
     def _finish(self) -> None:
+        if self.context is not None and self.record_label_key is not None:
+            action = self.context.record_action(label_key=self.record_label_key, key=self.record_key)
+            if self.record_evidence_key is not None:
+                self.context.record_evidence(label_key=self.record_evidence_key, source_action=action, key=self.record_key)
         self.on_complete()
 
     def handle_event(self, event: pygame.event.Event) -> None:

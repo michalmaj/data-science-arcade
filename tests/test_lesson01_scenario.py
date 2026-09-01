@@ -275,6 +275,76 @@ def test_the_evidence_step_only_enables_next_within_its_real_min_max_range():
         pygame.quit()
 
 
+def test_analytical_context_survives_a_checkpoint_new_app_and_resume():
+    # Real cross-process resume, not just a second LessonRunner against the
+    # same in-memory App - a fresh App() picks up whatever DEFAULT_SAVE_PATH
+    # holds on disk (tests/conftest.py's autouse fixture isolates it to one
+    # tmp_path for this whole test), matching test_lesson06_scenario.py's
+    # own precedent. Before LessonRunner.on_resume existed, this exact
+    # scenario silently lost the whole LessonContext on resume: the only
+    # place context.restore_from_dict() was ever called was inside the
+    # `briefing` stage factory, which a mid-lesson resume never re-enters.
+    app1 = _init_app()
+    try:
+        runner1, _ = build_lesson_one_runner(app1, on_finished=lambda result: None)
+        runner1.start()
+        click_through_mission_briefing(app1)
+        _play_dialogue_to_the_end(app1.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app1.scenes.current)  # investigation
+
+        workbench = app1.scenes.current.inner
+        next(iter(workbench.inspection_buttons.values())).on_activate()
+        workbench.continue_button.on_activate()
+
+        _play_pipeline(app1.scenes.current.inner, len(GRAIN_REQUESTS))
+        _fill_out(app1.scenes.current.inner, len(BRIEF_FIELDS))
+        _fill_out(app1.scenes.current.inner, 2)  # window prediction + confidence
+
+        compute_window = app1.scenes.current.inner
+        assert isinstance(compute_window, ComparisonRevealScene)
+        compute_window.buttons.buttons[0].on_activate()
+        compute_window.continue_button.on_activate()  # advances + checkpoints; quit right here
+    finally:
+        pygame.quit()
+
+    app2 = _init_app()  # a brand new App(), same on-disk save - simulates relaunching
+    try:
+        runner2, _ = build_lesson_one_runner(app2, on_finished=lambda result: None)
+        runner2.start()  # resumes straight into household_reveal, skipping briefing/investigation
+
+        assert isinstance(app2.scenes.current.inner, DialogueScene)  # household_reveal
+        _play_dialogue_to_the_end(app2.scenes.current)
+
+        _fill_out(app2.scenes.current.inner, 1)  # revise_entity
+
+        compute_entity = app2.scenes.current.inner
+        assert isinstance(compute_entity, ComparisonRevealScene)
+        resumed_context = compute_entity.context
+        assert len(resumed_context.actions) == 6  # inspection(1) + grain(2) + compute_window(3)
+        assert len(resumed_context.evidence) == 2  # compute_window's own 2 real comparisons
+        assert "orders.groupby(" in resumed_context.python_mirror()  # grain's real lines survived
+
+        compute_entity.buttons.buttons[0].on_activate()
+        compute_entity.continue_button.on_activate()
+
+        _play_dialogue_to_the_end(app2.scenes.current)  # coverage_reveal
+        _fill_out(app2.scenes.current.inner, 1)  # coverage_interpret
+        _click(app2)  # the_twist
+        app2.scenes.current.inner.continue_button.on_activate()  # evidence_review
+
+        decision = app2.scenes.current.inner
+        assert isinstance(decision, DecisionBuilderScene)
+        pre_resume_labels = {item.label_key for item in resumed_context.evidence}
+        post_resume_labels = {item.label_key for item in decision.context.evidence}
+        assert pre_resume_labels <= post_resume_labels  # nothing recorded before resume was lost
+
+        decision.buttons.buttons[0].on_activate()  # claim
+        decision.next_button.on_activate()  # -> evidence step
+        assert len(decision._evidence_toggle_buttons) == 5  # window(2) + entity(2) + coverage(1)
+    finally:
+        pygame.quit()
+
+
 @pytest.mark.parametrize(
     "field",
     [

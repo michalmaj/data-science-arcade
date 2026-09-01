@@ -9,6 +9,7 @@ from data_science_arcade.app.game import App
 from data_science_arcade.narrative.dialogue import Dialogue, DialogueChoice, DialogueLine
 from data_science_arcade.narrative.npc import MENTOR
 from data_science_arcade.ui.dialogue_scene import DialogueScene
+from data_science_arcade.workbench.context import LessonContext
 
 TWO_LINE_DIALOGUE = Dialogue(
     lines=(
@@ -147,6 +148,88 @@ def test_a_choice_with_next_index_none_runs_on_complete():
         scene.choice_buttons.buttons[0].on_activate()
 
         assert app.scenes.current is hub_stand_in
+    finally:
+        pygame.quit()
+
+
+def test_finishing_with_no_context_records_nothing():
+    app = _init_app()
+    try:
+        single_line = Dialogue(lines=(DialogueLine(speaker=MENTOR, text_key="dialogue.mentor_greeting.line1"),))
+        scene = DialogueScene(app, single_line, on_complete=lambda: None)
+        app.scenes.push(scene)
+
+        scene._advance()  # must not raise even though context is None
+    finally:
+        pygame.quit()
+
+
+def test_finishing_with_a_record_label_key_records_a_real_action():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        single_line = Dialogue(lines=(DialogueLine(speaker=MENTOR, text_key="dialogue.mentor_greeting.line1"),))
+        scene = DialogueScene(
+            app, single_line, on_complete=lambda: None, context=context, record_label_key="common.back"
+        )
+        app.scenes.push(scene)
+
+        scene._advance()
+
+        assert len(context.actions) == 1
+        assert context.actions[0].label_key == "common.back"
+        assert context.evidence == ()  # no record_evidence_key given - action only
+    finally:
+        pygame.quit()
+
+
+def test_finishing_with_a_record_evidence_key_records_evidence_too():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        single_line = Dialogue(lines=(DialogueLine(speaker=MENTOR, text_key="dialogue.mentor_greeting.line1"),))
+        scene = DialogueScene(
+            app,
+            single_line,
+            on_complete=lambda: None,
+            context=context,
+            record_label_key="common.back",
+            record_evidence_key="dialogue.continue_hint",
+            record_key="confirmed_fact",
+        )
+        app.scenes.push(scene)
+
+        scene._advance()
+
+        assert len(context.evidence) == 1
+        assert context.evidence[0].label_key == "dialogue.continue_hint"
+        assert context.evidence[0].source_action_id == context.actions[0].id
+    finally:
+        pygame.quit()
+
+
+def test_reaching_finish_twice_via_key_updates_the_same_slot_not_two():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        single_line = Dialogue(lines=(DialogueLine(speaker=MENTOR, text_key="dialogue.mentor_greeting.line1"),))
+
+        def make_scene():
+            return DialogueScene(
+                app,
+                single_line,
+                on_complete=lambda: None,
+                context=context,
+                record_label_key="common.back",
+                record_evidence_key="dialogue.continue_hint",
+                record_key="confirmed_fact",
+            )
+
+        make_scene()._advance()
+        make_scene()._advance()  # e.g. resuming into the same dialogue stage again
+
+        assert len(context.actions) == 1
+        assert len(context.evidence) == 1
     finally:
         pygame.quit()
 

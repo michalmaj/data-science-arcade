@@ -13,6 +13,7 @@ from data_science_arcade.lessons.l02_source_scout.twist_data import (
     generate_billing,
     generate_marketing,
     generate_support,
+    marketing_enrolled_count,
     missing_from_billing_counts,
     population_legacypay_share,
     support_legacypay_counts,
@@ -21,10 +22,10 @@ from data_science_arcade.lessons.l02_source_scout.twist_data import (
 from data_science_arcade.narrative.dialogue import Dialogue, DialogueLine
 from data_science_arcade.narrative.npc import DATA_ENGINEER, FINANCE_LEAD, MENTOR, PRODUCT_MANAGER
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
-from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, InterpretOption
+from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, ComparisonValue, InterpretOption
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene, EvidenceField
 from data_science_arcade.ui.dialogue_scene import DialogueScene
-from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene, MasteryOption
+from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene, MasteryOption, MetricValue
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.source_board_scene import SourceBoardScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene, WorkbenchTab
@@ -50,14 +51,22 @@ FRAMING_DIALOGUE = Dialogue(
 # --- Source Map -----------------------------------------------------------
 
 SOURCES: tuple[DataSource, ...] = (
+    # Deliberately 4 neutral facts per source - owner, format, documented
+    # purpose, freshness - none of them High/Medium/Low rated and none of
+    # them the thing this lesson's real comparisons exist to make the
+    # student discover firsthand: which customers a source actually
+    # covers, and what it counts as "active." A dossier that already
+    # states "Currently billed subscribers" or "Active means payment
+    # status not cancelled" up front would hand the student comparison_1's
+    # and comparison_2's own conclusions before they ever open the data.
     DataSource(
         key="billing",
         name_key="lesson.l02.source.billing.name",
         attributes=(
             SourceAttribute("lesson.l02.attr.owner", "lesson.l02.fact.billing.owner"),
             SourceAttribute("lesson.l02.attr.format", "lesson.l02.fact.billing.format"),
-            SourceAttribute("lesson.l02.attr.population", "lesson.l02.fact.billing.population"),
-            SourceAttribute("lesson.l02.attr.definition", "lesson.l02.fact.billing.definition"),
+            SourceAttribute("lesson.l02.attr.documented_purpose", "lesson.l02.fact.billing.documented_purpose"),
+            SourceAttribute("lesson.l02.attr.freshness", "lesson.l02.fact.billing.freshness"),
         ),
     ),
     DataSource(
@@ -66,8 +75,8 @@ SOURCES: tuple[DataSource, ...] = (
         attributes=(
             SourceAttribute("lesson.l02.attr.owner", "lesson.l02.fact.app_log.owner"),
             SourceAttribute("lesson.l02.attr.format", "lesson.l02.fact.app_log.format"),
-            SourceAttribute("lesson.l02.attr.population", "lesson.l02.fact.app_log.population"),
-            SourceAttribute("lesson.l02.attr.definition", "lesson.l02.fact.app_log.definition"),
+            SourceAttribute("lesson.l02.attr.documented_purpose", "lesson.l02.fact.app_log.documented_purpose"),
+            SourceAttribute("lesson.l02.attr.freshness", "lesson.l02.fact.app_log.freshness"),
         ),
     ),
     DataSource(
@@ -76,8 +85,8 @@ SOURCES: tuple[DataSource, ...] = (
         attributes=(
             SourceAttribute("lesson.l02.attr.owner", "lesson.l02.fact.marketing.owner"),
             SourceAttribute("lesson.l02.attr.format", "lesson.l02.fact.marketing.format"),
-            SourceAttribute("lesson.l02.attr.population", "lesson.l02.fact.marketing.population"),
-            SourceAttribute("lesson.l02.attr.definition", "lesson.l02.fact.marketing.definition"),
+            SourceAttribute("lesson.l02.attr.documented_purpose", "lesson.l02.fact.marketing.documented_purpose"),
+            SourceAttribute("lesson.l02.attr.freshness", "lesson.l02.fact.marketing.freshness"),
         ),
     ),
     DataSource(
@@ -86,8 +95,8 @@ SOURCES: tuple[DataSource, ...] = (
         attributes=(
             SourceAttribute("lesson.l02.attr.owner", "lesson.l02.fact.support.owner"),
             SourceAttribute("lesson.l02.attr.format", "lesson.l02.fact.support.format"),
-            SourceAttribute("lesson.l02.attr.population", "lesson.l02.fact.support.population"),
-            SourceAttribute("lesson.l02.attr.definition", "lesson.l02.fact.support.definition"),
+            SourceAttribute("lesson.l02.attr.documented_purpose", "lesson.l02.fact.support.documented_purpose"),
+            SourceAttribute("lesson.l02.attr.freshness", "lesson.l02.fact.support.freshness"),
         ),
     ),
 )
@@ -142,6 +151,16 @@ COMPARISON_1_INTERPRET_OPTIONS = (
 
 # --- Conflict #2: Billing vs. Marketing --------------------------------------
 
+MARKETING_INSPECTION = InspectionPrompt(
+    prompt_key="lesson.l02.marketing_inspect.prompt",
+    options=(
+        InspectionOption("everyone_ever_enrolled", "lesson.l02.marketing_inspect.option.everyone_ever_enrolled"),
+        InspectionOption("only_current_payers", "lesson.l02.marketing_inspect.option.only_current_payers"),
+        InspectionOption("only_active_app_users", "lesson.l02.marketing_inspect.option.only_active_app_users"),
+    ),
+    hint_key="lesson.l02.marketing_inspect.hint",
+)
+
 COMPARISON_2_INTERPRET_OPTIONS = (
     InterpretOption("different_construct", "lesson.l02.comparison2_interpret.option.different_construct"),
     InterpretOption("marketing_is_wrong", "lesson.l02.comparison2_interpret.option.marketing_is_wrong"),
@@ -152,14 +171,19 @@ COMPARISON_2_INTERPRET_OPTIONS = (
 
 GAP_INTERPRET_OPTIONS = (
     InterpretOption("all_a_bug", "lesson.l02.gap_interpret.option.all_a_bug"),
-    InterpretOption(
-        "mixed_and_unresolved",
-        "lesson.l02.gap_interpret.option.mixed_and_unresolved",
-        evidence_key="lesson.l02.evidence.legacy_status_unresolved_label",
-    ),
+    InterpretOption("mixed_and_unresolved", "lesson.l02.gap_interpret.option.mixed_and_unresolved"),
     InterpretOption("noise_ignore_it", "lesson.l02.gap_interpret.option.noise_ignore_it"),
     InterpretOption("trust_marketing_instead", "lesson.l02.gap_interpret.option.trust_marketing_instead"),
 )
+# No evidence_key here, deliberately: gating the "no source resolves this
+# population's status" fact on a single early interpretation pick meant a
+# student who guessed wrong here - then correctly updated their own
+# understanding a stage later, once FINANCE_LEAD_DIALOGUE confirms it
+# outright - had no way to ever cite the fact they now genuinely know is
+# true. finance_lead_confirms below records it unconditionally instead;
+# the interpretation pick itself is still tracked (LessonTwoResult.
+# gap_interpretation) and still feeds a real, if unscored, feedback signal
+# about the student's own initial-belief-to-revision trajectory.
 
 FINANCE_LEAD_DIALOGUE = Dialogue(
     lines=(
@@ -288,13 +312,16 @@ def _critical_evidence_present(context: LessonContext, selected_evidence_ids: se
 
 
 def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
-    """Assembles Lesson 02's real 17-stage investigation: one continuous
-    LessonContext threaded via closures through every analytical stage,
-    on four real, hand-crafted datasets (twist_data.py) rather than
-    abstract High/Medium/Low source ratings. See
-    decisions/IMPLEMENTATION_STATE.md for the full stage-by-stage
-    rationale and the exact-count/range correction this design is built
-    around."""
+    """Assembles Lesson 02's real 18-stage investigation: one continuous
+    LessonContext threaded via closures through every analytical stage, on
+    four real, hand-crafted datasets (twist_data.py) rather than abstract
+    High/Medium/Low source ratings. The four sources never let a student
+    honestly reconstruct the true active-paying count - Billing
+    structurally excludes the 30 real legacypay accounts, and no source
+    re-establishes their current status - so the lesson's own correct
+    output is a confirmed floor and a defensible range, not a single
+    "corrected" total; ANSWER_STRATEGY_FIELD's own options score that
+    distinction directly (see scoring.py)."""
     collected: dict = {}
     context = LessonContext()
     billing = generate_billing()
@@ -313,7 +340,6 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     # --- The Ask ---
 
     def briefing(advance):
-        _restore_context_if_present()
         return DialogueScene(app, BRIEFING_DIALOGUE, on_complete=advance)
 
     def framing(advance):
@@ -364,6 +390,7 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         # line is still recorded (context= is passed) - same split as
         # l01_question_first's own Grain in Action act.
         def on_complete(_choices):
+            _sync_context_into_collected()
             advance()
 
         return PipelineBuilderScene(
@@ -404,14 +431,43 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 "dialogue.l02_comparison1.line3",
             ),
             comparisons=(
-                ("lesson.l02.evidence.billing_active_label", float(billing_active_count(billing))),
-                ("lesson.l02.evidence.app_log_active_label", float(app_log_active_count(app_log))),
+                ComparisonValue(
+                    "lesson.l02.evidence.billing_active_label",
+                    float(billing_active_count(billing)),
+                    python_code="(billing.status == 'active').sum()",
+                ),
+                ComparisonValue(
+                    "lesson.l02.evidence.app_log_active_label",
+                    float(app_log_active_count(app_log)),
+                    python_code=(
+                        "app_log = pd.read_json('go_app_activity_snapshot.json')\n"
+                        "cutoff = pd.Timestamp('2026-06-01') - pd.Timedelta(days=30)\n"
+                        "app_log[app_log.last_open >= cutoff].customer_id.nunique()"
+                    ),
+                ),
             ),
             interpret_prompt_key="lesson.l02.comparison1_interpret.prompt",
             interpret_options=COMPARISON_1_INTERPRET_OPTIONS,
             on_complete=on_complete,
             context=context,
             value_format=lambda value: f"{value:,.0f}",
+        )
+
+    # --- Meet Marketing ---
+
+    def meet_marketing(advance):
+        def on_complete(_resolution):
+            _sync_context_into_collected()
+            advance()
+
+        return WorkbenchScene(
+            app,
+            marketing,
+            issues=(),
+            on_complete=on_complete,
+            context=context,
+            visible_tabs=(WorkbenchTab.DATA,),
+            inspection_prompt=MARKETING_INSPECTION,
         )
 
     # --- Conflict #2 ---
@@ -427,8 +483,18 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l02.comparison2.title",
             narrative_keys=("dialogue.l02_comparison2.line1", "dialogue.l02_comparison2.line2"),
             comparisons=(
-                ("lesson.l02.evidence.billing_active_label", float(billing_active_count(billing))),
-                ("lesson.l02.evidence.marketing_enrolled_label", float(len(marketing.frame))),
+                ComparisonValue(
+                    "lesson.l02.evidence.billing_active_label",
+                    float(billing_active_count(billing)),
+                    python_code="(billing.status == 'active').sum()",
+                ),
+                ComparisonValue(
+                    "lesson.l02.evidence.marketing_enrolled_label",
+                    float(marketing_enrolled_count(marketing)),
+                    python_code=(
+                        "marketing = pd.read_csv('crm_plus_enrollment_export.csv')\nmarketing.customer_id.nunique()"
+                    ),
+                ),
             ),
             interpret_prompt_key="lesson.l02.comparison2_interpret.prompt",
             interpret_options=COMPARISON_2_INTERPRET_OPTIONS,
@@ -451,8 +517,19 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l02.gap.title",
             narrative_keys=("dialogue.l02_gap.line1", "dialogue.l02_gap.line2"),
             comparisons=(
-                ("lesson.l02.evidence.legacy_missing_label", float(counts.get("legacypay", 0))),
-                ("lesson.l02.evidence.trial_pending_missing_label", float(counts.get("trial_pending", 0))),
+                ComparisonValue(
+                    "lesson.l02.evidence.legacy_missing_label",
+                    float(counts.get("legacypay", 0)),
+                    python_code=(
+                        "missing = marketing[~marketing.customer_id.isin(billing.customer_id)]\n"
+                        "missing.payment_processor.value_counts()['legacypay']"
+                    ),
+                ),
+                ComparisonValue(
+                    "lesson.l02.evidence.trial_pending_missing_label",
+                    float(counts.get("trial_pending", 0)),
+                    python_code="missing.payment_processor.value_counts()['trial_pending']",
+                ),
             ),
             interpret_prompt_key="lesson.l02.gap_interpret.prompt",
             interpret_options=GAP_INTERPRET_OPTIONS,
@@ -462,7 +539,19 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         )
 
     def finance_lead_confirms(advance):
-        return DialogueScene(app, FINANCE_LEAD_DIALOGUE, on_complete=advance)
+        def on_complete():
+            _sync_context_into_collected()
+            advance()
+
+        return DialogueScene(
+            app,
+            FINANCE_LEAD_DIALOGUE,
+            on_complete=on_complete,
+            context=context,
+            record_label_key="dialogue.l02_finance_lead.line2",
+            record_evidence_key="lesson.l02.evidence.legacy_status_unresolved_label",
+            record_key="legacy_status_unresolved",
+        )
 
     def gut_check(advance):
         def on_complete(brief):
@@ -484,8 +573,20 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l02.support.title",
             narrative_keys=("dialogue.l02_support.line1", "dialogue.l02_support.line2"),
             comparisons=(
-                ("lesson.l02.evidence.support_raw_label", float(raw_legacypay)),
-                ("lesson.l02.evidence.support_unique_label", float(unique_legacypay)),
+                ComparisonValue(
+                    "lesson.l02.evidence.support_raw_label",
+                    float(raw_legacypay),
+                    python_code=(
+                        "support = pd.read_excel('customer_success_vip_list.xlsx')\n"
+                        "legacy_rows = support[support.payment_processor == 'legacypay']\n"
+                        "len(legacy_rows)"
+                    ),
+                ),
+                ComparisonValue(
+                    "lesson.l02.evidence.support_unique_label",
+                    float(unique_legacypay),
+                    python_code="legacy_rows.customer_id.nunique()",
+                ),
             ),
             interpret_prompt_key="lesson.l02.support_interpret.prompt",
             interpret_options=SUPPORT_INTERPRET_OPTIONS,
@@ -548,16 +649,38 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             _sync_context_into_collected()
             advance()
 
-        def compute(metric_key: str) -> tuple[tuple[str, float], tuple[str, float]]:
+        def compute(metric_key: str) -> tuple[MetricValue, MetricValue]:
             _, unique_legacypay = support_legacypay_counts(support)
             if metric_key == "raw_counts":
                 return (
-                    ("lesson.l02.mastery.support_count_label", float(unique_legacypay)),
-                    ("lesson.l02.mastery.population_count_label", float(len(LEGACYPAY))),
+                    MetricValue(
+                        "lesson.l02.mastery.support_count_label",
+                        float(unique_legacypay),
+                        python_code="legacy_rows.customer_id.nunique()",
+                    ),
+                    MetricValue(
+                        "lesson.l02.mastery.population_count_label",
+                        float(len(LEGACYPAY)),
+                        python_code="missing.payment_processor.value_counts()['legacypay']",
+                    ),
                 )
             return (
-                ("lesson.l02.mastery.support_share_label", support_legacypay_share(support)),
-                ("lesson.l02.mastery.population_share_label", population_legacypay_share(marketing)),
+                MetricValue(
+                    "lesson.l02.mastery.support_share_label",
+                    support_legacypay_share(support),
+                    python_code=(
+                        "deduped = support.drop_duplicates(subset='customer_id')\n"
+                        "len(deduped[deduped.payment_processor == 'legacypay']) / len(deduped)"
+                    ),
+                ),
+                MetricValue(
+                    "lesson.l02.mastery.population_share_label",
+                    population_legacypay_share(marketing),
+                    python_code=(
+                        "real_customers = marketing[marketing.payment_processor != 'trial_pending']\n"
+                        "len(real_customers[real_customers.payment_processor == 'legacypay']) / len(real_customers)"
+                    ),
+                ),
             )
 
         def format_value(value: float) -> str:
@@ -623,6 +746,7 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         compute_billing,
         meet_app_log,
         comparison_1,
+        meet_marketing,
         comparison_2,
         gap_discovery,
         finance_lead_confirms,
@@ -635,6 +759,12 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         debrief,
     ]
     runner = LessonRunner(
-        app, stages, on_finished=finished, lesson_number=2, collected=collected, definition=LESSON_02
+        app,
+        stages,
+        on_finished=finished,
+        lesson_number=2,
+        collected=collected,
+        definition=LESSON_02,
+        on_resume=_restore_context_if_present,
     )
     return runner, collected

@@ -141,6 +141,21 @@ def _score_reasoning(result: LessonTwoResult) -> tuple[float, FeedbackObservatio
     return 55.0, None
 
 
+def _score_trajectory(result: LessonTwoResult) -> FeedbackObservation | None:
+    """Unscored (no ScoreDimension attached) - a real signal about the
+    student's own initial-belief-to-revision arc, not just a snapshot of
+    their final picks. The one case worth calling out on its own: starting
+    from the "obviously official" source and genuinely moving off it once
+    the gap came to light - the productive-failure path this lesson is
+    built around. Other combinations (never trusting Billing alone in the
+    first place; sticking with it after real reflection) are legitimate
+    too, just not singled out here - `initial_inspect_pick`/
+    `revision_choice` are still recorded on the result either way."""
+    if result.initial_inspect_pick == "billing" and result.revision_choice == "billing_plus_something":
+        return FeedbackObservation("lesson.l02.feedback.revised_after_new_evidence")
+    return None
+
+
 def score_lesson_two(result: LessonTwoResult, definition: LessonDefinition, hints_used: int) -> LessonEvaluation:
     """Lesson 02's own scorer, wired in via LessonDefinition.scorer.
     hints_used is tracked and surfaced as its own observation, never
@@ -170,6 +185,9 @@ def score_lesson_two(result: LessonTwoResult, definition: LessonDefinition, hint
     for observation in (data_quality_observation, evidence_observation, uncertainty_observation, reasoning_observation):
         if observation is not None:
             observations.append(observation)
+    trajectory_observation = _score_trajectory(result)
+    if trajectory_observation is not None:
+        observations.append(trajectory_observation)
     if result.mastery_engaged:
         observations.append(FeedbackObservation("lesson.l02.feedback.mastery_completed"))
     if hints_used > 0:

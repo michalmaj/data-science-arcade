@@ -37,7 +37,23 @@ class LessonRunner:
     (real title/objectives/duration) is shown first, unless resuming from
     a mid-lesson checkpoint - you don't need to see "Start Mission" again
     to continue where you left off.
-    """
+
+    `on_resume`, when given, is called once - after `collected` has been
+    restored from the checkpoint but before the resumed stage is built -
+    for any runtime state a lesson keeps *outside* `collected` itself and
+    needs rebuilt from it. L01/L02 both thread a `LessonContext` through
+    their stages via closures and stash its serialized form inside
+    `collected["analytical_context"]`; restoring that dict alone doesn't
+    repopulate the live `LessonContext` object the stage closures already
+    hold a reference to. The previous approach - calling a lesson's own
+    `_restore_context_if_present()` from inside its `briefing` stage
+    factory - never actually ran on a real mid-lesson resume, since resume
+    jumps straight to the saved `stage_index` and never re-enters stage 0:
+    a real, silent bug (context always empty after resuming past the
+    first stage, even though the checkpoint had genuinely saved it) that
+    only a real second-App-instance resume test catches, not anything that
+    exercises `collected` alone. Defaults to None (no-op) for every lesson
+    that doesn't keep this kind of extra runtime state."""
 
     def __init__(
         self,
@@ -47,6 +63,7 @@ class LessonRunner:
         lesson_number: int | None = None,
         collected: dict | None = None,
         definition: LessonDefinition | None = None,
+        on_resume: Callable[[], None] | None = None,
     ) -> None:
         self.app = app
         self.stages = stages
@@ -54,6 +71,7 @@ class LessonRunner:
         self.lesson_number = lesson_number
         self.collected = collected if collected is not None else {}
         self.definition = definition
+        self.on_resume = on_resume
         self.index = 0
         self._stage_fingerprint = "|".join(stage.__name__ for stage in stages)
 
@@ -78,6 +96,8 @@ class LessonRunner:
         self.index = checkpoint.stage_index
         self.collected.clear()
         self.collected.update(checkpoint.collected)  # mutate in place - never rebind self.collected
+        if self.on_resume is not None:
+            self.on_resume()
         self.app.scenes.push(self._build_current_stage())
         return True
 
