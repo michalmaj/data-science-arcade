@@ -17,10 +17,9 @@ LESSON_02 = LessonDefinition(
         ScoreDimension.UNCERTAINTY,
         ScoreDimension.REASONING,
     ),
-    # Honest current estimate for the 16 required stages (core path only,
+    # Honest per-stage estimate for the required path only (core path,
     # matching l01_question_first's own convention of excluding the
-    # optional mastery act) - not reverse-engineered toward any target;
-    # see decisions/IMPLEMENTATION_STATE.md for the per-stage breakdown.
+    # optional mastery act) - not reverse-engineered toward any target.
     estimated_minutes=58,
     related_handbook_entry_id="metrics_need_definitions",
     scorer=score_lesson_two,

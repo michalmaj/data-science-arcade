@@ -312,13 +312,16 @@ def _critical_evidence_present(context: LessonContext, selected_evidence_ids: se
 
 
 def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
-    """Assembles Lesson 02's real 17-stage investigation: one continuous
-    LessonContext threaded via closures through every analytical stage,
-    on four real, hand-crafted datasets (twist_data.py) rather than
-    abstract High/Medium/Low source ratings. See
-    decisions/IMPLEMENTATION_STATE.md for the full stage-by-stage
-    rationale and the exact-count/range correction this design is built
-    around."""
+    """Assembles Lesson 02's real 18-stage investigation: one continuous
+    LessonContext threaded via closures through every analytical stage, on
+    four real, hand-crafted datasets (twist_data.py) rather than abstract
+    High/Medium/Low source ratings. The four sources never let a student
+    honestly reconstruct the true active-paying count - Billing
+    structurally excludes the 30 real legacypay accounts, and no source
+    re-establishes their current status - so the lesson's own correct
+    output is a confirmed floor and a defensible range, not a single
+    "corrected" total; ANSWER_STRATEGY_FIELD's own options score that
+    distinction directly (see scoring.py)."""
     collected: dict = {}
     context = LessonContext()
     billing = generate_billing()
