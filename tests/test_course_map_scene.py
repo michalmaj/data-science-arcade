@@ -821,6 +821,11 @@ def test_finishing_lesson_two_marks_it_complete_and_unlocks_lesson_three():
         app.scenes.current.inner.buttons.buttons[0].on_activate()
         app.scenes.current.inner.continue_button.on_activate()
 
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # meet_marketing
+        workbench = app.scenes.current.inner
+        next(iter(workbench.inspection_buttons.values())).on_activate()
+        workbench.continue_button.on_activate()
+
         assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # comparison_2
         app.scenes.current.inner.buttons.buttons[0].on_activate()
         app.scenes.current.inner.continue_button.on_activate()

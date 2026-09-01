@@ -13,6 +13,7 @@ from data_science_arcade.lessons.l02_source_scout.twist_data import (
     generate_billing,
     generate_marketing,
     generate_support,
+    marketing_enrolled_count,
     missing_from_billing_counts,
     population_legacypay_share,
     support_legacypay_counts,
@@ -142,6 +143,16 @@ COMPARISON_1_INTERPRET_OPTIONS = (
 
 # --- Conflict #2: Billing vs. Marketing --------------------------------------
 
+MARKETING_INSPECTION = InspectionPrompt(
+    prompt_key="lesson.l02.marketing_inspect.prompt",
+    options=(
+        InspectionOption("everyone_ever_enrolled", "lesson.l02.marketing_inspect.option.everyone_ever_enrolled"),
+        InspectionOption("only_current_payers", "lesson.l02.marketing_inspect.option.only_current_payers"),
+        InspectionOption("only_active_app_users", "lesson.l02.marketing_inspect.option.only_active_app_users"),
+    ),
+    hint_key="lesson.l02.marketing_inspect.hint",
+)
+
 COMPARISON_2_INTERPRET_OPTIONS = (
     InterpretOption("different_construct", "lesson.l02.comparison2_interpret.option.different_construct"),
     InterpretOption("marketing_is_wrong", "lesson.l02.comparison2_interpret.option.marketing_is_wrong"),
@@ -152,14 +163,19 @@ COMPARISON_2_INTERPRET_OPTIONS = (
 
 GAP_INTERPRET_OPTIONS = (
     InterpretOption("all_a_bug", "lesson.l02.gap_interpret.option.all_a_bug"),
-    InterpretOption(
-        "mixed_and_unresolved",
-        "lesson.l02.gap_interpret.option.mixed_and_unresolved",
-        evidence_key="lesson.l02.evidence.legacy_status_unresolved_label",
-    ),
+    InterpretOption("mixed_and_unresolved", "lesson.l02.gap_interpret.option.mixed_and_unresolved"),
     InterpretOption("noise_ignore_it", "lesson.l02.gap_interpret.option.noise_ignore_it"),
     InterpretOption("trust_marketing_instead", "lesson.l02.gap_interpret.option.trust_marketing_instead"),
 )
+# No evidence_key here, deliberately: gating the "no source resolves this
+# population's status" fact on a single early interpretation pick meant a
+# student who guessed wrong here - then correctly updated their own
+# understanding a stage later, once FINANCE_LEAD_DIALOGUE confirms it
+# outright - had no way to ever cite the fact they now genuinely know is
+# true. finance_lead_confirms below records it unconditionally instead;
+# the interpretation pick itself is still tracked (LessonTwoResult.
+# gap_interpretation) and still feeds a real, if unscored, feedback signal
+# about the student's own initial-belief-to-revision trajectory.
 
 FINANCE_LEAD_DIALOGUE = Dialogue(
     lines=(
@@ -313,7 +329,6 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     # --- The Ask ---
 
     def briefing(advance):
-        _restore_context_if_present()
         return DialogueScene(app, BRIEFING_DIALOGUE, on_complete=advance)
 
     def framing(advance):
@@ -364,6 +379,7 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         # line is still recorded (context= is passed) - same split as
         # l01_question_first's own Grain in Action act.
         def on_complete(_choices):
+            _sync_context_into_collected()
             advance()
 
         return PipelineBuilderScene(
@@ -414,6 +430,23 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             value_format=lambda value: f"{value:,.0f}",
         )
 
+    # --- Meet Marketing ---
+
+    def meet_marketing(advance):
+        def on_complete(_resolution):
+            _sync_context_into_collected()
+            advance()
+
+        return WorkbenchScene(
+            app,
+            marketing,
+            issues=(),
+            on_complete=on_complete,
+            context=context,
+            visible_tabs=(WorkbenchTab.DATA,),
+            inspection_prompt=MARKETING_INSPECTION,
+        )
+
     # --- Conflict #2 ---
 
     def comparison_2(advance):
@@ -428,7 +461,7 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             narrative_keys=("dialogue.l02_comparison2.line1", "dialogue.l02_comparison2.line2"),
             comparisons=(
                 ("lesson.l02.evidence.billing_active_label", float(billing_active_count(billing))),
-                ("lesson.l02.evidence.marketing_enrolled_label", float(len(marketing.frame))),
+                ("lesson.l02.evidence.marketing_enrolled_label", float(marketing_enrolled_count(marketing))),
             ),
             interpret_prompt_key="lesson.l02.comparison2_interpret.prompt",
             interpret_options=COMPARISON_2_INTERPRET_OPTIONS,
@@ -462,7 +495,19 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         )
 
     def finance_lead_confirms(advance):
-        return DialogueScene(app, FINANCE_LEAD_DIALOGUE, on_complete=advance)
+        def on_complete():
+            _sync_context_into_collected()
+            advance()
+
+        return DialogueScene(
+            app,
+            FINANCE_LEAD_DIALOGUE,
+            on_complete=on_complete,
+            context=context,
+            record_label_key="dialogue.l02_finance_lead.line2",
+            record_evidence_key="lesson.l02.evidence.legacy_status_unresolved_label",
+            record_key="legacy_status_unresolved",
+        )
 
     def gut_check(advance):
         def on_complete(brief):
@@ -623,6 +668,7 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         compute_billing,
         meet_app_log,
         comparison_1,
+        meet_marketing,
         comparison_2,
         gap_discovery,
         finance_lead_confirms,
@@ -635,6 +681,12 @@ def build_lesson_two_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         debrief,
     ]
     runner = LessonRunner(
-        app, stages, on_finished=finished, lesson_number=2, collected=collected, definition=LESSON_02
+        app,
+        stages,
+        on_finished=finished,
+        lesson_number=2,
+        collected=collected,
+        definition=LESSON_02,
+        on_resume=_restore_context_if_present,
     )
     return runner, collected
