@@ -15,7 +15,6 @@ from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
 from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
-from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import CORRECT_EVENT_BY_STEP as L04_CORRECT_EVENT_BY_STEP
 from data_science_arcade.lessons.l04_event_log_factory.scenario import DECISION_FIELDS as L04_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import FLOW_STEPS as L04_FLOW_STEPS
@@ -871,10 +870,16 @@ def test_finishing_lesson_two_marks_it_complete_and_unlocks_lesson_three():
         pygame.quit()
 
 
-def _play_out_the_console(scene: APIConsoleScene) -> None:
-    while not scene._all_sent():
-        scene.action_button.on_activate()
-    scene.action_button.on_activate()  # now showing Finish
+def _play_out_the_console(scene: APIConsoleScene, retry_choices: list | None = None) -> None:
+    remaining = ["wait_and_retry"] if retry_choices is None else list(retry_choices)
+    while not scene._base_exhausted():
+        if scene._pending is not None:
+            key = remaining.pop(0)
+            option = next(o for o in scene._pending.retry_options if o.key == key)
+            scene._make_choose_retry(option)()
+        else:
+            scene._send_request()
+    scene.buttons.buttons[0].on_activate()  # now showing Finish
 
 
 def test_finishing_lesson_three_marks_it_complete_and_unlocks_lesson_four():
@@ -888,12 +893,42 @@ def test_finishing_lesson_three_marks_it_complete_and_unlocks_lesson_four():
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _play_out_the_console(app.scenes.current)  # guided console
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _play_out_the_console(app.scenes.current)  # independent console
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L03_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # framing
+        _play_out_the_console(app.scenes.current.inner)  # acquisition
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # gut_check
+        _fill_out(app.scenes.current, range(1))
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # completeness_reveal
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
+
+        _play_dialogue_to_the_end(app.scenes.current)  # root_cause_confirmed
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # revised_gut_check
+        _fill_out(app.scenes.current, range(1))
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        decision.buttons.buttons[0].on_activate()  # acquisition_strategy
+        decision.next_button.on_activate()
+        evidence_ids = list(decision._evidence_toggle_buttons.keys())
+        decision._evidence_toggle_buttons[evidence_ids[0]].on_activate()
+        decision._evidence_toggle_buttons[evidence_ids[1]].on_activate()
+        decision.next_button.on_activate()
+        for _ in range(4):  # known_gap, safe_to_claim, not_safe_to_claim, recommendation
+            decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, MasteryChallengeScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
