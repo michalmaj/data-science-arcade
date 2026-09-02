@@ -45,7 +45,18 @@ from data_science_arcade.lessons.l02_source_scout.scenario import (
     SOURCES as L02_SOURCES,
     SUPPORT_INTERPRET_OPTIONS as L02_SUPPORT_INTERPRET_OPTIONS,
 )
-from data_science_arcade.lessons.l03_api_courier.scenario import DECISION_FIELDS as L03_DECISION_FIELDS
+from data_science_arcade.lessons.l03_api_courier.scenario import (
+    ACQUISITION_STRATEGY_FIELD as L03_ACQUISITION_STRATEGY_FIELD,
+    COMPLETENESS_INTERPRET_OPTIONS as L03_COMPLETENESS_INTERPRET_OPTIONS,
+    INITIAL_GUT_CHECK_FIELD as L03_INITIAL_GUT_CHECK_FIELD,
+    KNOWN_GAP_FIELD as L03_KNOWN_GAP_FIELD,
+    MASTERY_INTERPRET_OPTIONS as L03_MASTERY_INTERPRET_OPTIONS,
+    MASTERY_METRIC_OPTIONS as L03_MASTERY_METRIC_OPTIONS,
+    NOT_SAFE_TO_CLAIM_FIELD as L03_NOT_SAFE_TO_CLAIM_FIELD,
+    RECOMMENDATION_FIELD as L03_RECOMMENDATION_FIELD,
+    REVISED_GUT_CHECK_FIELD as L03_REVISED_GUT_CHECK_FIELD,
+    SAFE_TO_CLAIM_FIELD as L03_SAFE_TO_CLAIM_FIELD,
+)
 from data_science_arcade.lessons.l04_event_log_factory.scenario import DECISION_FIELDS as L04_DECISION_FIELDS
 from data_science_arcade.lessons.l04_event_log_factory.scenario import FLOW_STEPS as L04_FLOW_STEPS
 from data_science_arcade.lessons.l05_sampling_mission.scenario import DECISION_FIELDS as L05_DECISION_FIELDS
@@ -111,6 +122,7 @@ from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPT
 from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
 from data_science_arcade.ui.cohort_matrix_scene import COMPARISON_OPTION_SIZE as COHORT_COMPARISON_OPTION_SIZE
 from data_science_arcade.ui.comparison_reveal_scene import OPTION_SIZE as COMPARISON_REVEAL_OPTION_SIZE
+from data_science_arcade.ui.api_console_scene import RETRY_OPTION_SIZE
 from data_science_arcade.ui.mastery_challenge_scene import OPTION_SIZE as MASTERY_OPTION_SIZE
 from data_science_arcade.ui.finding_picker_scene import OPTION_SIZE as FINDING_OPTION_SIZE
 from data_science_arcade.ui.investigation_hub_scene import OPTION_SIZE as INVESTIGATION_OPTION_SIZE
@@ -157,8 +169,14 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L02_SAFE_TO_CLAIM_FIELD,
         L02_NOT_SAFE_TO_CLAIM_FIELD,
         L02_RECOMMENDATION_FIELD,
+        L03_ACQUISITION_STRATEGY_FIELD,
+        L03_INITIAL_GUT_CHECK_FIELD,
+        L03_KNOWN_GAP_FIELD,
+        L03_SAFE_TO_CLAIM_FIELD,
+        L03_NOT_SAFE_TO_CLAIM_FIELD,
+        L03_RECOMMENDATION_FIELD,
+        L03_REVISED_GUT_CHECK_FIELD,
         L02_REVISION_FIELD,
-        *L03_DECISION_FIELDS,
         *L04_DECISION_FIELDS,
         *L05_DECISION_FIELDS,
         *L06_DECISION_FIELDS,
@@ -337,6 +355,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L02_COMPARISON_2_INTERPRET_OPTIONS,
         L02_GAP_INTERPRET_OPTIONS,
         L02_SUPPORT_INTERPRET_OPTIONS,
+        L03_COMPLETENESS_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
@@ -347,9 +366,15 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L01_MASTERY_INTERPRET_OPTIONS,
         L02_MASTERY_METRIC_OPTIONS,
         L02_MASTERY_INTERPRET_OPTIONS,
+        L03_MASTERY_METRIC_OPTIONS,
+        L03_MASTERY_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"mastery.{option.key}", option.label_key, mastery_option_button_width))
+
+    retry_option_button_width = RETRY_OPTION_SIZE[0] - BUTTON_PADDING
+    for retry_key in ("retry_immediately", "wait_and_retry", "skip"):
+        checks.append((f"retry.{retry_key}", f"lesson.l03.retry.{retry_key}", retry_option_button_width))
 
     # FindingPickerScene (Lesson 29) has one flat shared pool rather than
     # per-request options, so there's no nested loop here like every other
