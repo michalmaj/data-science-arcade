@@ -65,10 +65,18 @@ def test_order_confirmed_counts_worst_case_stacks_both_real_problems():
     assert distinct == TOTAL_SESSIONS == 90
     assert label_key == "lesson.l04.reveal.distinct_session_id_label"
     assert event_a_clean(True, False) is False
-    # Identifiers takes priority over trigger for the reveal/root-cause
-    # state - without order_id there's nothing to dedupe *with* even
-    # though duplicate rows are also present.
-    assert event_a_state(True, False) == "identifiers"
+
+
+def test_event_a_state_names_both_as_its_own_real_state_not_identifiers_alone():
+    # The regression case for the real bug: trigger and identifiers are
+    # two independent real choices, not one combined flag - a student who
+    # broke both needs that named as its own state, not silently folded
+    # into "identifiers" (which would make root-cause content claim the
+    # trigger is fine when it isn't).
+    assert event_a_state(trigger_is_client_side=True, identifiers_include_order_id=False) == "both"
+    assert event_a_state(trigger_is_client_side=False, identifiers_include_order_id=False) == "identifiers"
+    assert event_a_state(trigger_is_client_side=True, identifiers_include_order_id=True) == "trigger"
+    assert event_a_state(trigger_is_client_side=False, identifiers_include_order_id=True) == "clean"
 
 
 def test_generate_payment_attempts_with_outcome_matches_the_real_breakdown():
