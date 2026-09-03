@@ -50,7 +50,7 @@ FRAMING_DIALOGUE = Dialogue(
     )
 )
 
-# --- The three real root-cause dialogue variants, chosen by Event A's real
+# --- The four real root-cause dialogue variants, chosen by Event A's real
 # state (see event_a_state) rather than always the same content -----------
 
 ROOT_CAUSE_CLEAN_DIALOGUE = Dialogue(
@@ -71,6 +71,13 @@ ROOT_CAUSE_IDENTIFIERS_DIALOGUE = Dialogue(
     lines=(
         DialogueLine(speaker=DATA_ENGINEER, text_key="dialogue.l04_root_cause_identifiers.line1"),
         DialogueLine(speaker=DATA_ENGINEER, text_key="dialogue.l04_root_cause_identifiers.line2"),
+    )
+)
+
+ROOT_CAUSE_BOTH_DIALOGUE = Dialogue(
+    lines=(
+        DialogueLine(speaker=DATA_ENGINEER, text_key="dialogue.l04_root_cause_both.line1"),
+        DialogueLine(speaker=DATA_ENGINEER, text_key="dialogue.l04_root_cause_both.line2"),
     )
 )
 
@@ -131,7 +138,7 @@ PAYMENT_B_PROPERTIES_FIELD = MultiChoiceField(
     key="payment_b_properties",
     prompt_key="lesson.l04.spec.payment_b_properties.prompt",
     hint_key="lesson.l04.spec.payment_b_properties.hint",
-    min_count=2,
+    min_count=1,
     max_count=4,
     options=(
         BriefOption("outcome", "lesson.l04.spec.payment_b_properties.option.outcome"),
@@ -218,6 +225,7 @@ KNOWN_GAP_FIELD = BriefField(
     key="known_gap",
     prompt_key="lesson.l04.decision.known_gap.prompt",
     options=(
+        BriefOption("cannot_distinguish_outcomes", "lesson.l04.decision.known_gap.option.cannot_distinguish_outcomes"),
         BriefOption("decline_reason_unknown", "lesson.l04.decision.known_gap.option.decline_reason_unknown"),
         BriefOption("never_know_failures", "lesson.l04.decision.known_gap.option.never_know_failures"),
         BriefOption("duplication_means_untrustworthy", "lesson.l04.decision.known_gap.option.duplication_means_untrustworthy"),
@@ -230,9 +238,10 @@ REQUIRED_CHANGE_FIELD = BriefField(
     prompt_key="lesson.l04.decision.required_change.prompt",
     options=(
         BriefOption("nothing_needed", "lesson.l04.decision.required_change.option.nothing_needed"),
-        BriefOption("fix_trigger_and_identifiers", "lesson.l04.decision.required_change.option.fix_trigger_and_identifiers"),
-        BriefOption("add_outcome_property", "lesson.l04.decision.required_change.option.add_outcome_property"),
-        BriefOption("redesign_from_scratch", "lesson.l04.decision.required_change.option.redesign_from_scratch"),
+        BriefOption("fix_trigger", "lesson.l04.decision.required_change.option.fix_trigger"),
+        BriefOption("fix_identifiers", "lesson.l04.decision.required_change.option.fix_identifiers"),
+        BriefOption("fix_both", "lesson.l04.decision.required_change.option.fix_both"),
+        BriefOption("fix_properties", "lesson.l04.decision.required_change.option.fix_properties"),
     ),
 )
 
@@ -241,6 +250,7 @@ NOT_COLLECTED_FIELD = BriefField(
     prompt_key="lesson.l04.decision.not_collected.prompt",
     options=(
         BriefOption("raw_card_numbers", "lesson.l04.decision.not_collected.option.raw_card_numbers"),
+        BriefOption("raw_card_number_needs_removal", "lesson.l04.decision.not_collected.option.raw_card_number_needs_removal"),
         BriefOption("capture_everything", "lesson.l04.decision.not_collected.option.capture_everything"),
         BriefOption("excluded_order_id", "lesson.l04.decision.not_collected.option.excluded_order_id"),
         BriefOption("excluded_outcome_on_purpose", "lesson.l04.decision.not_collected.option.excluded_outcome_on_purpose"),
@@ -258,6 +268,24 @@ MASTERY_INTERPRET_OPTIONS = (
     MasteryOption("flow_is_fine", "lesson.l04.mastery.interpret_flow_is_fine"),
     MasteryOption("some_signups_double_counted", "lesson.l04.mastery.interpret_some_signups_double_counted"),
 )
+
+
+def _properties_quality(properties: tuple[str, ...]) -> float:
+    """0.0-1.0: none of the three stated business questions actually need
+    anything beyond `outcome` (Growth's question - approved vs. declined
+    vs. error - is the only one payment_b_properties serves at all), so
+    picking outcome alone is the real minimal-and-sufficient answer, not
+    an artifact of a widget that happens to require a second pick.
+    Picking outcome plus real extras (payment_method/amount/
+    decline_reason_detail) isn't wrong, but it's real over-collection
+    relative to what's actually justified - "select everything except
+    the card number" isn't pedagogically the same as a deliberately
+    minimal, well-justified selection, so it scores a real if modest
+    step below it, not identically."""
+    if "raw_card_number" in properties or "outcome" not in properties:
+        return 0.0
+    extra = len(properties) - 1
+    return 1.0 if extra == 0 else max(0.4, 1.0 - 0.2 * extra)
 
 
 def _critical_evidence_present(context: LessonContext, selected_evidence_ids: set[str]) -> tuple[str, ...]:
@@ -279,12 +307,14 @@ def build_lesson_four_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     """Assembles Lesson 04's real 11-stage investigation: one continuous
     LessonContext threaded via closures through every analytical stage.
     Unlike L03's own single acquisition axis, L04 has two real,
-    independent design choices (Event A's trigger and identifiers) that
-    are deliberately collapsed into one event_a_clean flag for Final
-    Decision content (see twist_data.event_a_clean's own docstring for
-    why), while the reveal and root-cause stages keep all three real
-    states distinct (twist_data.event_a_state) since they produce
-    genuinely different numbers and mechanisms a student needs to see."""
+    independent Event A design choices (trigger, identifiers) - the
+    reveal, root-cause dialogue, and Required Change/Ship-readiness
+    scoring all branch on the real 4-way twist_data.event_a_state
+    (clean/trigger/identifiers/both), not a single collapsed flag, since
+    a student who broke both needs both mechanisms named and both fixes
+    required - only EVIDENCE's own expected-category-count still uses the
+    coarser twist_data.event_a_clean (2 categories clean, 3 otherwise,
+    regardless of which specific problem)."""
     collected: dict = {}
     context = LessonContext()
 
@@ -373,7 +403,7 @@ def build_lesson_four_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 context=context,
                 record_label_key="lesson.l04.feedback.evidence.event_a_gap_duplicate",
                 record_evidence_key="lesson.l04.feedback.evidence.event_a_gap_duplicate",
-                record_key="event_a_gap",
+                record_key="event_a_gap_duplicate",
             )
         if state == "identifiers":
             return DialogueScene(
@@ -383,8 +413,34 @@ def build_lesson_four_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 context=context,
                 record_label_key="lesson.l04.feedback.evidence.event_a_gap_identifiers",
                 record_evidence_key="lesson.l04.feedback.evidence.event_a_gap_identifiers",
-                record_key="event_a_gap",
+                record_key="event_a_gap_identifiers",
             )
+        if state == "both":
+            # Two real, distinct mechanisms, not one - DialogueScene's own
+            # record_label_key/record_evidence_key only handles a single
+            # fact, so both get recorded directly here instead, the same
+            # way the Combined Workbench visit's own on_complete already
+            # records real facts outside of any scene's built-in hook.
+            def on_complete_both():
+                duplicate_action = context.record_action(
+                    label_key="lesson.l04.feedback.evidence.event_a_gap_duplicate", key="event_a_gap_duplicate"
+                )
+                context.record_evidence(
+                    label_key="lesson.l04.feedback.evidence.event_a_gap_duplicate",
+                    source_action=duplicate_action,
+                    key="event_a_gap_duplicate",
+                )
+                identifiers_action = context.record_action(
+                    label_key="lesson.l04.feedback.evidence.event_a_gap_identifiers", key="event_a_gap_identifiers"
+                )
+                context.record_evidence(
+                    label_key="lesson.l04.feedback.evidence.event_a_gap_identifiers",
+                    source_action=identifiers_action,
+                    key="event_a_gap_identifiers",
+                )
+                on_complete()
+
+            return DialogueScene(app, ROOT_CAUSE_BOTH_DIALOGUE, on_complete=on_complete_both, context=context)
         return DialogueScene(app, ROOT_CAUSE_CLEAN_DIALOGUE, on_complete=on_complete, context=context)
 
     # --- Combined Workbench visit: Event B discovery + evidence review ---
@@ -505,21 +561,26 @@ def build_lesson_four_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         identifiers_include_order_id = spec.get("order_a_identifiers") in ("session_and_order", "session_order_and_user")
         properties = spec.get("payment_b_properties", ())
         outcome_captured = "outcome" in properties
+        decline_reason_captured = "decline_reason_detail" in properties
+        privacy_violation = "raw_card_number" in properties
 
-        quality_hits = 0
+        quality_hits = 0.0
         quality_hits += spec.get("order_a_trigger") == "server_confirmed"
         quality_hits += spec.get("order_a_identifiers") == "session_and_order"
         quality_hits += spec.get("payment_b_trigger") == "gateway_result"
         quality_hits += spec.get("payment_b_identifiers") == "session_and_order"
-        quality_hits += outcome_captured and "raw_card_number" not in properties
+        quality_hits += _properties_quality(properties)
         quality_hits += spec.get("data_minimization") == "only_what_is_needed"
 
         return LessonFourResult(
             initial_gut_check=collected.get("initial_gut_check", ""),
             decision=decision,
             critical_evidence_present=_critical_evidence_present(context, selected_evidence_ids),
+            event_a_state=event_a_state(trigger_is_client_side, identifiers_include_order_id),
             event_a_clean=event_a_clean(trigger_is_client_side, identifiers_include_order_id),
             outcome_captured=outcome_captured,
+            decline_reason_captured=decline_reason_captured,
+            privacy_violation=privacy_violation,
             spec_quality_hits=quality_hits,
             mastery_engaged=collected.get("mastery_engaged", False),
             mastery_metric=collected.get("mastery_metric") or "",

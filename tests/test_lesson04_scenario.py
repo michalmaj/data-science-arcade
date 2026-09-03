@@ -83,15 +83,15 @@ _DEFAULT_CLEAN_SPEC = {
     "order_a_identifiers": 0,
     "payment_b_trigger": 0,
     "payment_b_identifiers": 0,
-    "payment_b_properties": (0, 1),
+    "payment_b_properties": (0,),  # outcome alone - the real minimal-and-sufficient answer
     "data_minimization": 0,
 }
 _DEFAULT_CLEAN_DECISION = {
-    "ship_readiness": 0,
-    "questions_answerable": 0,
-    "known_gap": 3,
-    "required_change": 0,
-    "not_collected": 0,
+    "ship_readiness": 0,  # ship_clean
+    "questions_answerable": 0,  # all_three_clean
+    "known_gap": 1,  # decline_reason_unknown - correct given decline_reason_detail was never picked
+    "required_change": 0,  # nothing_needed
+    "not_collected": 0,  # raw_card_numbers
 }
 
 
@@ -171,8 +171,11 @@ def test_the_full_lesson_plays_through_all_eleven_stages_to_a_result():
         result = finished_results[0]
         assert isinstance(result, LessonFourResult)
         assert result.completed_thoughtfully() is True
+        assert result.event_a_state == "clean"
         assert result.event_a_clean is True
         assert result.outcome_captured is True
+        assert result.decline_reason_captured is False
+        assert result.privacy_violation is False
         assert "analytical_context" in collected
     finally:
         pygame.quit()
@@ -261,12 +264,17 @@ def test_a_weak_playthrough_scores_low_on_every_dimension():
             "payment_b_properties": (3, 4),  # decline_reason_detail, raw_card_number - misses outcome, includes the privacy decoy
             "data_minimization": 1,  # always_collect_more - wrong
         }
+        # order_a_trigger and order_a_identifiers are both wrong above ->
+        # event_a_state is "both", so required_change=0 (nothing_needed)
+        # and ship_readiness=2 (monitor_after_launch) are both real wrong
+        # picks, not the "fix_both"/"ship_with_fix" that would actually be
+        # correct here.
         weak_decision = {
             "ship_readiness": 2,  # monitor_after_launch - never the best choice
             "questions_answerable": 0,  # all_three_clean - overreach, nothing is actually clean here
-            "known_gap": 1,  # never_know_failures - overstates permanence
-            "required_change": 3,  # redesign_from_scratch - unsupported overreach
-            "not_collected": 1,  # capture_everything - the "just in case" overreach
+            "known_gap": 3,  # duplication_means_untrustworthy - the self-contradiction decoy
+            "required_change": 0,  # nothing_needed - denial, real fixes are needed
+            "not_collected": 2,  # capture_everything - the "just in case" overreach
         }
         feedback = _play_lesson_to_feedback(
             app,
@@ -280,6 +288,7 @@ def test_a_weak_playthrough_scores_low_on_every_dimension():
         assert scores[ScoreDimension.DATA_QUALITY] <= 40, scores
         assert scores[ScoreDimension.REPRODUCIBILITY] <= 40, scores
         assert scores[ScoreDimension.UNCERTAINTY] <= 30, scores
+        assert scores[ScoreDimension.REASONING] <= 40, scores
     finally:
         pygame.quit()
 
@@ -293,13 +302,15 @@ def test_client_trigger_path_scores_reasoning_dimensions_high_despite_a_lower_da
         runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
         runner.start()
         click_through_mission_briefing(app)
+        # order_a_trigger wrong, order_a_identifiers still correct (default)
+        # -> event_a_state is "trigger" specifically, not "both".
         spec = dict(_DEFAULT_CLEAN_SPEC, order_a_trigger=1, payment_b_properties=(1, 2))  # client_click; no outcome
         decision = {
-            "ship_readiness": 1,  # ship_with_fix
+            "ship_readiness": 1,  # ship_with_fix - correct given event_a_state="trigger"
             "questions_answerable": 1,  # pm_support_once_fixed
-            "known_gap": 0,  # decline_reason_unknown
-            "required_change": 1,  # fix_trigger_and_identifiers
-            "not_collected": 0,
+            "known_gap": 0,  # cannot_distinguish_outcomes - correct given outcome isn't captured at all
+            "required_change": 1,  # fix_trigger - correct given event_a_state="trigger" specifically
+            "not_collected": 0,  # raw_card_numbers - correct, no privacy violation in this spec
         }
         feedback = _play_lesson_to_feedback(
             app, spec_indices=spec, interpret_key="duplicate_trigger", decision_indices=decision
@@ -324,16 +335,17 @@ def test_identifiers_wrong_path_has_a_real_and_different_critical_evidence_fact(
         click_through_mission_briefing(app)
         spec = dict(_DEFAULT_CLEAN_SPEC, order_a_identifiers=1, payment_b_properties=(1, 2))  # session_only; no outcome
         decision = {
-            "ship_readiness": 1,
-            "questions_answerable": 1,
-            "known_gap": 0,
-            "required_change": 1,
+            "ship_readiness": 1,  # ship_with_fix
+            "questions_answerable": 1,  # pm_support_once_fixed
+            "known_gap": 0,  # cannot_distinguish_outcomes
+            "required_change": 2,  # fix_identifiers - correct given event_a_state="identifiers" specifically
             "not_collected": 0,
         }
         _play_lesson_to_feedback(app, spec_indices=spec, interpret_key="cannot_verify_orders", decision_indices=decision)
         _finish_from_feedback(app)
 
         result = finished[0]
+        assert result.event_a_state == "identifiers"
         assert result.event_a_clean is False
         assert "event_a_gap" in result.critical_evidence_present
         assert "distinct" in result.critical_evidence_present
@@ -364,7 +376,7 @@ def test_reasoning_scores_low_for_the_duplication_means_untrustworthy_decoy():
         runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
         runner.start()
         click_through_mission_briefing(app)
-        decision = dict(_DEFAULT_CLEAN_DECISION, known_gap=2)  # duplication_means_untrustworthy
+        decision = dict(_DEFAULT_CLEAN_DECISION, known_gap=3)  # duplication_means_untrustworthy
         feedback = _play_lesson_to_feedback(app, decision_indices=decision)
 
         scores = feedback.evaluation.dimension_scores
@@ -388,6 +400,243 @@ def test_reasoning_scores_low_when_questions_answerable_disagrees_with_known_gap
         assert scores[ScoreDimension.REASONING] <= 35, scores
     finally:
         pygame.quit()
+
+
+def test_both_event_a_problems_get_their_own_real_state_not_folded_into_identifiers():
+    # The regression case for the P0: trigger and identifiers are two
+    # independent real choices - a student who broke both needs a
+    # root-cause dialogue that names both mechanisms (not one claiming
+    # "the trigger's fine" when it isn't) and a Required Change that asks
+    # for both fixes, not the trigger-only or identifiers-only answer.
+    app = _init_app()
+    try:
+        finished = []
+        runner, _ = build_lesson_four_runner(app, on_finished=lambda result: finished.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        spec = dict(_DEFAULT_CLEAN_SPEC, order_a_trigger=1, order_a_identifiers=1)  # both wrong
+        decision = dict(
+            _DEFAULT_CLEAN_DECISION,
+            ship_readiness=1,  # ship_with_fix
+            required_change=3,  # fix_both
+        )
+        feedback = _play_lesson_to_feedback(app, spec_indices=spec, interpret_key="cannot_verify_orders", decision_indices=decision)
+        _finish_from_feedback(app)
+
+        result = finished[0]
+        assert result.event_a_state == "both"
+        assert result.event_a_clean is False
+        scores = feedback.evaluation.dimension_scores
+        assert scores[ScoreDimension.REPRODUCIBILITY] >= 85, scores
+    finally:
+        pygame.quit()
+
+
+def test_both_event_a_problems_record_both_real_mechanism_facts():
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        spec = dict(_DEFAULT_CLEAN_SPEC, order_a_trigger=1, order_a_identifiers=1)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)  # framing
+        _play_spec_builder(app.scenes.current.inner, spec_indices=spec)
+        _fill_out(app.scenes.current.inner, 1)  # gut check
+        _play_comparison_reveal(app.scenes.current.inner, "cannot_verify_orders")
+
+        root_cause = app.scenes.current.inner
+        assert isinstance(root_cause, DialogueScene)
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        evidence_labels = {item.key for item in root_cause.context.evidence}
+        assert "event_a_gap_duplicate" in evidence_labels
+        assert "event_a_gap_identifiers" in evidence_labels
+    finally:
+        pygame.quit()
+
+
+def test_ship_readiness_blocks_on_a_properties_gap_even_with_a_clean_order_design():
+    # The user's own literal example: order_confirmed is perfect, but
+    # payment_attempted never captures outcome - that alone must block a
+    # clean ship_clean/nothing_needed answer, not be silently ignored
+    # because Event A happens to be fine.
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        spec = dict(_DEFAULT_CLEAN_SPEC, payment_b_properties=(1,))  # payment_method only - no outcome
+        decision = dict(
+            _DEFAULT_CLEAN_DECISION,
+            ship_readiness=3,  # block_for_properties_too
+            known_gap=0,  # cannot_distinguish_outcomes
+            required_change=4,  # fix_properties
+        )
+        feedback = _play_lesson_to_feedback(app, spec_indices=spec, decision_indices=decision)
+
+        scores = feedback.evaluation.dimension_scores
+        assert scores[ScoreDimension.REPRODUCIBILITY] >= 85, scores
+    finally:
+        pygame.quit()
+
+
+def test_ship_clean_scores_low_when_a_real_properties_gap_exists_despite_a_clean_order_design():
+    # The bug's own literal example: order_confirmed is perfect, but the
+    # old scorer only checked event_a_clean and still credited
+    # ship_clean/nothing_needed even though Growth's question stays
+    # unanswerable - that combination must score low now, not 90.
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        spec = dict(_DEFAULT_CLEAN_SPEC, payment_b_properties=(1,))  # payment_method only - no outcome
+        decision = dict(_DEFAULT_CLEAN_DECISION, known_gap=0)  # ship_clean/nothing_needed left as the (now wrong) default
+        feedback = _play_lesson_to_feedback(app, spec_indices=spec, decision_indices=decision)
+
+        scores = feedback.evaluation.dimension_scores
+        assert scores[ScoreDimension.REPRODUCIBILITY] <= 55, scores
+    finally:
+        pygame.quit()
+
+
+def test_known_gap_has_three_real_states_not_two():
+    keys = {option.key for option in KNOWN_GAP_FIELD.options}
+    assert keys == {
+        "cannot_distinguish_outcomes",
+        "decline_reason_unknown",
+        "no_remaining_gap",
+        "never_know_failures",
+        "duplication_means_untrustworthy",
+    }
+
+
+def test_known_gap_scores_correctly_across_all_three_real_states():
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        # outcome captured, decline_reason_detail also captured -> the gap
+        # is genuinely closed.
+        spec = dict(_DEFAULT_CLEAN_SPEC, payment_b_properties=(0, 3))  # outcome + decline_reason_detail
+        decision = dict(_DEFAULT_CLEAN_DECISION, known_gap=4)  # no_remaining_gap
+        feedback = _play_lesson_to_feedback(app, spec_indices=spec, decision_indices=decision)
+        assert feedback.evaluation.dimension_scores[ScoreDimension.UNCERTAINTY] >= 80
+    finally:
+        pygame.quit()
+
+
+def test_known_gap_outcome_only_scores_decline_reason_unknown_not_cannot_distinguish():
+    # outcome captured, decline_reason_detail NOT captured - we know THAT
+    # it declined, not WHY. This is the default spec/decision pairing
+    # itself, kept as its own explicit test since it's the middle of the
+    # three real states, distinct from both neighbors.
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        feedback = _play_lesson_to_feedback(app)  # default spec: outcome alone; default decision: decline_reason_unknown
+        scores = feedback.evaluation.dimension_scores
+        assert scores[ScoreDimension.UNCERTAINTY] >= 80, scores
+    finally:
+        pygame.quit()
+
+
+def test_known_gap_no_outcome_at_all_scores_cannot_distinguish_outcomes():
+    # The most severe of the three real states - without outcome we can't
+    # even tell approved from declined from error, a different and worse
+    # gap than "we know it declined, just not why."
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        spec = dict(_DEFAULT_CLEAN_SPEC, payment_b_properties=(1,))  # payment_method only - no outcome
+        decision = dict(
+            _DEFAULT_CLEAN_DECISION,
+            ship_readiness=3,  # block_for_properties_too
+            known_gap=0,  # cannot_distinguish_outcomes
+            required_change=4,  # fix_properties
+        )
+        feedback = _play_lesson_to_feedback(app, spec_indices=spec, decision_indices=decision)
+        scores = feedback.evaluation.dimension_scores
+        assert scores[ScoreDimension.UNCERTAINTY] >= 80, scores
+    finally:
+        pygame.quit()
+
+
+def test_not_collected_scores_low_when_it_contradicts_the_students_own_spec():
+    # The user's own example: the spec included raw_card_number, but
+    # Not-collected still claims "we don't collect this" - a false,
+    # self-contradictory claim about the student's own design.
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        spec = dict(_DEFAULT_CLEAN_SPEC, payment_b_properties=(0, 4))  # outcome + raw_card_number
+        decision = dict(_DEFAULT_CLEAN_DECISION, not_collected=0)  # raw_card_numbers - false, contradicts the spec
+        feedback = _play_lesson_to_feedback(app, spec_indices=spec, decision_indices=decision)
+
+        scores = feedback.evaluation.dimension_scores
+        assert scores[ScoreDimension.REASONING] <= 30, scores
+        assert any(o.text_key == "lesson.l04.feedback.privacy_contradiction" for o in feedback.evaluation.observations)
+    finally:
+        pygame.quit()
+
+
+def test_not_collected_scores_well_when_a_spec_time_privacy_mistake_is_honestly_acknowledged():
+    # Productive failure: the same spec-time mistake as above, but this
+    # time the student recognizes it in Not-collected instead of denying
+    # it - a real argument can still be built despite the earlier mistake.
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        spec = dict(_DEFAULT_CLEAN_SPEC, payment_b_properties=(0, 4))  # outcome + raw_card_number
+        decision = dict(_DEFAULT_CLEAN_DECISION, not_collected=1)  # raw_card_number_needs_removal - honest
+        feedback = _play_lesson_to_feedback(app, spec_indices=spec, decision_indices=decision)
+
+        scores = feedback.evaluation.dimension_scores
+        assert scores[ScoreDimension.REASONING] >= 85, scores
+        assert any(o.text_key == "lesson.l04.feedback.privacy_mistake_acknowledged" for o in feedback.evaluation.observations)
+    finally:
+        pygame.quit()
+
+
+def test_properties_data_quality_rewards_the_minimal_sufficient_choice_over_extras():
+    # None of the three stated business questions need anything beyond
+    # outcome - picking it alone should score at least as well as picking
+    # extras, not force a second field just because the widget allows one.
+    def _quality_for(properties: tuple[int, ...]) -> float:
+        # Each call reaches LessonFeedbackScene and checkpoints there - a
+        # second App() in the same test would otherwise resume straight
+        # into the first call's own checkpoint instead of starting fresh.
+        from data_science_arcade.progress import store as progress_store
+
+        progress_store.DEFAULT_SAVE_PATH.unlink(missing_ok=True)
+        app = _init_app()
+        try:
+            runner, _ = build_lesson_four_runner(app, on_finished=lambda result: None)
+            runner.start()
+            click_through_mission_briefing(app)
+            spec = dict(_DEFAULT_CLEAN_SPEC, payment_b_properties=properties)
+            feedback = _play_lesson_to_feedback(app, spec_indices=spec)
+            return feedback.evaluation.dimension_scores[ScoreDimension.DATA_QUALITY]
+        finally:
+            pygame.quit()
+
+    outcome_alone = _quality_for((0,))
+    outcome_plus_one_extra = _quality_for((0, 1))
+    assert outcome_alone == 90.0
+    assert outcome_plus_one_extra < outcome_alone
+    assert outcome_plus_one_extra >= 80.0  # a real, if modest, gap - not a cliff
 
 
 def test_mastery_solved_requires_the_correct_metric_and_interpretation_together():
