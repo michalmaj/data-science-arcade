@@ -1,3 +1,4 @@
+import json
 import os
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -189,10 +190,10 @@ def test_response_json_lines_show_the_real_nested_shape_for_a_success():
         lines = scene._response_json_lines(attempt)
 
         text = "\n".join(lines)
-        assert '"data": [20' in text
-        assert '"has_more": true' in text
-        assert '"next_cursor": "p2"' in text
-        assert '"total_count": 35' in text
+        parsed = json.loads(text)  # the abbreviated preview must still be syntactically real JSON
+        assert parsed["data"] == ["20 records"]
+        assert parsed["pagination"] == {"has_more": True, "next_cursor": "p2"}
+        assert parsed["total_count"] == 35
     finally:
         pygame.quit()
 
@@ -206,9 +207,8 @@ def test_response_json_lines_show_a_plain_error_shape_for_a_failure():
         lines = scene._response_json_lines(attempt)
 
         text = "\n".join(lines)
-        assert '"error"' in text
-        assert "data" not in text
-        assert "pagination" not in text
+        parsed = json.loads(text)
+        assert set(parsed) == {"error"}
     finally:
         pygame.quit()
 

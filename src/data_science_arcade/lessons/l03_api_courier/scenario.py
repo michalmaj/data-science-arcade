@@ -541,6 +541,7 @@ def build_lesson_three_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             critical_evidence_present=_critical_evidence_present(context, selected_evidence_ids),
             page5_recovered=collected.get("page5_recovered", True),
             mastery_engaged=collected.get("mastery_engaged", False),
+            mastery_metric=collected.get("mastery_metric") or "",
             mastery_interpretation=collected.get("mastery_interpretation") or "",
         )
 
