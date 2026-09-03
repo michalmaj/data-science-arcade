@@ -20,28 +20,31 @@ TOTAL_ORDERS = SINGLE_ORDER_SESSIONS + REPEAT_PURCHASE_SESSIONS * 2  # 96
 SLOW_GATEWAY_ORDERS = 18
 
 
-def event_a_clean(trigger_is_client_side: bool, identifiers_include_order_id: bool) -> bool:
-    """Collapses the two real, independent Event A choices into the one
-    flag Final Decision content branches on - a client-trigger problem and
-    a missing-order_id problem are scored as the same "Event A has a real,
-    unresolved problem" state for decision purposes, even though they
-    produce different real numbers at the reveal (see
-    order_confirmed_counts below)."""
-    return not trigger_is_client_side and identifiers_include_order_id
-
-
 def event_a_state(trigger_is_client_side: bool, identifiers_include_order_id: bool) -> str:
-    """The 3 real reveal-and-root-cause states, finer-grained than
-    event_a_clean: "clean" (nothing wrong), "identifiers" (order_id was
-    never captured - takes priority when both are wrong, since without
-    order_id there's nothing to dedupe *with* even though duplicate rows
-    are also present), or "trigger" (the one real, fully recoverable
-    detective story - duplicates exist and order_id can resolve them)."""
+    """The 4 real, independent states - trigger and identifiers are two
+    separate real choices, not one combined "is Event A okay" flag, and a
+    student who broke both needs that named as its own real state, not
+    silently folded into whichever single-problem state happened to come
+    first in an if/elif chain. Root cause content and Required Change
+    scoring both branch on this directly, so a "both" student gets a real
+    diagnosis of both mechanisms, not a root-cause line that tells them
+    their trigger is fine when it isn't."""
+    if trigger_is_client_side and not identifiers_include_order_id:
+        return "both"
     if not identifiers_include_order_id:
         return "identifiers"
     if trigger_is_client_side:
         return "trigger"
     return "clean"
+
+
+def event_a_clean(trigger_is_client_side: bool, identifiers_include_order_id: bool) -> bool:
+    """Collapses the 4 real states to the one flag EVIDENCE's own expected-
+    category-count still uses (2 categories on the clean path, 3
+    otherwise, regardless of which specific problem - or both - a
+    not-clean student actually has). Ship-readiness/Required-change no
+    longer use this collapsed flag directly - see event_a_state above."""
+    return event_a_state(trigger_is_client_side, identifiers_include_order_id) == "clean"
 
 
 def order_confirmed_counts(
