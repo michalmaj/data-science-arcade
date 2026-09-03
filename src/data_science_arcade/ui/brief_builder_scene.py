@@ -4,7 +4,7 @@ import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
 from data_science_arcade.core.scenes import Scene
-from data_science_arcade.lessons.framework.brief import AnalyticalBrief, BriefField
+from data_science_arcade.lessons.framework.brief import AnalyticalBrief, BriefField, BriefStep, MultiChoiceField
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
@@ -30,6 +30,19 @@ content, don't hardcode a content-dependent dimension" principle
 HandbookScene's index rows already established for exactly this failure
 mode. Caught by a real screenshot at the 4-option/3-tier worst case
 before this existed, not by reasoning about it."""
+MULTI_COUNT_Y = 155
+"""Same 15px gap below the prompt line (140) that
+ui/decision_builder_scene.py's own EVIDENCE_COUNT_Y uses below its
+identically-positioned prompt - shown only for a MultiChoiceField, the
+same way that scene only shows a count for its EvidenceField step."""
+MULTI_FIELD_OPTIONS_TOP = 190
+"""A MultiChoiceField's own options start 15px below FIRST_OPTION_Y -
+otherwise the first option button (top edge ~152, per OPTION_SIZE)
+silently renders on top of MULTI_COUNT_Y (155), since buttons draw after
+the count text. The same reason ui/decision_builder_scene.py's own
+FIRST_EVIDENCE_Y (185) sits below this scene's FIRST_OPTION_Y rather
+than reusing it verbatim - caught by a real screenshot of the first
+MultiChoiceField this scene ever rendered, not by reasoning about it."""
 
 
 class BriefBuilderScene(Scene):
@@ -39,6 +52,19 @@ class BriefBuilderScene(Scene):
     confirmed with Next, same as picking the wrong option and changing your
     mind should be cheap), Back/Next between fields. on_complete fires once
     every field has a choice.
+
+    `fields` is `tuple[BriefField | MultiChoiceField, ...]` - most fields
+    are still BriefField's plain single-select, but a MultiChoiceField
+    (pick min_count-max_count from a fixed option list, e.g. "which
+    properties should this event record") toggles multiple selections
+    instead of overwriting a single one. This is the same relationship
+    ui/decision_builder_scene.py already has to its own EvidenceField -
+    adapted from that scene's real toggle/count/button-disable-at-max
+    handling rather than invented fresh, but stored differently: this
+    scene's self.choices already holds every field's value in one dict
+    (str for BriefField, tuple[str, ...] for MultiChoiceField), where
+    DecisionBuilderScene keeps its one EvidenceField's selection in a
+    separate list because it always has exactly one, known in advance.
 
     guided=True also shows each field's explanatory hint text (spec Act 3
     'receive explanatory feedback'); guided=False hides it (Act 4 'less
@@ -59,7 +85,7 @@ class BriefBuilderScene(Scene):
         self,
         app,
         title_key: str,
-        fields: tuple[BriefField, ...],
+        fields: tuple[BriefStep, ...],
         on_complete: Callable[[AnalyticalBrief], None],
         guided: bool = True,
         tiered_hint_keys: dict[str, tuple[str, ...]] | None = None,
@@ -83,18 +109,27 @@ class BriefBuilderScene(Scene):
         }
         self._rebuild_buttons()
 
-    def _current_field(self) -> BriefField:
+    def _current_field(self) -> BriefStep:
         return self.fields[self.field_index]
 
-    def _option_spacing(self, field: BriefField) -> int:
+    def _options_top(self, field: BriefStep) -> int:
+        return MULTI_FIELD_OPTIONS_TOP if isinstance(field, MultiChoiceField) else FIRST_OPTION_Y
+
+    def _option_spacing(self, field: BriefStep) -> int:
         if field.key not in self._tiered_hint_keys or len(field.options) <= 1:
             return OPTION_SPACING
-        available = (NAV_BUTTON_Y - 20) - FIRST_OPTION_Y - HINT_AREA_RESERVED
+        available = (NAV_BUTTON_Y - 20) - self._options_top(field) - HINT_AREA_RESERVED
         return max(MIN_OPTION_SPACING, min(OPTION_SPACING, available // len(field.options)))
 
-    def _hint_button_topleft(self, field: BriefField) -> tuple[int, int]:
-        top = FIRST_OPTION_Y + len(field.options) * self._option_spacing(field) + HINT_AREA_MARGIN
+    def _hint_button_topleft(self, field: BriefStep) -> tuple[int, int]:
+        top = self._options_top(field) + len(field.options) * self._option_spacing(field) + HINT_AREA_MARGIN
         return (CENTER_X - 300, top)
+
+    def _field_satisfied(self, field: BriefStep) -> bool:
+        if isinstance(field, MultiChoiceField):
+            selected = self.choices.get(field.key, ())
+            return field.min_count <= len(selected) <= field.max_count
+        return field.key in self.choices
 
     def _current_hint_controller(self) -> HintController | None:
         return self._hint_controllers.get(self._current_field().key)
@@ -103,11 +138,20 @@ class BriefBuilderScene(Scene):
         loc = self.app.localization
         field = self._current_field()
         spacing = self._option_spacing(field)
+        top = self._options_top(field)
         buttons = []
+        is_multi = isinstance(field, MultiChoiceField)
+        selected_multi = self.choices.get(field.key, ()) if is_multi else ()
         for index, option in enumerate(field.options):
             rect = pygame.Rect(0, 0, *OPTION_SIZE)
-            rect.center = (CENTER_X, FIRST_OPTION_Y + index * spacing)
-            buttons.append(Button(rect, loc.t(option.label_key), self._make_choose(option.key)))
+            rect.center = (CENTER_X, top + index * spacing)
+            if is_multi:
+                selected = option.key in selected_multi
+                enabled = selected or len(selected_multi) < field.max_count
+                button = Button(rect, loc.t(option.label_key), self._make_toggle(option.key), enabled=enabled)
+            else:
+                button = Button(rect, loc.t(option.label_key), self._make_choose(option.key))
+            buttons.append(button)
 
         back_rect = pygame.Rect(0, 0, 140, 44)
         back_rect.center = (CENTER_X - 90, NAV_BUTTON_Y)
@@ -117,7 +161,7 @@ class BriefBuilderScene(Scene):
         next_rect = pygame.Rect(0, 0, 140, 44)
         next_rect.center = (CENTER_X + 90, NAV_BUTTON_Y)
         next_label = loc.t("brief.finish") if self._is_last_field() else loc.t("brief.next")
-        self.next_button = Button(next_rect, next_label, self._next, enabled=field.key in self.choices)
+        self.next_button = Button(next_rect, next_label, self._next, enabled=self._field_satisfied(field))
         buttons.append(self.next_button)
 
         self.buttons = ButtonGroup(buttons)
@@ -132,13 +176,27 @@ class BriefBuilderScene(Scene):
 
         return choose
 
+    def _make_toggle(self, option_key: str) -> Callable[[], None]:
+        def toggle() -> None:
+            field = self._current_field()
+            assert isinstance(field, MultiChoiceField)
+            selected = list(self.choices.get(field.key, ()))
+            if option_key in selected:
+                selected.remove(option_key)
+            elif len(selected) < field.max_count:
+                selected.append(option_key)
+            self.choices[field.key] = tuple(selected)
+            self._rebuild_buttons()
+
+        return toggle
+
     def _back(self) -> None:
         if self.field_index > 0:
             self.field_index -= 1
             self._rebuild_buttons()
 
     def _next(self) -> None:
-        if self._current_field().key not in self.choices:
+        if not self._field_satisfied(self._current_field()):
             return
         if self._is_last_field():
             self.on_complete(dict(self.choices))
@@ -165,6 +223,10 @@ class BriefBuilderScene(Scene):
         draw_centered_text(surface, progress, (CENTER_X, 60), 16, colors.BUTTON_TEXT_DISABLED)
         draw_centered_text(surface, loc.t(self.title_key), (CENTER_X, 90), 28, colors.TEXT)
         draw_centered_text(surface, loc.t(field.prompt_key), (CENTER_X, 140), 20, colors.TEXT)
+        if isinstance(field, MultiChoiceField):
+            selected_count = len(self.choices.get(field.key, ()))
+            count_text = f"{selected_count} / {field.min_count}-{field.max_count}"
+            draw_centered_text(surface, count_text, (CENTER_X, MULTI_COUNT_Y), 14, colors.BUTTON_TEXT_DISABLED)
 
         self.buttons.draw(surface)
         self._draw_selected_indicator(surface, field)
@@ -174,25 +236,36 @@ class BriefBuilderScene(Scene):
             text_top = self._hint_button_topleft(field)[1] + 34
             controller.draw(surface, (CENTER_X - 300, text_top))
         elif self.guided and field.hint_key:
+            # 400 was always safe for every field that existed when it was
+            # chosen (<=4 options) - grows only for a field whose own real
+            # option count would otherwise run the hint text into its last
+            # button, rather than moving hint text that's already shipped
+            # and screenshot-verified at the fixed position.
+            hint_top = max(400, self._hint_button_topleft(field)[1])
             draw_wrapped_text(
                 surface,
                 loc.t(field.hint_key),
-                (CENTER_X - 300, 400),
+                (CENTER_X - 300, hint_top),
                 600,
                 15,
                 colors.BUTTON_TEXT_DISABLED,
             )
 
-    def _draw_selected_indicator(self, surface: pygame.Surface, field: BriefField) -> None:
-        selected_key = self.choices.get(field.key)
-        if selected_key is None:
-            return
-        selected_index = next(i for i, option in enumerate(field.options) if option.key == selected_key)
-        rect = self.buttons.buttons[selected_index].rect
+    def _draw_selected_indicator(self, surface: pygame.Surface, field: BriefStep) -> None:
+        if isinstance(field, MultiChoiceField):
+            selected_keys = self.choices.get(field.key, ())
+            selected_indices = [i for i, option in enumerate(field.options) if option.key in selected_keys]
+        else:
+            selected_key = self.choices.get(field.key)
+            if selected_key is None:
+                return
+            selected_indices = [next(i for i, option in enumerate(field.options) if option.key == selected_key)]
         # A filled bar on the leading edge, not a border - keyboard focus
         # already uses a full border (Button.draw), and this option can be
         # both focused and selected at once, or neither; a second border
         # around the same or a different button reads as "two things are
         # focused," so "selected" needs a visually distinct treatment.
-        marker = pygame.Rect(rect.left, rect.top + 6, 4, rect.height - 12)
-        pygame.draw.rect(surface, colors.BUTTON_FOCUS_BORDER, marker, border_radius=2)
+        for index in selected_indices:
+            rect = self.buttons.buttons[index].rect
+            marker = pygame.Rect(rect.left, rect.top + 6, 4, rect.height - 12)
+            pygame.draw.rect(surface, colors.BUTTON_FOCUS_BORDER, marker, border_radius=2)
