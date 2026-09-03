@@ -73,6 +73,14 @@ class SamplingAllocatorScene(Scene):
     def _remaining(self) -> int:
         return self.total_budget - self._allocated_total()
 
+    def _headroom(self, group: SamplingGroup) -> int:
+        """How much more this one group can still absorb, independent of
+        the total budget - unbounded (a large int) when group.available is
+        None, matching every pre-existing caller's behavior exactly."""
+        if group.available is None:
+            return self.total_budget
+        return group.available - self.allocation[group.key]
+
     def _rebuild_buttons(self) -> None:
         loc = self.app.localization
         buttons: list[Button] = []
@@ -92,7 +100,8 @@ class SamplingAllocatorScene(Scene):
 
             plus_rect = pygame.Rect(0, 0, *STEP_BUTTON_SIZE)
             plus_rect.center = (PLUS_X, y)
-            plus_button = Button(plus_rect, "+", self._make_increment(group.key), enabled=remaining >= self.step)
+            plus_enabled = remaining >= self.step and self._headroom(group) >= self.step
+            plus_button = Button(plus_rect, "+", self._make_increment(group), enabled=plus_enabled)
             self.plus_buttons[group.key] = plus_button
             buttons.append(plus_button)
 
@@ -103,10 +112,14 @@ class SamplingAllocatorScene(Scene):
 
         self.buttons = ButtonGroup(buttons)
 
-    def _make_increment(self, key: str) -> Callable[[], None]:
+    def _make_increment(self, group: SamplingGroup) -> Callable[[], None]:
         def increment() -> None:
-            if self._remaining() >= self.step:
-                self.allocation[key] += self.step
+            # Re-checked here, not just via the button's own `enabled` flag -
+            # matches this method's pre-existing _remaining() guard, and
+            # matters for tests that call on_activate() directly, bypassing
+            # `enabled` entirely.
+            if self._remaining() >= self.step and self._headroom(group) >= self.step:
+                self.allocation[group.key] += self.step
                 self._rebuild_buttons()
 
         return increment
