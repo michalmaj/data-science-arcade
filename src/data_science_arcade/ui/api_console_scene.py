@@ -228,7 +228,7 @@ class APIConsoleScene(Scene):
         records_word = loc.t("api_console.response_panel.records_word")
         return (
             "{",
-            f'  "data": [{attempt.records_returned} {records_word}],',
+            f'  "data": ["{attempt.records_returned} {records_word}"],',
             '  "pagination": {',
             f'    "has_more": {has_more_text},',
             f'    "next_cursor": {cursor_text}',

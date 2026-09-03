@@ -48,6 +48,7 @@ class LessonThreeResult:
     critical_evidence_present: tuple[str, ...] = field(default_factory=tuple)
     page5_recovered: bool = True
     mastery_engaged: bool = False
+    mastery_metric: str = ""
     mastery_interpretation: str = ""
 
     def completed_thoughtfully(self) -> bool:
@@ -220,9 +221,14 @@ def score_lesson_three(result: LessonThreeResult, definition: LessonDefinition, 
     if result.mastery_engaged:
         # Distinct from core-dimension scoring (mastery never touches the
         # five above) - but "engaged" alone would credit a wrong final
-        # interpretation the same as a correct one, when clicking Engage
-        # is not the same thing as actually solving it.
-        if result.mastery_interpretation == "last_page_short":
+        # answer the same as a correct one, when clicking Engage is not
+        # the same thing as actually solving it. The transfer only counts
+        # as solved for the *right reason*: last_page_vs_page_size alone
+        # can't justify a shortfall claim (a small last page can be
+        # entirely normal), so a correct interpretation reached via that
+        # metric is still a guess, not a solve - both the metric and the
+        # interpretation it licenses have to be correct together.
+        if result.mastery_metric == "received_vs_declared_total" and result.mastery_interpretation == "last_page_short":
             observations.append(FeedbackObservation("lesson.l03.feedback.mastery_solved"))
         else:
             observations.append(FeedbackObservation("lesson.l03.feedback.mastery_attempted"))

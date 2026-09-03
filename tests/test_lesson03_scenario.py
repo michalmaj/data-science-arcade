@@ -492,36 +492,92 @@ def test_recovered_path_falsely_claiming_page5_unrecovered_scores_uncertainty_lo
         pygame.quit()
 
 
-def test_mastery_solved_vs_attempted_depends_on_the_real_interpretation_not_just_engaging():
+def _play_mastery_and_finish(app, finished_results, *, metric_key: str, interpret_key: str):
+    _play_dialogue_to_the_end(app.scenes.current)  # briefing
+    _play_dialogue_to_the_end(app.scenes.current)  # framing
+    _play_out_the_console(app.scenes.current.inner, ["follow_cursor", "wait_and_retry"])
+    _fill_out(app.scenes.current.inner, 1)  # gut check
+    _play_comparison_reveal(app.scenes.current.inner)  # completeness reveal
+    _play_dialogue_to_the_end(app.scenes.current)  # root cause confirmed
+    _fill_out(app.scenes.current.inner, 1)  # revised gut check
+    app.scenes.current.inner.continue_button.on_activate()  # evidence review
+    _play_decision_builder(app.scenes.current.inner)
+
+    mastery = app.scenes.current.inner
+    assert isinstance(mastery, MasteryChallengeScene)
+    mastery.buttons.buttons[0].on_activate()  # Engage
+    metric_index = next(i for i, o in enumerate(MASTERY_METRIC_OPTIONS) if o.key == metric_key)
+    mastery.buttons.buttons[metric_index].on_activate()
+    interpret_index = next(i for i, o in enumerate(MASTERY_INTERPRET_OPTIONS) if o.key == interpret_key)
+    mastery.buttons.buttons[interpret_index].on_activate()
+    mastery.finish_button.on_activate()
+
+    feedback = app.scenes.current.inner
+    app.scenes.current.inner.buttons.buttons[0].on_activate()  # feedback
+    _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
+    return finished_results[0], feedback.evaluation
+
+
+def test_mastery_solved_requires_the_correct_metric_and_interpretation_together():
+    # Transfer only counts as solved for the *right reason*: checking
+    # received vs. declared total (53 vs. 58) is what actually justifies
+    # a shortfall claim on this dataset.
     app = _init_app()
     try:
         finished_results = []
         runner, _ = build_lesson_three_runner(app, on_finished=lambda result: finished_results.append(result))
         runner.start()
         click_through_mission_briefing(app)
-        _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # framing
-        _play_out_the_console(app.scenes.current.inner, ["follow_cursor", "wait_and_retry"])
-        _fill_out(app.scenes.current.inner, 1)  # gut check
-        _play_comparison_reveal(app.scenes.current.inner)  # completeness reveal
-        _play_dialogue_to_the_end(app.scenes.current)  # root cause confirmed
-        _fill_out(app.scenes.current.inner, 1)  # revised gut check
-        app.scenes.current.inner.continue_button.on_activate()  # evidence review
-        _play_decision_builder(app.scenes.current.inner)
+        result, evaluation = _play_mastery_and_finish(
+            app, finished_results, metric_key="received_vs_declared_total", interpret_key="last_page_short"
+        )
 
-        mastery = app.scenes.current.inner
-        assert isinstance(mastery, MasteryChallengeScene)
-        mastery.buttons.buttons[0].on_activate()  # Engage
-        mastery.buttons.buttons[0].on_activate()  # pick a metric
-        wrong_interpret_index = next(i for i, o in enumerate(MASTERY_INTERPRET_OPTIONS) if o.key == "looks_complete")
-        mastery.buttons.buttons[wrong_interpret_index].on_activate()
-        mastery.finish_button.on_activate()
-
-        app.scenes.current.inner.buttons.buttons[0].on_activate()  # feedback
-        _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
-
-        result = finished_results[0]
         assert result.mastery_engaged is True
-        assert result.mastery_interpretation == "looks_complete"
+        assert any(o.text_key == "lesson.l03.feedback.mastery_solved" for o in evaluation.observations)
+        assert not any(o.text_key == "lesson.l03.feedback.mastery_attempted" for o in evaluation.observations)
+    finally:
+        pygame.quit()
+
+
+def test_mastery_attempted_when_the_shortfall_guess_comes_from_the_insufficient_metric():
+    # The regression case for the real bug: last_page_vs_page_size alone
+    # can't justify a shortfall claim (a small last page can be entirely
+    # normal) - reaching "last_page_short" through that metric instead of
+    # the real received-vs-declared check is a lucky guess, not a solve,
+    # even though the final interpretation pick looks identical to the
+    # solved case above.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_three_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        result, evaluation = _play_mastery_and_finish(
+            app, finished_results, metric_key="last_page_vs_page_size", interpret_key="last_page_short"
+        )
+
+        assert result.mastery_engaged is True
+        assert any(o.text_key == "lesson.l03.feedback.mastery_attempted" for o in evaluation.observations)
+        assert not any(o.text_key == "lesson.l03.feedback.mastery_solved" for o in evaluation.observations)
+    finally:
+        pygame.quit()
+
+
+def test_mastery_attempted_when_the_correct_metric_is_misread_as_looking_complete():
+    # The mirror case: picking the real check but drawing the wrong
+    # conclusion from it is still just an attempt, not a solve.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_three_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        result, evaluation = _play_mastery_and_finish(
+            app, finished_results, metric_key="received_vs_declared_total", interpret_key="looks_complete"
+        )
+
+        assert result.mastery_engaged is True
+        assert any(o.text_key == "lesson.l03.feedback.mastery_attempted" for o in evaluation.observations)
+        assert not any(o.text_key == "lesson.l03.feedback.mastery_solved" for o in evaluation.observations)
     finally:
         pygame.quit()

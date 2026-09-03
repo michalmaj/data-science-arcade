@@ -6,7 +6,7 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import pygame
 
 from data_science_arcade.app.game import App
-from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
+from data_science_arcade.lessons.framework.brief import BriefField, BriefOption, MultiChoiceField
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 
 FIELDS = (
@@ -22,6 +22,16 @@ FIELDS = (
         options=(BriefOption("small", "common.back"), BriefOption("large", "common.back")),
     ),
 )
+
+TOPPINGS_FIELD = MultiChoiceField(
+    key="toppings",
+    prompt_key="common.back",
+    options=tuple(BriefOption(f"t{i}", "common.back") for i in range(5)),
+    min_count=2,
+    max_count=3,
+)
+
+MIXED_FIELDS = (FIELDS[0], TOPPINGS_FIELD)
 
 
 def _init_app() -> App:
@@ -192,6 +202,100 @@ def test_draw_does_not_crash_with_every_tier_revealed_on_a_four_option_field():
         controller.reveal_next()
         controller.reveal_next()
 
+        scene.draw(app.logical_surface)
+    finally:
+        pygame.quit()
+
+
+def test_multi_choice_field_starts_with_next_disabled_below_min_count():
+    app = _init_app()
+    try:
+        scene = BriefBuilderScene(app, "app.title", (TOPPINGS_FIELD,), on_complete=lambda brief: None)
+        assert scene.next_button.enabled is False
+    finally:
+        pygame.quit()
+
+
+def test_multi_choice_field_toggles_add_and_remove_without_overwriting():
+    app = _init_app()
+    try:
+        scene = BriefBuilderScene(app, "app.title", (TOPPINGS_FIELD,), on_complete=lambda brief: None)
+        scene.buttons.buttons[0].on_activate()  # t0
+        scene.buttons.buttons[2].on_activate()  # t2
+        assert scene.choices["toppings"] == ("t0", "t2")
+
+        scene.buttons.buttons[0].on_activate()  # remove t0
+        assert scene.choices["toppings"] == ("t2",)
+    finally:
+        pygame.quit()
+
+
+def test_multi_choice_field_next_enables_once_min_count_reached():
+    app = _init_app()
+    try:
+        scene = BriefBuilderScene(app, "app.title", (TOPPINGS_FIELD,), on_complete=lambda brief: None)
+        scene.buttons.buttons[0].on_activate()
+        assert scene.next_button.enabled is False  # 1 of 2 minimum
+
+        scene.buttons.buttons[1].on_activate()
+        assert scene.next_button.enabled is True  # 2 of 2 minimum
+    finally:
+        pygame.quit()
+
+
+def test_multi_choice_field_disables_unpicked_options_once_max_count_reached():
+    app = _init_app()
+    try:
+        scene = BriefBuilderScene(app, "app.title", (TOPPINGS_FIELD,), on_complete=lambda brief: None)
+        scene.buttons.buttons[0].on_activate()
+        scene.buttons.buttons[1].on_activate()
+        scene.buttons.buttons[2].on_activate()  # 3 of 3 maximum
+
+        assert scene.buttons.buttons[3].enabled is False  # not yet picked, at the cap
+        assert scene.buttons.buttons[0].enabled is True  # already picked, stays clickable to remove
+    finally:
+        pygame.quit()
+
+
+def test_mixed_single_and_multi_choice_fields_complete_with_the_right_value_shapes():
+    app = _init_app()
+    try:
+        collected = []
+        scene = BriefBuilderScene(app, "app.title", MIXED_FIELDS, on_complete=lambda brief: collected.append(brief))
+
+        scene.buttons.buttons[0].on_activate()  # color=red
+        scene.next_button.on_activate()
+        scene.buttons.buttons[0].on_activate()  # toppings: t0
+        scene.buttons.buttons[1].on_activate()  # toppings: t1
+        scene.next_button.on_activate()
+
+        assert collected == [{"color": "red", "toppings": ("t0", "t1")}]
+    finally:
+        pygame.quit()
+
+
+def test_multi_choice_field_selection_persists_across_back_and_next():
+    app = _init_app()
+    try:
+        scene = BriefBuilderScene(app, "app.title", MIXED_FIELDS, on_complete=lambda brief: None)
+        scene.buttons.buttons[0].on_activate()  # color=red
+        scene.next_button.on_activate()
+        scene.buttons.buttons[0].on_activate()  # toppings: t0
+        scene.buttons.buttons[1].on_activate()  # toppings: t1
+
+        scene.back_button.on_activate()
+        scene.next_button.on_activate()
+
+        assert scene.choices["toppings"] == ("t0", "t1")
+    finally:
+        pygame.quit()
+
+
+def test_multi_choice_field_draw_does_not_crash():
+    app = _init_app()
+    try:
+        scene = BriefBuilderScene(app, "app.title", (TOPPINGS_FIELD,), on_complete=lambda brief: None)
+        scene.buttons.buttons[0].on_activate()
         scene.draw(app.logical_surface)
     finally:
         pygame.quit()

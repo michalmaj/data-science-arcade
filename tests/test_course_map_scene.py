@@ -15,9 +15,6 @@ from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
 from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
-from data_science_arcade.lessons.l04_event_log_factory.scenario import CORRECT_EVENT_BY_STEP as L04_CORRECT_EVENT_BY_STEP
-from data_science_arcade.lessons.l04_event_log_factory.scenario import DECISION_FIELDS as L04_DECISION_FIELDS
-from data_science_arcade.lessons.l04_event_log_factory.scenario import FLOW_STEPS as L04_FLOW_STEPS
 from data_science_arcade.lessons.l05_sampling_mission.scenario import CUSTOMER_GROUPS as L05_CUSTOMER_GROUPS
 from data_science_arcade.lessons.l05_sampling_mission.scenario import DECISION_FIELDS as L05_DECISION_FIELDS
 from data_science_arcade.lessons.l05_sampling_mission.scenario import STEP as L05_STEP
@@ -938,15 +935,6 @@ def test_finishing_lesson_three_marks_it_complete_and_unlocks_lesson_four():
         pygame.quit()
 
 
-def _place_every_flow_step_correctly(scene: FlowBuilderScene) -> None:
-    for _ in L04_FLOW_STEPS:
-        step = scene._current_step()
-        correct_key = L04_CORRECT_EVENT_BY_STEP[step.key]
-        index = next(i for i, option in enumerate(step.options) if option.key == correct_key)
-        scene.buttons.buttons[index].on_activate()
-        scene.next_button.on_activate()
-
-
 def test_finishing_lesson_four_marks_it_complete_and_unlocks_lesson_five():
     app = App()
     app.init()
@@ -958,12 +946,46 @@ def test_finishing_lesson_four_marks_it_complete_and_unlocks_lesson_five():
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _place_every_flow_step_correctly(app.scenes.current)  # guided flow
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _place_every_flow_step_correctly(app.scenes.current)  # independent flow
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L04_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # framing
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # spec_builder
+        spec = app.scenes.current.inner
+        for field in spec.fields:
+            spec.buttons.buttons[0].on_activate()
+            if field.key == "payment_b_properties":  # MultiChoiceField needs 2 picks to satisfy min_count
+                spec.buttons.buttons[1].on_activate()
+            spec.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # gut_check
+        _fill_out(app.scenes.current, range(1))
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # event_a_reveal
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
+
+        _play_dialogue_to_the_end(app.scenes.current)  # root_cause_confirmed
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        decision.buttons.buttons[0].on_activate()  # ship_readiness
+        decision.next_button.on_activate()
+        evidence_ids = list(decision._evidence_toggle_buttons.keys())
+        decision._evidence_toggle_buttons[evidence_ids[0]].on_activate()
+        decision._evidence_toggle_buttons[evidence_ids[1]].on_activate()
+        decision.next_button.on_activate()
+        for _ in range(4):  # questions_answerable, known_gap, required_change, not_collected
+            decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, MasteryChallengeScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

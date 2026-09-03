@@ -194,7 +194,14 @@ class WorkbenchScene(Scene):
                 continue
             for row_index in range(len(shown_rows)):
                 rect = pygame.Rect(left + col_index * col_width, row_top + row_index * REPAIR_ROW_HEIGHT, col_width - 8, REPAIR_ROW_HEIGHT - 6)
-                text = _format_cell(shown_rows.iloc[row_index][column])
+                # shown_rows[column].iloc[row_index], not
+                # shown_rows.iloc[row_index][column] - the latter builds a
+                # per-row Series first, which pandas silently upcasts to one
+                # common dtype across every column in that row (an int
+                # column next to a float column both become float) -
+                # indexing the column's own Series first keeps each value
+                # in its real dtype.
+                text = _format_cell(shown_rows[column].iloc[row_index])
                 button = Button(rect, text, self._make_open_issue(issue))
                 buttons.append(button)
         return buttons
@@ -400,14 +407,16 @@ class WorkbenchScene(Scene):
 
         row_top = top + REPAIR_ROW_HEIGHT
         shown_rows = frame.head(MAX_TABLE_ROWS)
-        for row_index, (_, row) in enumerate(shown_rows.iterrows()):
+        for row_index in range(len(shown_rows)):
             y = row_top + row_index * REPAIR_ROW_HEIGHT
             for col_index, column in enumerate(columns):
                 if self._issue_for_column(column) is not None and column not in self.resolution:
                     continue  # drawn as a clickable Button instead, see _build_cell_buttons
+                # shown_rows[column].iloc[row_index], not .iterrows() - see
+                # _build_cell_buttons's own comment on the same upcast trap.
                 draw_single_line(
                     surface,
-                    _format_cell(row[column]),
+                    _format_cell(shown_rows[column].iloc[row_index]),
                     (left + col_index * col_width, y + 5),
                     col_width - 8,
                     14,
