@@ -74,7 +74,13 @@ from data_science_arcade.lessons.l04_event_log_factory.scenario import (
     REQUIRED_CHANGE_FIELD as L04_REQUIRED_CHANGE_FIELD,
     SHIP_READINESS_FIELD as L04_SHIP_READINESS_FIELD,
 )
-from data_science_arcade.lessons.l05_sampling_mission.scenario import DECISION_FIELDS as L05_DECISION_FIELDS
+from data_science_arcade.lessons.l05_sampling_mission.scenario import (
+    DECISION_FIELDS as L05_DECISION_FIELDS,
+    MASTERY_INTERPRET_OPTIONS as L05_MASTERY_INTERPRET_OPTIONS,
+    MASTERY_METRIC_OPTIONS as L05_MASTERY_METRIC_OPTIONS,
+    MECHANISM_INTERPRET_OPTIONS as L05_MECHANISM_INTERPRET_OPTIONS,
+    VARIABILITY_INTERPRET_OPTIONS as L05_VARIABILITY_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPAIR_ISSUES as L06_REPAIR_ISSUES
 from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION_FIELDS as L06_DECISION_FIELDS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import DECISION_FIELDS as L07_DECISION_FIELDS
@@ -380,6 +386,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L02_SUPPORT_INTERPRET_OPTIONS,
         L03_COMPLETENESS_INTERPRET_OPTIONS,
         L04_EVENT_A_INTERPRET_OPTIONS,
+        L05_MECHANISM_INTERPRET_OPTIONS,
+        L05_VARIABILITY_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
@@ -394,6 +402,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L03_MASTERY_INTERPRET_OPTIONS,
         L04_MASTERY_METRIC_OPTIONS,
         L04_MASTERY_INTERPRET_OPTIONS,
+        L05_MASTERY_METRIC_OPTIONS,
+        L05_MASTERY_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"mastery.{option.key}", option.label_key, mastery_option_button_width))
