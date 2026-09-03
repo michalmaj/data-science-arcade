@@ -130,6 +130,56 @@ def test_default_diagnostic_draws_nothing_extra():
         pygame.quit()
 
 
+def test_plus_disables_at_a_groups_own_available_cap_even_with_total_budget_remaining():
+    app = _init_app()
+    try:
+        capped_groups = (
+            SamplingGroup(key="group_a", label_key="app.title", available=STEP),
+            SamplingGroup(key="group_b", label_key="app.title"),
+        )
+        scene = SamplingAllocatorScene(app, "app.title", "app.title", capped_groups, TOTAL_BUDGET, STEP, lambda a: None)
+        scene.plus_buttons["group_a"].on_activate()  # group_a hits its own 10-unit cap
+
+        assert scene.allocation["group_a"] == STEP
+        assert scene._remaining() == TOTAL_BUDGET - STEP  # 10 of the 20-unit budget is still unspent
+        assert scene.plus_buttons["group_a"].enabled is False
+        assert scene.plus_buttons["group_b"].enabled is True  # uncapped, and budget remains
+    finally:
+        pygame.quit()
+
+
+def test_incrementing_past_a_groups_available_cap_via_on_activate_is_a_no_op():
+    app = _init_app()
+    try:
+        capped_groups = (SamplingGroup(key="group_a", label_key="app.title", available=STEP), GROUPS[1])
+        scene = SamplingAllocatorScene(app, "app.title", "app.title", capped_groups, TOTAL_BUDGET, STEP, lambda a: None)
+
+        # Calling the callback directly bypasses Button.enabled entirely (as
+        # every other test in this file already does for other buttons) -
+        # the cap has to hold from inside the closure itself, not just from
+        # the button's own enabled flag.
+        scene.plus_buttons["group_a"].on_activate()
+        scene.plus_buttons["group_a"].on_activate()
+
+        assert scene.allocation["group_a"] == STEP
+    finally:
+        pygame.quit()
+
+
+def test_available_none_keeps_a_group_uncapped_by_anything_but_the_total_budget():
+    app = _init_app()
+    try:
+        assert GROUPS[0].available is None
+        scene = _make_scene(app)
+        scene.plus_buttons["group_a"].on_activate()
+        scene.plus_buttons["group_a"].on_activate()  # group_a now holds the whole 20-unit budget
+
+        assert scene.allocation["group_a"] == TOTAL_BUDGET
+        assert scene.plus_buttons["group_a"].enabled is False  # disabled by total budget, not by any cap
+    finally:
+        pygame.quit()
+
+
 def test_a_custom_diagnostic_is_called_with_the_groups_own_allocation():
     app = _init_app()
     try:

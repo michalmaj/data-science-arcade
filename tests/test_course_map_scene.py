@@ -15,10 +15,7 @@ from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
 from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
-from data_science_arcade.lessons.l05_sampling_mission.scenario import CUSTOMER_GROUPS as L05_CUSTOMER_GROUPS
-from data_science_arcade.lessons.l05_sampling_mission.scenario import DECISION_FIELDS as L05_DECISION_FIELDS
-from data_science_arcade.lessons.l05_sampling_mission.scenario import STEP as L05_STEP
-from data_science_arcade.lessons.l05_sampling_mission.scenario import TOTAL_BUDGET as L05_TOTAL_BUDGET
+from data_science_arcade.lessons.l05_sampling_mission.scenario import _DesignThenAllocateScene as L05DesignThenAllocateScene
 from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPAIR_ISSUES as L06_REPAIR_ISSUES
 from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION_FIELDS as L06_DECISION_FIELDS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import DECISION_FIELDS as L07_DECISION_FIELDS
@@ -995,15 +992,17 @@ def test_finishing_lesson_four_marks_it_complete_and_unlocks_lesson_five():
         pygame.quit()
 
 
-def _spend_the_whole_l05_budget_evenly(scene: SamplingAllocatorScene) -> None:
-    even_split = L05_TOTAL_BUDGET // len(L05_CUSTOMER_GROUPS)
-    for group in L05_CUSTOMER_GROUPS:
-        for _ in range(even_split // L05_STEP):
-            scene.plus_buttons[group.key].on_activate()
-    scene.confirm_button.on_activate()
+def _confirm_reveal(scene: ComparisonRevealScene) -> None:
+    scene.buttons.buttons[0].on_activate()
+    scene.continue_button.on_activate()
 
 
 def test_finishing_lesson_five_marks_it_complete_and_unlocks_lesson_six():
+    """Picks index-0 everywhere (Frame=tracking_export, Strategy=
+    convenience each design round) - never triggers either conditional
+    allocator sub-phase, which is its own separately-tested behavior (see
+    test_lesson05_scenario.py). This test is a smoke test for the real
+    16-stage flow finishing and unlocking Lesson 06, not a scoring test."""
     app = App()
     app.init()
     try:
@@ -1014,12 +1013,54 @@ def test_finishing_lesson_five_marks_it_complete_and_unlocks_lesson_six():
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _spend_the_whole_l05_budget_evenly(app.scenes.current)  # guided allocation
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _spend_the_whole_l05_budget_evenly(app.scenes.current)  # independent allocation
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L05_DECISION_FIELDS)  # decision
+        _play_dialogue_to_the_end(app.scenes.current)  # framing
+
+        assert isinstance(app.scenes.current.inner, L05DesignThenAllocateScene)  # round1_design
+        _fill_out(app.scenes.current, range(2))  # frame, strategy
+
+        _fill_out(app.scenes.current, range(1))  # prediction1
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # reveal1
+        _confirm_reveal(app.scenes.current.inner)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # root_cause
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # reveal2
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # reveal3
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, L05DesignThenAllocateScene)  # round4_design
+        _fill_out(app.scenes.current, range(1))  # strategy
+
+        _fill_out(app.scenes.current, range(1))  # prediction2
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # reveal4
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for _ in range(3):  # target_population, sampling_design, estimate_to_report
+            decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+        evidence_ids = list(decision._evidence_toggle_buttons.keys())
+        decision._evidence_toggle_buttons[evidence_ids[0]].on_activate()
+        decision._evidence_toggle_buttons[evidence_ids[1]].on_activate()
+        decision.next_button.on_activate()
+        for _ in range(3):  # limitation, claim_scope, next_improvement
+            decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, MasteryChallengeScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
