@@ -12,49 +12,62 @@ from data_science_arcade.ui.text import draw_centered_text, draw_single_line, dr
 from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
-RESPONSE_RECT = pygame.Rect(60, 110, 380, 160)
-LOG_RECT = pygame.Rect(520, 110, 380, 160)
-PANEL_HEADER_GAP = 28
-RESPONSE_LINE_HEIGHT = 22
+RESPONSE_RECT = pygame.Rect(60, 110, 380, 195)
+LOG_RECT = pygame.Rect(520, 110, 380, 195)
+PANEL_HEADER_GAP = 26
+RESPONSE_STATUS_LINE_HEIGHT = 20
+RESPONSE_JSON_LINE_HEIGHT = 16
+RESPONSE_JSON_TEXT_SIZE = 13
 LOG_ROW_HEIGHT = 22
-LOG_MAX_ROWS = 5
-COUNTER_Y = 300
-SINGLE_ACTION_BUTTON_Y = 340
+LOG_MAX_ROWS = 6
+COUNTER_Y = 335
+SINGLE_ACTION_BUTTON_Y = 375
 SINGLE_ACTION_BUTTON_SIZE = (240, 48)
-RETRY_OPTION_SIZE = (420, 44)
-RETRY_OPTION_SPACING = 50
-RETRY_FIRST_OPTION_Y = 340
-HINT_GAP = 20
-"""Retry choices (up to 3, see RetryOption) replace the single action
-button with a real vertical stack - button/hint y are computed from
-whichever state (single button or a real N-choice stack) is actually on
-screen rather than a fixed HINT_Y, the same "advance by however much the
-real content needs" principle this codebase applies everywhere a
-button/option count can genuinely vary (ComparisonRevealScene's own
-_continue_button_y, MasteryChallengeScene's _options_layout)."""
+CONTINUATION_OPTION_SIZE = (420, 44)
+CONTINUATION_OPTION_SPACING = 46
+CONTINUATION_FIRST_OPTION_Y = 372
+HINT_GAP = 18
+"""Continuation choices (up to 3, see ContinuationOption) replace the
+single action button with a real vertical stack - button/hint y are
+computed from whichever state (single button or a real N-choice stack)
+is actually on screen rather than a fixed HINT_Y, the same "advance by
+however much the real content needs" principle this codebase applies
+everywhere a button/option count can genuinely vary (ComparisonRevealScene's
+own _continue_button_y, MasteryChallengeScene's _options_layout)."""
 
 
 class APIConsoleScene(Scene):
     """Steps through a real, hand-scripted pagination pull one click at a
-    time: each click sends the next request and shows its real, structured
-    response (status, records returned, whether more pages remain, the
-    API's own declared total) - not a dialogue line describing what
-    happened. Continuation is read off `has_more`, never told in advance;
-    Finish only appears once the base `attempts` sequence is exhausted.
+    time: each click sends the next request and shows its real response
+    body, rendered as real (if abbreviated) JSON - a `data` array, a
+    nested `pagination` object (`has_more`/`next_cursor`), and a top-level
+    `total_count` - not a dialogue line describing what happened and not
+    a flat list of unrelated labels. Continuation is read off `has_more`/
+    `next_cursor`, never told in advance; Finish only appears once the
+    base `attempts` sequence is exhausted.
 
-    A failed (rate-limited) attempt replaces the single action button with
-    a real, caller-scripted choice (see `APIRequestAttempt.retry_options`/
-    `RetryOption`) instead of auto-advancing - picking one appends its own
-    `result` to the log, and if that result is itself still unresolved
-    (`retry_options` set again, e.g. a second rate limit after retrying
-    immediately once), the next, real, narrower choice set is offered the
-    same way, with no special-casing in this scene for how many times a
-    page has already been attempted. None of this is a dead end: every
-    path through a failed attempt eventually resolves (successfully or by
-    the student choosing to move on with a real, known gap) and the pull
-    keeps going regardless of which choice was made - the consequence
-    shows up honestly later, in whatever the caller does with the real,
-    live `total_records()` this scene ends with, never a Game Over here.
+    A response can replace the single action button with real choices
+    instead of auto-advancing (see `APIRequestAttempt.continuation_options`/
+    `ContinuationOption`) - picking one appends its own `result` to the
+    log, and if that result is itself still unresolved
+    (`continuation_options` set again, e.g. a second rate limit after
+    retrying immediately once), the next, real, narrower choice set is
+    offered the same way, with no special-casing in this scene for how
+    many times a page has already been attempted. This covers two real
+    shapes: a *failure* choice (rate-limited - retry immediately, wait and
+    retry, or skip) and a *pagination* choice (a successful response's own
+    `next_cursor` isn't automatically followed - a student can instead
+    resend the same request, which returns the same page again rather
+    than new data, not a punishment, just not progress). None of this is
+    a dead end: every path eventually resolves and the pull keeps going
+    regardless of which choice was made - the consequence shows up
+    honestly later, in whatever the caller does with the real, live
+    `total_records()` this scene ends with, never a Game Over here.
+
+    `total_records()` counts each `page_number`'s *last* resolution only
+    (not every log entry) - a page resent after already succeeding, or a
+    page whose rate limit eventually recovered after earlier failed
+    attempts, must count once, not once per attempt.
 
     `context`, `python_code`, `evidence_label_key` are all optional and
     default to recording nothing - only a caller that supplies both
@@ -111,12 +124,15 @@ class APIConsoleScene(Scene):
         return self._pending is None and self._pointer >= len(self.attempts)
 
     def total_records(self) -> int:
-        return sum(attempt.records_returned for attempt in self.log if attempt.is_success)
+        latest_by_page: dict[int, APIRequestAttempt] = {}
+        for attempt in self.log:
+            latest_by_page[attempt.page_number] = attempt
+        return sum(attempt.records_returned for attempt in latest_by_page.values() if attempt.is_success)
 
     def _buttons_bottom(self) -> int:
         if self._pending is not None:
-            count = len(self._pending.retry_options)
-            return RETRY_FIRST_OPTION_Y + (count - 1) * RETRY_OPTION_SPACING + RETRY_OPTION_SIZE[1] // 2
+            count = len(self._pending.continuation_options)
+            return CONTINUATION_FIRST_OPTION_Y + (count - 1) * CONTINUATION_OPTION_SPACING + CONTINUATION_OPTION_SIZE[1] // 2
         return SINGLE_ACTION_BUTTON_Y + SINGLE_ACTION_BUTTON_SIZE[1] // 2
 
     def _hint_top(self) -> int:
@@ -126,10 +142,10 @@ class APIConsoleScene(Scene):
         loc = self.app.localization
         buttons: list[Button] = []
         if self._pending is not None:
-            for index, option in enumerate(self._pending.retry_options):
-                rect = pygame.Rect(0, 0, *RETRY_OPTION_SIZE)
-                rect.center = (CENTER_X, RETRY_FIRST_OPTION_Y + index * RETRY_OPTION_SPACING)
-                buttons.append(Button(rect, loc.t(option.label_key), self._make_choose_retry(option)))
+            for index, option in enumerate(self._pending.continuation_options):
+                rect = pygame.Rect(0, 0, *CONTINUATION_OPTION_SIZE)
+                rect.center = (CENTER_X, CONTINUATION_FIRST_OPTION_Y + index * CONTINUATION_OPTION_SPACING)
+                buttons.append(Button(rect, loc.t(option.label_key), self._make_choose_continuation(option)))
         else:
             rect = pygame.Rect(0, 0, *SINGLE_ACTION_BUTTON_SIZE)
             rect.center = (CENTER_X, SINGLE_ACTION_BUTTON_Y)
@@ -144,17 +160,17 @@ class APIConsoleScene(Scene):
             return
         attempt = self.attempts[self._pointer]
         self.log.append(attempt)
-        if attempt.retry_options is not None:
+        if attempt.continuation_options is not None:
             self._pending = attempt
         else:
             self._pointer += 1
         self._rebuild_buttons()
 
-    def _make_choose_retry(self, option) -> Callable[[], None]:
+    def _make_choose_continuation(self, option) -> Callable[[], None]:
         def choose() -> None:
             result = option.result
             self.log.append(result)
-            if result.retry_options is not None:
+            if result.continuation_options is not None:
                 self._pending = result
             else:
                 self._pending = None
@@ -202,6 +218,25 @@ class APIConsoleScene(Scene):
         if self.guided and self.hint_key:
             draw_wrapped_text(surface, loc.t(self.hint_key), (CENTER_X - 380, self._hint_top()), 760, 15, colors.BUTTON_TEXT_DISABLED)
 
+    def _response_json_lines(self, attempt: APIRequestAttempt) -> tuple[str, ...]:
+        loc = self.app.localization
+        if not attempt.is_success:
+            return ("{", f'  "error": "{loc.t(attempt.status_key)}"', "}")
+        has_more_text = "true" if attempt.has_more else "false"
+        cursor_text = f'"{attempt.next_cursor}"' if attempt.next_cursor else "null"
+        total_text = str(attempt.total_count) if attempt.total_count is not None else "null"
+        records_word = loc.t("api_console.response_panel.records_word")
+        return (
+            "{",
+            f'  "data": [{attempt.records_returned} {records_word}],',
+            '  "pagination": {',
+            f'    "has_more": {has_more_text},',
+            f'    "next_cursor": {cursor_text}',
+            "  },",
+            f'  "total_count": {total_text}',
+            "}",
+        )
+
     def _draw_response_panel(self, surface: pygame.Surface) -> None:
         loc = self.app.localization
         pygame.draw.rect(surface, colors.PANEL_BACKGROUND, RESPONSE_RECT, border_radius=8)
@@ -213,19 +248,13 @@ class APIConsoleScene(Scene):
         if not self.log:
             return
         latest = self.log[-1]
-        has_more_text = loc.t("api_console.value.yes") if latest.has_more else loc.t("api_console.value.no")
-        total_text = str(latest.total_count) if latest.total_count is not None else loc.t("api_console.value.unknown")
-        lines = (
-            f"{loc.t('api_console.response_panel.page')}: {latest.page_number}",
-            f"{loc.t('api_console.response_panel.status')}: {loc.t(latest.status_key)}",
-            f"{loc.t('api_console.response_panel.records')}: {latest.records_returned}",
-            f"{loc.t('api_console.response_panel.has_more')}: {has_more_text}",
-            f"{loc.t('api_console.response_panel.total_count')}: {total_text}",
-        )
         y = top + PANEL_HEADER_GAP
-        for line in lines:
-            draw_wrapped_text(surface, line, (left, y), width, 15, colors.TEXT)
-            y += RESPONSE_LINE_HEIGHT
+        status_line = f"{loc.t('api_console.response_panel.status')}: {loc.t(latest.status_key)}"
+        draw_wrapped_text(surface, status_line, (left, y), width, 15, colors.TEXT)
+        y += RESPONSE_STATUS_LINE_HEIGHT
+        for line in self._response_json_lines(latest):
+            draw_single_line(surface, line, (left, y), width, RESPONSE_JSON_TEXT_SIZE, colors.TEXT)
+            y += RESPONSE_JSON_LINE_HEIGHT
 
     def _draw_log_panel(self, surface: pygame.Surface) -> None:
         loc = self.app.localization
