@@ -1,4 +1,4 @@
-from data_science_arcade.lessons.framework.api import APIRequestAttempt, RetryOption
+from data_science_arcade.lessons.framework.api import APIRequestAttempt, ContinuationOption
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.l03_api_courier.definition import LESSON_03
@@ -59,18 +59,57 @@ DEBRIEF_DIALOGUE = Dialogue(
 
 # --- The Acquisition --------------------------------------------------------
 #
-# Page 5's real branch tree, built inside-out: the narrower 2-choice offer
-# after "retry immediately" has already failed once, then the initial
-# 3-choice offer. Every real attempt (successful or not) carries the same
-# TOTAL_COUNT once it exists, matching real paginated APIs that report a
-# query's total on every page rather than only the first - a student
-# shouldn't have to remember a number from page 1 by the time they reach
-# page 6.
+# Two real branch trees, both built inside-out (the narrowest/final offer
+# defined first, each wrapped by the choice that can reach it):
+#
+# 1. Page 1's own response offers a real, non-failure pagination choice -
+#    follow the real next_cursor (the only path that actually reaches new
+#    data) or resend the same request (a real, honest dead end: the same
+#    page comes back, not a punishment, just not progress - resolves to a
+#    single remaining "follow next_cursor" offer rather than repeating the
+#    same 2-choice trap forever). Page 2's own data lives inside this tree
+#    (as the "follow_cursor" outcome), not as its own top-level attempts
+#    slot - every later page continues normally from there.
+# 2. Page 5's rate limit offers the real failure choice (retry immediately
+#    - fails again, then narrows to 2; wait and retry; or skip, leaving a
+#    real, silent hole has_more still tracks as if the page were never
+#    attempted).
+#
+# Every real attempt (successful or not) carries the same TOTAL_COUNT once
+# it exists, matching real paginated APIs that report a query's total on
+# every page rather than only the first.
 RATE_LIMITED_STATUS = "api_console.status.rate_limited"
 SKIPPED_STATUS = "api_console.status.skipped"
 
+_PAGE1_FOLLOW_CURSOR = APIRequestAttempt(
+    2, "api_console.status.ok", PAGE_SIZE, True, has_more=True, total_count=TOTAL_COUNT, next_cursor="page_3"
+)
+_PAGE1_RESEND = APIRequestAttempt(
+    1,
+    "api_console.status.ok",
+    PAGE_SIZE,
+    True,
+    has_more=True,
+    total_count=TOTAL_COUNT,
+    next_cursor="page_2",
+    continuation_options=(ContinuationOption("follow_cursor", "lesson.l03.continuation.follow_cursor", _PAGE1_FOLLOW_CURSOR),),
+)
+_PAGE1_INITIAL = APIRequestAttempt(
+    1,
+    "api_console.status.ok",
+    PAGE_SIZE,
+    True,
+    has_more=True,
+    total_count=TOTAL_COUNT,
+    next_cursor="page_2",
+    continuation_options=(
+        ContinuationOption("follow_cursor", "lesson.l03.continuation.follow_cursor", _PAGE1_FOLLOW_CURSOR),
+        ContinuationOption("resend", "lesson.l03.continuation.resend", _PAGE1_RESEND),
+    ),
+)
+
 _PAGE5_WAIT_SUCCESS = APIRequestAttempt(
-    RATE_LIMITED_PAGE, "api_console.status.ok", PAGE_SIZE, True, has_more=True, total_count=TOTAL_COUNT
+    RATE_LIMITED_PAGE, "api_console.status.ok", PAGE_SIZE, True, has_more=True, total_count=TOTAL_COUNT, next_cursor="page_6"
 )
 _PAGE5_SKIP = APIRequestAttempt(RATE_LIMITED_PAGE, SKIPPED_STATUS, 0, False, has_more=True, total_count=None)
 _PAGE5_SECOND_RATE_LIMIT = APIRequestAttempt(
@@ -80,9 +119,9 @@ _PAGE5_SECOND_RATE_LIMIT = APIRequestAttempt(
     False,
     has_more=True,
     total_count=None,
-    retry_options=(
-        RetryOption("wait_and_retry", "lesson.l03.retry.wait_and_retry", _PAGE5_WAIT_SUCCESS),
-        RetryOption("skip", "lesson.l03.retry.skip", _PAGE5_SKIP),
+    continuation_options=(
+        ContinuationOption("wait_and_retry", "lesson.l03.retry.wait_and_retry", _PAGE5_WAIT_SUCCESS),
+        ContinuationOption("skip", "lesson.l03.retry.skip", _PAGE5_SKIP),
     ),
 )
 _PAGE5_INITIAL_RATE_LIMIT = APIRequestAttempt(
@@ -92,32 +131,47 @@ _PAGE5_INITIAL_RATE_LIMIT = APIRequestAttempt(
     False,
     has_more=True,
     total_count=None,
-    retry_options=(
-        RetryOption("retry_immediately", "lesson.l03.retry.retry_immediately", _PAGE5_SECOND_RATE_LIMIT),
-        RetryOption("wait_and_retry", "lesson.l03.retry.wait_and_retry", _PAGE5_WAIT_SUCCESS),
-        RetryOption("skip", "lesson.l03.retry.skip", _PAGE5_SKIP),
+    continuation_options=(
+        ContinuationOption("retry_immediately", "lesson.l03.retry.retry_immediately", _PAGE5_SECOND_RATE_LIMIT),
+        ContinuationOption("wait_and_retry", "lesson.l03.retry.wait_and_retry", _PAGE5_WAIT_SUCCESS),
+        ContinuationOption("skip", "lesson.l03.retry.skip", _PAGE5_SKIP),
     ),
 )
 
 REQUEST_ATTEMPTS: tuple[APIRequestAttempt, ...] = (
-    APIRequestAttempt(1, "api_console.status.ok", PAGE_SIZE, True, has_more=True, total_count=TOTAL_COUNT),
-    APIRequestAttempt(2, "api_console.status.ok", PAGE_SIZE, True, has_more=True, total_count=TOTAL_COUNT),
-    APIRequestAttempt(SHORTFALL_PAGE, "api_console.status.ok", SHORTFALL_ACTUAL, True, has_more=True, total_count=TOTAL_COUNT),
-    APIRequestAttempt(4, "api_console.status.ok", PAGE_SIZE, True, has_more=True, total_count=TOTAL_COUNT),
+    _PAGE1_INITIAL,
+    APIRequestAttempt(
+        SHORTFALL_PAGE, "api_console.status.ok", SHORTFALL_ACTUAL, True, has_more=True, total_count=TOTAL_COUNT, next_cursor="page_4"
+    ),
+    APIRequestAttempt(4, "api_console.status.ok", PAGE_SIZE, True, has_more=True, total_count=TOTAL_COUNT, next_cursor="page_5"),
     _PAGE5_INITIAL_RATE_LIMIT,
     APIRequestAttempt(6, "api_console.status.ok", 12, True, has_more=False, total_count=TOTAL_COUNT),
 )
 
+# A real, if simplified, requests-shaped pagination loop: check the status
+# before trusting the body, handle a 429 with one bounded wait using the
+# server's own Retry-After, raise for any other real error, then walk
+# next_cursor off the response's own nested pagination object rather than
+# an ad hoc top-level field - matching the same shape APIConsoleScene's
+# own response panel renders. The completeness check at the end is the
+# same real comparison the completeness-reveal stage repeats live.
 ACQUISITION_PYTHON_CODE = (
     "responses = []\n"
     "cursor = None\n"
     "while True:\n"
-    "    response = requests.get('/api/orders/events', params={'cursor': cursor}).json()\n"
-    "    responses.append(response)\n"
-    "    if not response['has_more']:\n"
+    "    response = requests.get('/api/orders/events', params={'cursor': cursor})\n"
+    "    if response.status_code == 429:\n"
+    "        time.sleep(int(response.headers.get('Retry-After', 5)))\n"
+    "        response = requests.get('/api/orders/events', params={'cursor': cursor})\n"
+    "    response.raise_for_status()\n"
+    "    payload = response.json()\n"
+    "    responses.append(payload)\n"
+    "    if not payload['pagination']['has_more']:\n"
     "        break\n"
-    "    cursor = response.get('next_cursor')\n"
-    "sum(r['records_returned'] for r in responses)"
+    "    cursor = payload['pagination']['next_cursor']\n"
+    "\n"
+    "received_total = sum(len(r['data']) for r in responses)\n"
+    "received_total == responses[-1]['total_count']"
 )
 
 # --- Discovering incompleteness --------------------------------------------
@@ -166,7 +220,7 @@ DECISION_EVIDENCE_FIELD = EvidenceField(
     key="evidence",
     prompt_key="lesson.l03.decision.evidence.prompt",
     min_count=2,
-    max_count=3,
+    max_count=4,
 )
 
 KNOWN_GAP_FIELD = BriefField(
@@ -174,6 +228,7 @@ KNOWN_GAP_FIELD = BriefField(
     prompt_key="lesson.l03.decision.known_gap.prompt",
     options=(
         BriefOption("page_shortfall", "lesson.l03.decision.known_gap.option.page_shortfall"),
+        BriefOption("page_shortfall_and_page5", "lesson.l03.decision.known_gap.option.page_shortfall_and_page5"),
         BriefOption("rate_limit_alone", "lesson.l03.decision.known_gap.option.rate_limit_alone"),
         BriefOption("nothing_missing", "lesson.l03.decision.known_gap.option.nothing_missing"),
         BriefOption("pagination_broken", "lesson.l03.decision.known_gap.option.pagination_broken"),
@@ -224,12 +279,33 @@ MASTERY_INTERPRET_OPTIONS = (
     MasteryOption("looks_complete", "lesson.l03.mastery.interpret_looks_complete"),
 )
 
+_TICKET_PULL_PYTHON_CODE = (
+    "ticket_responses = []\n"
+    "cursor = None\n"
+    "while True:\n"
+    "    payload = requests.get('/api/support/tickets', params={'cursor': cursor}).json()\n"
+    "    ticket_responses.append(payload)\n"
+    "    if not payload['pagination']['has_more']:\n"
+    "        break\n"
+    "    cursor = payload['pagination']['next_cursor']\n"
+)
+"""The mastery act's own dataset - a real, separate pull from
+twist_data.py's own MASTERY_* numbers, never yet referenced anywhere else
+in the persistent context-based mirror. Only one of the two compute()
+branches below ever actually runs per playthrough (MasteryChallengeScene
+computes exactly once, for whichever metric was picked), so each branch's
+own *first* python_code needs this same self-contained load - neither can
+assume the other one already ran."""
+
 
 def _critical_evidence_present(context: LessonContext, selected_evidence_ids: set[str]) -> tuple[str, ...]:
     """Which of CRITICAL_EVIDENCE_KEYS the student's picked evidence
     actually covers - checked by substring on the picked items' own
     label_key, the same technique l02_source_scout/scenario.py's own
-    _critical_evidence_present uses."""
+    _critical_evidence_present uses. Includes `page_skipped` on the pool
+    regardless of path (it just never matches anything for a student whose
+    page 5 was recovered, since nothing records that fact on that path) -
+    score_lesson_three itself is what judges the right count per path."""
     present: set[str] = set()
     for item in context.evidence:
         if item.id not in selected_evidence_ids:
@@ -248,7 +324,11 @@ def build_lesson_three_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     limit on page 5 offers a real, recoverable choice; page 3's silent
     shortfall never does - the two failure modes are deliberately never
     conflated (see Known Gap's own decoys), since only one of them is
-    something a better retry strategy could have fixed."""
+    something a better retry strategy could have fixed. Page 1's own
+    response offers a second, non-failure real choice - follow the real
+    next_cursor or resend the same request - so continuation is read off
+    real response metadata at least once, not only ever driven by an
+    internal pointer the student never actually has to consult."""
     collected: dict = {}
     context = LessonContext()
     pages = generate_pages()
@@ -413,7 +493,7 @@ def build_lesson_three_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                     MetricValue(
                         "lesson.l03.mastery.received_last_page_label",
                         float(mastery_last_page_received),
-                        python_code="ticket_responses[-1]['records_returned']",
+                        python_code=_TICKET_PULL_PYTHON_CODE + "len(ticket_responses[-1]['data'])",
                     ),
                     MetricValue("lesson.l03.mastery.page_size_label", float(MASTERY_PAGE_SIZE)),
                 )
@@ -421,7 +501,7 @@ def build_lesson_three_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 MetricValue(
                     "lesson.l03.mastery.received_label",
                     float(MASTERY_RECEIVED_TOTAL),
-                    python_code="sum(r['records_returned'] for r in ticket_responses)",
+                    python_code=_TICKET_PULL_PYTHON_CODE + "sum(len(r['data']) for r in ticket_responses)",
                 ),
                 MetricValue(
                     "lesson.l03.mastery.declared_label",
@@ -461,6 +541,7 @@ def build_lesson_three_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             critical_evidence_present=_critical_evidence_present(context, selected_evidence_ids),
             page5_recovered=collected.get("page5_recovered", True),
             mastery_engaged=collected.get("mastery_engaged", False),
+            mastery_interpretation=collected.get("mastery_interpretation") or "",
         )
 
     def feedback(advance):

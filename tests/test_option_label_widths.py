@@ -122,7 +122,7 @@ from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPT
 from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
 from data_science_arcade.ui.cohort_matrix_scene import COMPARISON_OPTION_SIZE as COHORT_COMPARISON_OPTION_SIZE
 from data_science_arcade.ui.comparison_reveal_scene import OPTION_SIZE as COMPARISON_REVEAL_OPTION_SIZE
-from data_science_arcade.ui.api_console_scene import RETRY_OPTION_SIZE
+from data_science_arcade.ui.api_console_scene import CONTINUATION_OPTION_SIZE
 from data_science_arcade.ui.mastery_challenge_scene import OPTION_SIZE as MASTERY_OPTION_SIZE
 from data_science_arcade.ui.finding_picker_scene import OPTION_SIZE as FINDING_OPTION_SIZE
 from data_science_arcade.ui.investigation_hub_scene import OPTION_SIZE as INVESTIGATION_OPTION_SIZE
@@ -372,9 +372,13 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         for option in options:
             checks.append((f"mastery.{option.key}", option.label_key, mastery_option_button_width))
 
-    retry_option_button_width = RETRY_OPTION_SIZE[0] - BUTTON_PADDING
+    continuation_option_button_width = CONTINUATION_OPTION_SIZE[0] - BUTTON_PADDING
     for retry_key in ("retry_immediately", "wait_and_retry", "skip"):
-        checks.append((f"retry.{retry_key}", f"lesson.l03.retry.{retry_key}", retry_option_button_width))
+        checks.append((f"retry.{retry_key}", f"lesson.l03.retry.{retry_key}", continuation_option_button_width))
+    for continuation_key in ("follow_cursor", "resend"):
+        checks.append(
+            (f"continuation.{continuation_key}", f"lesson.l03.continuation.{continuation_key}", continuation_option_button_width)
+        )
 
     # FindingPickerScene (Lesson 29) has one flat shared pool rather than
     # per-request options, so there's no nested loop here like every other
