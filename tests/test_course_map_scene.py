@@ -870,13 +870,13 @@ def test_finishing_lesson_two_marks_it_complete_and_unlocks_lesson_three():
         pygame.quit()
 
 
-def _play_out_the_console(scene: APIConsoleScene, retry_choices: list | None = None) -> None:
-    remaining = ["wait_and_retry"] if retry_choices is None else list(retry_choices)
+def _play_out_the_console(scene: APIConsoleScene, choices: list | None = None) -> None:
+    remaining = ["follow_cursor", "wait_and_retry"] if choices is None else list(choices)
     while not scene._base_exhausted():
         if scene._pending is not None:
             key = remaining.pop(0)
-            option = next(o for o in scene._pending.retry_options if o.key == key)
-            scene._make_choose_retry(option)()
+            option = next(o for o in scene._pending.continuation_options if o.key == key)
+            scene._make_choose_continuation(option)()
         else:
             scene._send_request()
     scene.buttons.buttons[0].on_activate()  # now showing Finish

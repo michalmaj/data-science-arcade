@@ -12,16 +12,19 @@ DecisionChoices = dict[str, str | tuple[str, ...]]
 rather than imported so this content/scoring module doesn't depend on a
 ui/ scene, matching l01/l02's own precedent."""
 
-CRITICAL_EVIDENCE_KEYS = ("running_total", "total_count", "page3_shortfall")
-"""The three facts every real argument about this lesson's question
-needs, regardless of which path a student took through the rate-limit
-branch (see scenario.py) - the confirmed floor, the API's own declared
-total, and the specific, named mechanism behind the gap between them. A
-student who skipped page 5 instead of backing off also has a fourth,
-real fact available (the skipped-page gap) but it's additional, not
-required - the argument is already complete without it, the same "role,
-not source-count" principle l02_source_scout/scoring.py's own
-CRITICAL_EVIDENCE_KEYS established."""
+CRITICAL_EVIDENCE_KEYS = ("running_total", "total_count", "page3_shortfall", "page_skipped")
+"""Every fact a real argument about this lesson's question could need -
+which subset is actually *required* depends on which real path a student
+took through the rate-limit branch (see _expected_critical_count below),
+not a fixed count the way l02_source_scout/scoring.py's own
+CRITICAL_EVIDENCE_KEYS is: a student whose page 5 recovered has exactly
+three real facts to cite (the confirmed floor, the declared total, the
+page-3 mechanism) and `page_skipped` simply never matches anything in
+their own evidence pool, since nothing records it on that path. A student
+who skipped page 5 instead has a real fourth fact - the skipped-page gap
+- and needs all four for a complete argument, since their own floor is
+missing a second, real, nameable chunk (page 5's) that a recovered-path
+argument never has to account for."""
 
 
 def _clamp(score: float) -> float:
@@ -45,6 +48,7 @@ class LessonThreeResult:
     critical_evidence_present: tuple[str, ...] = field(default_factory=tuple)
     page5_recovered: bool = True
     mastery_engaged: bool = False
+    mastery_interpretation: str = ""
 
     def completed_thoughtfully(self) -> bool:
         """A choice was made for every required step - the interpret pick,
@@ -89,17 +93,28 @@ def _score_method(result: LessonThreeResult) -> tuple[float, FeedbackObservation
     return 40.0, None
 
 
+def _expected_critical_count(result: LessonThreeResult) -> int:
+    """A recovered-path argument is complete with the 3 facts that exist
+    on that path; a skip-path argument has a real fourth fact
+    (page_skipped) and isn't complete without it - the skip *itself*
+    doesn't excuse the argument from accounting for what it cost, it just
+    changes what "accounting for it" requires citing."""
+    return 3 if result.page5_recovered else 4
+
+
 def _score_evidence(result: LessonThreeResult) -> tuple[float, FeedbackObservation | None]:
     """Role, not source-count: an argument is only as strong as whether it
-    actually cites the three facts that make it true - the confirmed
-    floor, the declared total, and the specific named mechanism. The
-    skip-path's own fourth fact (page 5 unrecovered) is real and worth
-    citing but never required - the argument is already complete at 3."""
+    actually cites the facts that make it true. Which facts that means
+    depends on the real path - a recovered-path argument is complete at 3
+    (the confirmed floor, the declared total, the page-3 mechanism); a
+    skip-path argument needs all 4, since its own floor is short a second,
+    real, nameable chunk a recovered-path argument never has to explain."""
+    expected = _expected_critical_count(result)
     critical_count = len(result.critical_evidence_present)
     evidence_count = len(result.decision.get("evidence", ()))
-    if critical_count == 3:
+    if critical_count >= expected:
         return 90.0, FeedbackObservation("lesson.l03.feedback.evidence_covers_the_argument", ScoreDimension.EVIDENCE)
-    if critical_count == 2:
+    if critical_count == expected - 1:
         return 60.0, None
     if evidence_count >= 2:
         return 40.0, None
@@ -107,13 +122,30 @@ def _score_evidence(result: LessonThreeResult) -> tuple[float, FeedbackObservati
 
 
 def _score_uncertainty(result: LessonThreeResult) -> tuple[float, FeedbackObservation | None]:
-    """Whether Known Gap names the real, specific mechanism (a page
-    silently short despite a success status) rather than conflating it
-    with the separately-resolved rate limit, denying any gap remains, or
-    an unsupported claim nothing in the investigation backs."""
+    """Whether Known Gap names the real, specific mechanism(s) - which
+    correct answer that means depends on the real path: page 3's own
+    shortfall is real either way, but a skip-path student has a second,
+    equally real gap (page 5, never recovered) a Known Gap answer should
+    also name to be complete.
+
+    The two "wrong" cases here are not the same kind of wrong. On the
+    skip path, picking `page_shortfall` alone is true but incomplete - it
+    misses a second real mechanism without asserting anything false, so it
+    keeps a real, if partial, credit. On the recovered path, picking
+    `page_shortfall_and_page5` is an actual false claim - page 5 really
+    was recovered there, so asserting it wasn't isn't a lucky superset,
+    it's simply wrong, scored alongside the other unsupported decoys."""
     gap = result.decision.get("known_gap")
-    if gap == "page_shortfall":
-        return 85.0, FeedbackObservation("lesson.l03.feedback.gap_named_precisely", ScoreDimension.UNCERTAINTY)
+    if result.page5_recovered:
+        if gap == "page_shortfall":
+            return 85.0, FeedbackObservation("lesson.l03.feedback.gap_named_precisely", ScoreDimension.UNCERTAINTY)
+        if gap == "page_shortfall_and_page5":
+            return 25.0, None  # false on this path - page 5 was actually recovered
+    else:
+        if gap == "page_shortfall_and_page5":
+            return 85.0, FeedbackObservation("lesson.l03.feedback.gap_named_precisely", ScoreDimension.UNCERTAINTY)
+        if gap == "page_shortfall":
+            return 55.0, None  # true but incomplete - misses the real, separate page-5 gap
     if gap in ("rate_limit_alone", "pagination_broken"):
         return 25.0, None
     return 20.0, None  # "nothing_missing" - denies a gap the student's own evidence establishes
@@ -186,7 +218,14 @@ def score_lesson_three(result: LessonThreeResult, definition: LessonDefinition, 
     if trajectory_observation is not None:
         observations.append(trajectory_observation)
     if result.mastery_engaged:
-        observations.append(FeedbackObservation("lesson.l03.feedback.mastery_completed"))
+        # Distinct from core-dimension scoring (mastery never touches the
+        # five above) - but "engaged" alone would credit a wrong final
+        # interpretation the same as a correct one, when clicking Engage
+        # is not the same thing as actually solving it.
+        if result.mastery_interpretation == "last_page_short":
+            observations.append(FeedbackObservation("lesson.l03.feedback.mastery_solved"))
+        else:
+            observations.append(FeedbackObservation("lesson.l03.feedback.mastery_attempted"))
     if hints_used > 0:
         observations.append(FeedbackObservation("lesson.feedback.hints_used"))
 

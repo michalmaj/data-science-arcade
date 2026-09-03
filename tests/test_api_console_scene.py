@@ -6,7 +6,7 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import pygame
 
 from data_science_arcade.app.game import App
-from data_science_arcade.lessons.framework.api import APIRequestAttempt, RetryOption
+from data_science_arcade.lessons.framework.api import APIRequestAttempt, ContinuationOption
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
 from data_science_arcade.workbench.context import LessonContext
 
@@ -22,9 +22,9 @@ _SECOND_RATE_LIMIT = APIRequestAttempt(
     False,
     has_more=True,
     total_count=None,
-    retry_options=(
-        RetryOption("wait_and_retry", "common.back", _WAIT_SUCCESS),
-        RetryOption("skip", "common.back", _SKIP),
+    continuation_options=(
+        ContinuationOption("wait_and_retry", "common.back", _WAIT_SUCCESS),
+        ContinuationOption("skip", "common.back", _SKIP),
     ),
 )
 _INITIAL_RATE_LIMIT = APIRequestAttempt(
@@ -34,10 +34,10 @@ _INITIAL_RATE_LIMIT = APIRequestAttempt(
     False,
     has_more=True,
     total_count=None,
-    retry_options=(
-        RetryOption("retry_immediately", "common.back", _SECOND_RATE_LIMIT),
-        RetryOption("wait_and_retry", "common.back", _WAIT_SUCCESS),
-        RetryOption("skip", "common.back", _SKIP),
+    continuation_options=(
+        ContinuationOption("retry_immediately", "common.back", _SECOND_RATE_LIMIT),
+        ContinuationOption("wait_and_retry", "common.back", _WAIT_SUCCESS),
+        ContinuationOption("skip", "common.back", _SKIP),
     ),
 )
 
@@ -100,9 +100,9 @@ def test_retrying_immediately_fails_again_and_narrows_to_two_choices():
         scene = _make_scene(app)
         scene._send_request()
         scene._send_request()
-        retry_immediately = next(o for o in scene._pending.retry_options if o.key == "retry_immediately")
+        retry_immediately = next(o for o in scene._pending.continuation_options if o.key == "retry_immediately")
 
-        scene._make_choose_retry(retry_immediately)()
+        scene._make_choose_continuation(retry_immediately)()
 
         assert scene._pending is _SECOND_RATE_LIMIT
         assert len(scene.buttons.buttons) == 2
@@ -117,9 +117,9 @@ def test_waiting_and_retrying_resolves_the_page_and_advances():
         scene = _make_scene(app)
         scene._send_request()
         scene._send_request()
-        wait_and_retry = next(o for o in scene._pending.retry_options if o.key == "wait_and_retry")
+        wait_and_retry = next(o for o in scene._pending.continuation_options if o.key == "wait_and_retry")
 
-        scene._make_choose_retry(wait_and_retry)()
+        scene._make_choose_continuation(wait_and_retry)()
 
         assert scene._pending is None
         assert scene.total_records() == 20 + 15
@@ -135,14 +135,80 @@ def test_skipping_resolves_the_page_with_zero_records_but_still_advances():
         scene = _make_scene(app)
         scene._send_request()
         scene._send_request()
-        skip = next(o for o in scene._pending.retry_options if o.key == "skip")
+        skip = next(o for o in scene._pending.continuation_options if o.key == "skip")
 
-        scene._make_choose_retry(skip)()
+        scene._make_choose_continuation(skip)()
 
         assert scene._pending is None
         assert scene.total_records() == 20
         scene._send_request()  # page 3 is still reachable after a skip
         assert scene.total_records() == 20 + 12
+    finally:
+        pygame.quit()
+
+
+def test_total_records_counts_each_page_once_even_if_resent_successfully():
+    # A page picked up again via a real pagination micro-decision (resend
+    # the same request instead of following next_cursor) is a real,
+    # successful attempt for the *same* page_number - it must not double
+    # the running total, the same "count the page's own last resolution,
+    # not every attempt" rule the rate-limit branch already relies on.
+    app = _init_app()
+    try:
+        resend = APIRequestAttempt(1, "common.on", 20, True, has_more=True, total_count=35, next_cursor="p2")
+        attempts_with_resend = (
+            APIRequestAttempt(
+                1,
+                "common.on",
+                20,
+                True,
+                has_more=True,
+                total_count=35,
+                next_cursor="p2",
+                continuation_options=(ContinuationOption("resend", "common.back", resend),),
+            ),
+        )
+        scene = APIConsoleScene(app, "app.title", "app.title", attempts_with_resend, on_complete=lambda total: None)
+        scene._send_request()
+        assert scene._pending is not None
+        resend_option = scene._pending.continuation_options[0]
+        scene._make_choose_continuation(resend_option)()
+
+        assert scene.log == [attempts_with_resend[0], resend]
+        assert scene.total_records() == 20  # not 40
+    finally:
+        pygame.quit()
+
+
+def test_response_json_lines_show_the_real_nested_shape_for_a_success():
+    app = _init_app()
+    try:
+        scene = _make_scene(app)
+        attempt = APIRequestAttempt(1, "common.on", 20, True, has_more=True, total_count=35, next_cursor="p2")
+
+        lines = scene._response_json_lines(attempt)
+
+        text = "\n".join(lines)
+        assert '"data": [20' in text
+        assert '"has_more": true' in text
+        assert '"next_cursor": "p2"' in text
+        assert '"total_count": 35' in text
+    finally:
+        pygame.quit()
+
+
+def test_response_json_lines_show_a_plain_error_shape_for_a_failure():
+    app = _init_app()
+    try:
+        scene = _make_scene(app)
+        attempt = APIRequestAttempt(5, "common.off", 0, False, has_more=True, total_count=None)
+
+        lines = scene._response_json_lines(attempt)
+
+        text = "\n".join(lines)
+        assert '"error"' in text
+        assert "data" not in text
+        assert "pagination" not in text
     finally:
         pygame.quit()
 
@@ -169,8 +235,8 @@ def test_finish_calls_on_complete_with_the_total_once_every_page_resolves():
         scene = _make_scene(app, on_complete=lambda total: collected.append(total))
         scene._send_request()
         scene._send_request()
-        wait_and_retry = next(o for o in scene._pending.retry_options if o.key == "wait_and_retry")
-        scene._make_choose_retry(wait_and_retry)()
+        wait_and_retry = next(o for o in scene._pending.continuation_options if o.key == "wait_and_retry")
+        scene._make_choose_continuation(wait_and_retry)()
         scene._send_request()
 
         scene.buttons.buttons[0].on_activate()  # the button itself, not the private method
@@ -192,8 +258,8 @@ def test_context_records_one_action_and_one_evidence_item_on_finish():
         )
         scene._send_request()
         scene._send_request()
-        wait_and_retry = next(o for o in scene._pending.retry_options if o.key == "wait_and_retry")
-        scene._make_choose_retry(wait_and_retry)()
+        wait_and_retry = next(o for o in scene._pending.continuation_options if o.key == "wait_and_retry")
+        scene._make_choose_continuation(wait_and_retry)()
         scene._send_request()
         scene._finish()
 
@@ -212,8 +278,8 @@ def test_record_evidence_false_keeps_the_action_but_skips_the_evidence_item():
         scene = _make_scene(app, context=context, python_code="real_code_here", evidence_label_key="app.title", record_evidence=False)
         scene._send_request()
         scene._send_request()
-        wait_and_retry = next(o for o in scene._pending.retry_options if o.key == "wait_and_retry")
-        scene._make_choose_retry(wait_and_retry)()
+        wait_and_retry = next(o for o in scene._pending.continuation_options if o.key == "wait_and_retry")
+        scene._make_choose_continuation(wait_and_retry)()
         scene._send_request()
         scene._finish()
 
@@ -236,8 +302,8 @@ def test_skipped_status_key_adds_a_second_evidence_item_only_when_actually_skipp
         )
         scene._send_request()
         scene._send_request()
-        skip = next(o for o in scene._pending.retry_options if o.key == "skip")
-        scene._make_choose_retry(skip)()
+        skip = next(o for o in scene._pending.continuation_options if o.key == "skip")
+        scene._make_choose_continuation(skip)()
         scene._send_request()
         scene._finish()
 
@@ -259,8 +325,8 @@ def test_no_skipped_evidence_when_the_page_was_actually_recovered():
         )
         scene._send_request()
         scene._send_request()
-        wait_and_retry = next(o for o in scene._pending.retry_options if o.key == "wait_and_retry")
-        scene._make_choose_retry(wait_and_retry)()
+        wait_and_retry = next(o for o in scene._pending.continuation_options if o.key == "wait_and_retry")
+        scene._make_choose_continuation(wait_and_retry)()
         scene._send_request()
         scene._finish()
 
@@ -275,8 +341,8 @@ def test_sending_past_the_end_of_the_script_is_a_no_op():
         scene = _make_scene(app)
         scene._send_request()
         scene._send_request()
-        wait_and_retry = next(o for o in scene._pending.retry_options if o.key == "wait_and_retry")
-        scene._make_choose_retry(wait_and_retry)()
+        wait_and_retry = next(o for o in scene._pending.continuation_options if o.key == "wait_and_retry")
+        scene._make_choose_continuation(wait_and_retry)()
         scene._send_request()
         for _ in range(3):
             scene._send_request()  # exhausted - every extra call is a no-op
@@ -296,11 +362,11 @@ def test_draw_does_not_crash_guided_or_not_at_any_point_in_the_sequence():
             scene.draw(app.logical_surface)
             scene._send_request()  # now pending with 3 real choices
             scene.draw(app.logical_surface)
-            retry_immediately = next(o for o in scene._pending.retry_options if o.key == "retry_immediately")
-            scene._make_choose_retry(retry_immediately)()
+            retry_immediately = next(o for o in scene._pending.continuation_options if o.key == "retry_immediately")
+            scene._make_choose_continuation(retry_immediately)()
             scene.draw(app.logical_surface)  # now pending with 2 real choices
-            wait_and_retry = next(o for o in scene._pending.retry_options if o.key == "wait_and_retry")
-            scene._make_choose_retry(wait_and_retry)()
+            wait_and_retry = next(o for o in scene._pending.continuation_options if o.key == "wait_and_retry")
+            scene._make_choose_continuation(wait_and_retry)()
             scene.draw(app.logical_surface)
             scene._send_request()
             scene.draw(app.logical_surface)  # exhausted - Finish
