@@ -57,8 +57,23 @@ from data_science_arcade.lessons.l03_api_courier.scenario import (
     REVISED_GUT_CHECK_FIELD as L03_REVISED_GUT_CHECK_FIELD,
     SAFE_TO_CLAIM_FIELD as L03_SAFE_TO_CLAIM_FIELD,
 )
-from data_science_arcade.lessons.l04_event_log_factory.scenario import DECISION_FIELDS as L04_DECISION_FIELDS
-from data_science_arcade.lessons.l04_event_log_factory.scenario import FLOW_STEPS as L04_FLOW_STEPS
+from data_science_arcade.lessons.l04_event_log_factory.scenario import (
+    DATA_MINIMIZATION_FIELD as L04_DATA_MINIMIZATION_FIELD,
+    EVENT_A_INTERPRET_OPTIONS as L04_EVENT_A_INTERPRET_OPTIONS,
+    INITIAL_GUT_CHECK_FIELD as L04_INITIAL_GUT_CHECK_FIELD,
+    KNOWN_GAP_FIELD as L04_KNOWN_GAP_FIELD,
+    MASTERY_INTERPRET_OPTIONS as L04_MASTERY_INTERPRET_OPTIONS,
+    MASTERY_METRIC_OPTIONS as L04_MASTERY_METRIC_OPTIONS,
+    NOT_COLLECTED_FIELD as L04_NOT_COLLECTED_FIELD,
+    ORDER_A_IDENTIFIERS_FIELD as L04_ORDER_A_IDENTIFIERS_FIELD,
+    ORDER_A_TRIGGER_FIELD as L04_ORDER_A_TRIGGER_FIELD,
+    PAYMENT_B_IDENTIFIERS_FIELD as L04_PAYMENT_B_IDENTIFIERS_FIELD,
+    PAYMENT_B_PROPERTIES_FIELD as L04_PAYMENT_B_PROPERTIES_FIELD,
+    PAYMENT_B_TRIGGER_FIELD as L04_PAYMENT_B_TRIGGER_FIELD,
+    QUESTIONS_ANSWERABLE_FIELD as L04_QUESTIONS_ANSWERABLE_FIELD,
+    REQUIRED_CHANGE_FIELD as L04_REQUIRED_CHANGE_FIELD,
+    SHIP_READINESS_FIELD as L04_SHIP_READINESS_FIELD,
+)
 from data_science_arcade.lessons.l05_sampling_mission.scenario import DECISION_FIELDS as L05_DECISION_FIELDS
 from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPAIR_ISSUES as L06_REPAIR_ISSUES
 from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION_FIELDS as L06_DECISION_FIELDS
@@ -177,7 +192,18 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L03_RECOMMENDATION_FIELD,
         L03_REVISED_GUT_CHECK_FIELD,
         L02_REVISION_FIELD,
-        *L04_DECISION_FIELDS,
+        L04_ORDER_A_TRIGGER_FIELD,
+        L04_ORDER_A_IDENTIFIERS_FIELD,
+        L04_PAYMENT_B_TRIGGER_FIELD,
+        L04_PAYMENT_B_IDENTIFIERS_FIELD,
+        L04_PAYMENT_B_PROPERTIES_FIELD,
+        L04_DATA_MINIMIZATION_FIELD,
+        L04_INITIAL_GUT_CHECK_FIELD,
+        L04_SHIP_READINESS_FIELD,
+        L04_QUESTIONS_ANSWERABLE_FIELD,
+        L04_KNOWN_GAP_FIELD,
+        L04_REQUIRED_CHANGE_FIELD,
+        L04_NOT_COLLECTED_FIELD,
         *L05_DECISION_FIELDS,
         *L06_DECISION_FIELDS,
         *L07_DECISION_FIELDS,
@@ -220,9 +246,6 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         checks.append((f"strategy.{strategy.key}", strategy.name_key, wide_header_button_width))
 
     flow_option_button_width = FLOW_OPTION_SIZE[0] - BUTTON_PADDING
-    for step in L04_FLOW_STEPS:
-        for option in step.options:
-            checks.append((f"{step.key}.{option.key}", option.label_key, flow_option_button_width))
     for case in L09_OUTLIER_CASES:
         for option in case.options:
             checks.append((f"{case.key}.{option.key}", option.label_key, flow_option_button_width))
@@ -356,6 +379,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L02_GAP_INTERPRET_OPTIONS,
         L02_SUPPORT_INTERPRET_OPTIONS,
         L03_COMPLETENESS_INTERPRET_OPTIONS,
+        L04_EVENT_A_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
@@ -368,6 +392,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L02_MASTERY_INTERPRET_OPTIONS,
         L03_MASTERY_METRIC_OPTIONS,
         L03_MASTERY_INTERPRET_OPTIONS,
+        L04_MASTERY_METRIC_OPTIONS,
+        L04_MASTERY_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"mastery.{option.key}", option.label_key, mastery_option_button_width))
