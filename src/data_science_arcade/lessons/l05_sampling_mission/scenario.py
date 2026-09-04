@@ -37,11 +37,10 @@ BUDGET = 80
 ALLOCATOR_STEP = 5
 # Fixed seeds for the two system-driven SRS draws (Reveals 2 & 3) - hand-
 # verified via a scratchpad script so both are real and neither is a
-# knife-edge case: seed 2 draws 0 of the 15 Rural-synced rows (rate 7.5%),
-# seed 29 draws 4 of them (rate 17.5%) - two honest draws, two different
-# numbers, from the identical design. See
-# decisions/IMPLEMENTATION_STATE.md for the full seed-search table this
-# was checked against.
+# knife-edge case: seed 2 draws 0 of the 15 Rural-synced rows, seed 29
+# draws 4 of them - two honest draws, two different real numbers, from the
+# identical design. See test_lesson05_twist_data.py's own seed-search
+# coverage for the values this pair was chosen from.
 SRS_SEED_A = 2
 SRS_SEED_B = 29
 # Separate seeds for whenever the player freely picks simple_random in
@@ -429,9 +428,10 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     threaded through every analytical stage exactly like L01-L04; unlike
     L04, the Final Decision's correct answers are fixed (not branched on
     student state) since the hidden population and its three frames never
-    change based on what the player did in the interactive rounds - see
-    decisions/IMPLEMENTATION_STATE.md for why that's actually true here
-    and wasn't for L04."""
+    change based on what the player did in the interactive rounds - L04's
+    own Event A state genuinely varied because the *student's own spec*
+    determined what its twist dataset looked like, which has no analogue
+    here."""
     collected: dict = {}
     context = LessonContext()
     population = generate_population().frame
@@ -445,9 +445,19 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         collected["analytical_context"] = context.to_dict()
 
     def _draw_for(frame_key: str, strategy_key: str, seed: int, allocation: dict | None):
+        """Returns (sample, frame) - callers need the frame itself, not
+        just the drawn sample, to correctly reweight a stratified draw's
+        own estimate (see twist_data.estimated_problem_rate)."""
         frame = frame_for(population, frame_key)
         costed = frame_key == "tracking_export"
-        return draw_sample(frame, strategy_key, BUDGET, costed=costed, seed=seed, allocation=allocation)
+        sample = draw_sample(frame, strategy_key, BUDGET, costed=costed, seed=seed, allocation=allocation)
+        return sample, frame
+
+    def _estimate_for(sample, frame, strategy_key: str) -> float:
+        """Only a stratified draw needs its own frame to reweight by -
+        convenience/simple_random already give every row an equal chance,
+        so a plain mean is already the correct estimator there."""
+        return estimated_problem_rate(sample, frame=frame if strategy_key == "stratified" else None)
 
     # --- The Ask ---
 
@@ -509,10 +519,11 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         frame_key, strategy_key = choice.get("frame", "tracking_export"), choice.get("strategy", "convenience")
         allocation = collected.get("round1_allocation")
         seed = STRATIFIED_SEED if strategy_key == "stratified" else ROUND1_SRS_SEED
-        sample = _draw_for(frame_key, strategy_key, seed, allocation)
+        sample, frame = _draw_for(frame_key, strategy_key, seed, allocation)
         code = sample_python_code(frame_key, strategy_key, BUDGET, seed, allocation)
 
-        def on_complete(_interpretation):
+        def on_complete(interpretation):
+            collected["reveal1_interpretation"] = interpretation
             _sync_context_into_collected()
             advance()
 
@@ -522,7 +533,7 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             narrative_keys=("dialogue.l05_reveal1.line1", "dialogue.l05_reveal1.line2"),
             comparisons=(
                 ComparisonValue("lesson.l05.reveal1.rural_share_label", rural_share(sample), python_code=code),
-                ComparisonValue("lesson.l05.reveal1.estimate_label", estimated_problem_rate(sample)),
+                ComparisonValue("lesson.l05.reveal1.estimate_label", _estimate_for(sample, frame, strategy_key)),
             ),
             interpret_prompt_key="lesson.l05.reveal1.interpret_prompt",
             interpret_options=MECHANISM_INTERPRET_OPTIONS,
@@ -542,11 +553,12 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     # the sampling-variability beat ---
 
     def reveal2(advance):
-        sample = _draw_for("tracking_export", "simple_random", SRS_SEED_A, None)
-        collected["reveal2_estimate"] = estimated_problem_rate(sample)
+        sample, frame = _draw_for("tracking_export", "simple_random", SRS_SEED_A, None)
+        collected["reveal2_estimate"] = _estimate_for(sample, frame, "simple_random")
         code = sample_python_code("tracking_export", "simple_random", BUDGET, SRS_SEED_A, None)
 
-        def on_complete(_interpretation):
+        def on_complete(interpretation):
+            collected["reveal2_interpretation"] = interpretation
             _sync_context_into_collected()
             advance()
 
@@ -556,7 +568,7 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             narrative_keys=("dialogue.l05_reveal2.line1", "dialogue.l05_reveal2.line2"),
             comparisons=(
                 ComparisonValue("lesson.l05.reveal2.rural_share_label", rural_share(sample), python_code=code),
-                ComparisonValue("lesson.l05.reveal2.estimate_label", estimated_problem_rate(sample)),
+                ComparisonValue("lesson.l05.reveal2.estimate_label", collected["reveal2_estimate"]),
             ),
             interpret_prompt_key="lesson.l05.reveal2.interpret_prompt",
             interpret_options=MECHANISM_INTERPRET_OPTIONS,
@@ -565,12 +577,13 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         )
 
     def reveal3(advance):
-        sample_a = _draw_for("tracking_export", "simple_random", SRS_SEED_A, None)
-        sample_b = _draw_for("tracking_export", "simple_random", SRS_SEED_B, None)
+        sample_a, frame_a = _draw_for("tracking_export", "simple_random", SRS_SEED_A, None)
+        sample_b, frame_b = _draw_for("tracking_export", "simple_random", SRS_SEED_B, None)
         code_a = sample_python_code("tracking_export", "simple_random", BUDGET, SRS_SEED_A, None)
         code_b = sample_python_code("tracking_export", "simple_random", BUDGET, SRS_SEED_B, None)
 
-        def on_complete(_interpretation):
+        def on_complete(interpretation):
+            collected["reveal3_interpretation"] = interpretation
             _sync_context_into_collected()
             advance()
 
@@ -579,8 +592,12 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l05.reveal3.title",
             narrative_keys=("dialogue.l05_reveal3.line1", "dialogue.l05_reveal3.line2"),
             comparisons=(
-                ComparisonValue("lesson.l05.reveal3.draw_a_label", estimated_problem_rate(sample_a), python_code=code_a),
-                ComparisonValue("lesson.l05.reveal3.draw_b_label", estimated_problem_rate(sample_b), python_code=code_b),
+                ComparisonValue(
+                    "lesson.l05.reveal3.draw_a_label", _estimate_for(sample_a, frame_a, "simple_random"), python_code=code_a
+                ),
+                ComparisonValue(
+                    "lesson.l05.reveal3.draw_b_label", _estimate_for(sample_b, frame_b, "simple_random"), python_code=code_b
+                ),
             ),
             interpret_prompt_key="lesson.l05.reveal3.interpret_prompt",
             interpret_options=VARIABILITY_INTERPRET_OPTIONS,
@@ -640,10 +657,11 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         strategy_key = choice.get("strategy", "convenience")
         allocation = collected.get("round4_allocation")
         seed = STRATIFIED_SEED if strategy_key == "stratified" else ROUND4_SRS_SEED
-        sample = _draw_for("tracking_export", strategy_key, seed, allocation)
+        sample, frame = _draw_for("tracking_export", strategy_key, seed, allocation)
         code = sample_python_code("tracking_export", strategy_key, BUDGET, seed, allocation)
 
-        def on_complete(_interpretation):
+        def on_complete(interpretation):
+            collected["reveal4_interpretation"] = interpretation
             _sync_context_into_collected()
             advance()
 
@@ -653,7 +671,7 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             narrative_keys=("dialogue.l05_reveal4.line1", "dialogue.l05_reveal4.line2"),
             comparisons=(
                 ComparisonValue("lesson.l05.reveal4.rural_share_label", rural_share(sample), python_code=code),
-                ComparisonValue("lesson.l05.reveal4.estimate_label", estimated_problem_rate(sample)),
+                ComparisonValue("lesson.l05.reveal4.estimate_label", _estimate_for(sample, frame, strategy_key)),
             ),
             interpret_prompt_key="lesson.l05.reveal4.interpret_prompt",
             interpret_options=MECHANISM_INTERPRET_OPTIONS,
@@ -669,7 +687,7 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         strategy_key = choice.get("strategy", "convenience")
         allocation = collected.get("round4_allocation")
         seed = STRATIFIED_SEED if strategy_key == "stratified" else ROUND4_SRS_SEED
-        sample = _draw_for("tracking_export", strategy_key, seed, allocation)
+        sample, _frame = _draw_for("tracking_export", strategy_key, seed, allocation)
         dataset = sample_dataset(
             sample, "audit_sample", sample_python_code("tracking_export", strategy_key, BUDGET, seed, allocation)
         )
@@ -724,7 +742,7 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         round4_strategy = round4_choice.get("strategy", "convenience")
         round4_allocation = collected.get("round4_allocation")
         round4_seed = STRATIFIED_SEED if round4_strategy == "stratified" else ROUND4_SRS_SEED
-        stratified_sample = _draw_for("tracking_export", round4_strategy, round4_seed, round4_allocation)
+        stratified_sample, _frame = _draw_for("tracking_export", round4_strategy, round4_seed, round4_allocation)
         export_frame = frame_for(population, "tracking_export")
 
         def on_complete(engaged, metric_key, interpretation_key):
@@ -778,15 +796,26 @@ def build_lesson_five_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         round1_strategy = round1_choice.get("strategy", "")
         round4_strategy = round4_choice.get("strategy", "")
 
+        round1_availability = region_availability(frame_for(population, round1_frame)) if round1_frame else {}
+        round4_availability = region_availability(frame_for(population, "tracking_export"))
+
         return LessonFiveResult(
             round1_frame=round1_frame,
             round1_strategy=round1_strategy,
             round4_strategy=round4_strategy,
             prediction1=collected.get("prediction1", ""),
             prediction2=collected.get("prediction2", ""),
+            reveal1_interpretation=collected.get("reveal1_interpretation", ""),
+            reveal2_interpretation=collected.get("reveal2_interpretation", ""),
+            reveal3_interpretation=collected.get("reveal3_interpretation", ""),
+            reveal4_interpretation=collected.get("reveal4_interpretation", ""),
             decision=decision,
-            round1_quality=round_quality(round1_frame, round1_strategy),
-            round4_quality=round_quality("tracking_export", round4_strategy),
+            round1_quality=round_quality(
+                round1_frame, round1_strategy, collected.get("round1_allocation"), round1_availability
+            ),
+            round4_quality=round_quality(
+                "tracking_export", round4_strategy, collected.get("round4_allocation"), round4_availability
+            ),
             critical_evidence_present=_critical_evidence_present(selected_evidence_ids),
             mastery_engaged=collected.get("mastery_engaged", False),
             mastery_metric=collected.get("mastery_metric") or "",

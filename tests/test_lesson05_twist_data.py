@@ -4,6 +4,7 @@ from data_science_arcade.lessons.l05_sampling_mission.twist_data import (
     TOTAL_POPULATION,
     TOTAL_PROBLEMS,
     TRUE_PROBLEM_RATE,
+    _interleaved_outcomes,
     draw_sample,
     estimated_problem_rate,
     frame_for,
@@ -168,3 +169,76 @@ def test_sample_dataset_wraps_a_drawn_sample_without_a_schema_mismatch():
 
     assert len(dataset.frame) == 80
     assert dataset.python_mirror() == "sample = frame.sample(n=80, random_state=1)"
+
+
+# --- Follow-up: the weighted, CarrierCo-scoped estimator (P0) -------------
+
+
+def test_interleaved_outcomes_produces_exactly_the_requested_counts():
+    for problem_count, ok_count in ((40, 360), (28, 52), (0, 10), (10, 0), (1, 1), (3, 7)):
+        outcomes = _interleaved_outcomes(problem_count, ok_count)
+        assert len(outcomes) == problem_count + ok_count
+        assert sum(outcomes) == problem_count
+
+
+def test_interleaved_outcomes_spreads_problems_instead_of_grouping_them():
+    # Metro's own real shape (40 problem / 360 ok, an exact 1-in-10 ratio) -
+    # every contiguous run of 10 should contain exactly 1 problem, not all
+    # 40 problems bunched at the front.
+    outcomes = _interleaved_outcomes(40, 360)
+    for start in range(0, 400, 10):
+        assert sum(outcomes[start : start + 10]) == 1
+
+
+def test_convenience_on_tracking_export_reflects_metros_true_rate_not_an_artifact():
+    # Regression: before the row-interleaving fix, "first 80 rows" grabbed
+    # every one of Metro's 40 real problem rows plus only 40 of its 360 ok
+    # rows (rows were generated problem-block-then-ok-block), giving a
+    # wildly wrong 50% instead of Metro's real 10%.
+    frame = frame_for(_population(), "tracking_export")
+    sample = draw_sample(frame, "convenience", budget=80, costed=True)
+
+    assert set(sample["region"].unique()) == {"metro"}
+    assert estimated_problem_rate(sample) == 0.10
+
+
+def test_estimated_problem_rate_excludes_rural_from_the_headline_number():
+    population = _population()
+    frame = frame_for(population, "tracking_export")
+    sample = draw_sample(frame, "simple_random", budget=80, costed=True, seed=29)  # has 4 real rural rows
+    assert int((sample["region"] == "rural").sum()) == 4
+
+    carrierco_only = sample[sample["region"] != "rural"]
+    assert estimated_problem_rate(sample) == carrierco_only["had_problem"].mean()
+
+
+def test_stratified_estimate_is_weighted_by_frame_share_not_by_how_much_was_drawn():
+    # The P0: a plain sample.mean() lets whichever CarrierCo region the
+    # student chose to over-allocate dominate the headline number by
+    # however much of it they drew, not by its real frame share. Coastal
+    # is deliberately over-allocated here (55 of 65 CarrierCo slots, vs a
+    # real ~20% frame share) - the weighted estimate must correct back
+    # toward the true CarrierCo rate, not follow Coastal's own higher rate.
+    population = _population()
+    frame = frame_for(population, "tracking_export")
+    true_carrierco_rate = population[population["region"] != "rural"]["had_problem"].mean()
+    allocation = {"metro": 5, "suburban": 5, "coastal": 55, "rural": 15}
+    sample = draw_sample(frame, "stratified", budget=80, costed=True, seed=1, allocation=allocation)
+
+    carrierco_sample = sample[sample["region"] != "rural"]
+    plain_mean = carrierco_sample["had_problem"].mean()
+    weighted = estimated_problem_rate(sample, frame=frame)
+
+    assert abs(weighted - true_carrierco_rate) < abs(plain_mean - true_carrierco_rate)
+
+
+def test_stratified_estimate_without_a_frame_argument_falls_back_to_plain_mean():
+    # A caller that forgets to pass `frame` for a stratified draw gets the
+    # old (wrong-for-uneven-allocations) behavior, not a crash - documented
+    # here so the fallback is a deliberate, tested choice.
+    frame = frame_for(_population(), "tracking_export")
+    allocation = {"metro": 5, "suburban": 5, "coastal": 55, "rural": 15}
+    sample = draw_sample(frame, "stratified", budget=80, costed=True, seed=1, allocation=allocation)
+
+    carrierco_sample = sample[sample["region"] != "rural"]
+    assert estimated_problem_rate(sample) == carrierco_sample["had_problem"].mean()
