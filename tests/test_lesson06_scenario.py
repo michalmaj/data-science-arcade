@@ -7,17 +7,55 @@ import pygame
 import pytest
 
 from data_science_arcade.app.game import App
-from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPAIR_ISSUES
-from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION_FIELDS, build_lesson_six_runner
-from data_science_arcade.lessons.l06_schema_repair_shop.scoring import LessonSixResult
+from data_science_arcade.lessons.framework.definition import ScoreDimension
+from data_science_arcade.lessons.l06_schema_repair_shop.definition import LESSON_06
+from data_science_arcade.lessons.l06_schema_repair_shop.scenario import (
+    DELIVERED_AT_CONTRACT_FIELD,
+    DURATION_CONTRACT_FIELD,
+    KPI_RESULT_FIELD,
+    MASTERY_FIELD,
+    READINESS_FIELD,
+    REMAINING_AMBIGUITY_FIELD,
+    REQUIRED_CHANGE_FIELD,
+    SAFE_COLUMNS_FIELD,
+    SAFE_USE_FIELD,
+    SHIPMENT_ID_CONTRACT_FIELD,
+    _OfferThenTaskScene,
+    _SequenceScene,
+    build_lesson_six_runner,
+)
+from data_science_arcade.lessons.l06_schema_repair_shop.scoring import (
+    LessonSixResult,
+    _mastery_succeeded,
+    score_lesson_six,
+)
+from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND1_ISSUES, ROUND2_ISSUES
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
+from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
+from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
-from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
+from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
 
 from lesson_test_helpers import click_through_mission_briefing
 
-CORRECT_RESOLUTION = {issue.column: issue.options[0].key for issue in REPAIR_ISSUES}
+GOOD_CONTRACT_ROUND1 = {"shipment_id_contract": "identifier", "delivered_at_contract": "timestamp"}
+GOOD_CONTRACT_ROUND2 = {"duration_contract": "per_store_unit_drift"}
+GOOD_RESOLUTION = {"shipment_id": "cast_to_text", "delivered_at": "coerce_keep_nat", "duration_minutes": "fix_store_d_only"}
+GOOD_DECISION = {
+    "readiness": "conditionally_ready",
+    "kpi_result": "corrected_12",
+    "remaining_ambiguity": "malformed_rows_pattern",
+    "safe_use": "this_month_sla",
+    "required_change": "update_contract_and_validate",
+}
+DECISION_FIELDS_IN_ORDER = (
+    READINESS_FIELD,
+    KPI_RESULT_FIELD,
+    REMAINING_AMBIGUITY_FIELD,
+    SAFE_USE_FIELD,
+    REQUIRED_CHANGE_FIELD,
+)
 
 
 def _init_app() -> App:
@@ -31,16 +69,25 @@ def _play_dialogue_to_the_end(scene) -> None:
         scene.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))
 
 
-def _repair_every_issue_correctly(scene: WorkbenchScene) -> None:
-    for _ in REPAIR_ISSUES:
-        # Any still-flagged cell button opens that column's picker; which
-        # issue it turns out to be doesn't matter here since every issue's
-        # own first option is the correct one.
-        flagged_cell = _first_flagged_cell_button(scene)
-        flagged_cell.on_activate()
-        assert scene.active_issue is not None
-        correct_key = scene.active_issue.options[0].key
-        scene.picker_buttons[correct_key].on_activate()
+def _option_index(field_or_options, option_key: str) -> int:
+    options = field_or_options.options if hasattr(field_or_options, "options") else field_or_options
+    return next(i for i, option in enumerate(options) if option.key == option_key)
+
+
+def _answer_inspection(scene: WorkbenchScene, option_key: str) -> None:
+    scene.inspection_buttons[option_key].on_activate()
+    scene.continue_button.on_activate()
+
+
+def _fill_single_select(scene: BriefBuilderScene, field, option_key: str) -> None:
+    scene.buttons.buttons[_option_index(field, option_key)].on_activate()
+    scene.next_button.on_activate()
+
+
+def _fill_multi_select(scene: BriefBuilderScene, field, option_keys) -> None:
+    for key in option_keys:
+        scene.buttons.buttons[_option_index(field, key)].on_activate()
+    scene.next_button.on_activate()
 
 
 def _first_flagged_cell_button(scene: WorkbenchScene):
@@ -52,64 +99,118 @@ def _first_flagged_cell_button(scene: WorkbenchScene):
     raise AssertionError("no flagged cell button found")
 
 
-def _fill_out_brief(scene, fields) -> None:
-    for _ in fields:
-        scene.buttons.buttons[0].on_activate()
+def _repair_issues(scene: WorkbenchScene, resolution: dict[str, str]) -> None:
+    for _ in scene.issues:
+        cell_button = _first_flagged_cell_button(scene)
+        cell_button.on_activate()
+        assert scene.active_issue is not None
+        option_key = resolution[scene.active_issue.column]
+        scene.picker_buttons[option_key].on_activate()
+
+
+def _play_comparison_reveal(scene: ComparisonRevealScene, interpret_key: str) -> None:
+    index = _option_index(scene.interpret_options, interpret_key)
+    scene.buttons.buttons[index].on_activate()
+    scene.continue_button.on_activate()
+
+
+def _play_decision_builder(scene: DecisionBuilderScene, *, decision_keys: dict[str, str]) -> None:
+    for step in scene._steps:
+        if step.key == "evidence":
+            evidence_ids = list(scene._evidence_toggle_buttons.keys())[: scene.evidence_field.max_count]
+            for item_id in evidence_ids:
+                scene._evidence_toggle_buttons[item_id].on_activate()
+        else:
+            scene.buttons.buttons[_option_index(step, decision_keys[step.key])].on_activate()
         scene.next_button.on_activate()
 
 
-def test_the_full_lesson_plays_through_all_eight_stages_to_a_result():
+def _play_lesson_to_feedback(
+    app,
+    *,
+    safe_columns=("item_count",),
+    inspection_option="dtypes_are_a_starting_point",
+    contract_round1=GOOD_CONTRACT_ROUND1,
+    resolution_round1=None,
+    reveal1_key="worth_checking",
+    contract_round2=GOOD_CONTRACT_ROUND2,
+    resolution_round2=None,
+    reveal2_key="unit_drift",
+    decision=GOOD_DECISION,
+    mastery_engage: bool = False,
+    mastery_selection=("store_id", "revenue"),
+) -> LessonFeedbackScene:
+    resolution_round1 = resolution_round1 or {"shipment_id": GOOD_RESOLUTION["shipment_id"], "delivered_at": GOOD_RESOLUTION["delivered_at"]}
+    resolution_round2 = resolution_round2 or {"duration_minutes": GOOD_RESOLUTION["duration_minutes"]}
+
+    assert isinstance(app.scenes.current.inner, DialogueScene)
+    _play_dialogue_to_the_end(app.scenes.current)  # briefing
+
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # raw inspection
+    _answer_inspection(app.scenes.current.inner, inspection_option)
+
+    assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # safe columns prediction
+    _fill_multi_select(app.scenes.current.inner, SAFE_COLUMNS_FIELD, safe_columns)
+
+    assert isinstance(app.scenes.current.inner, DialogueScene)  # first KPI attempt
+    _play_dialogue_to_the_end(app.scenes.current)
+
+    assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # contract builder round 1
+    scene = app.scenes.current.inner
+    _fill_single_select(scene, SHIPMENT_ID_CONTRACT_FIELD, contract_round1["shipment_id_contract"])
+    _fill_single_select(app.scenes.current.inner, DELIVERED_AT_CONTRACT_FIELD, contract_round1["delivered_at_contract"])
+
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair round 1
+    _repair_issues(app.scenes.current.inner, resolution_round1)
+    app.scenes.current.continue_button.on_activate()
+
+    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # kpi reveal 1
+    _play_comparison_reveal(app.scenes.current.inner, reveal1_key)
+
+    assert isinstance(app.scenes.current.inner, DialogueScene)  # root cause pivot
+    _play_dialogue_to_the_end(app.scenes.current)
+
+    assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # contract builder round 2
+    _fill_single_select(app.scenes.current.inner, DURATION_CONTRACT_FIELD, contract_round2["duration_contract"])
+
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair round 2
+    _repair_issues(app.scenes.current.inner, resolution_round2)
+    app.scenes.current.continue_button.on_activate()
+
+    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # kpi reveal 2
+    _play_comparison_reveal(app.scenes.current.inner, reveal2_key)
+
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence review
+    app.scenes.current.continue_button.on_activate()
+
+    assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final decision
+    _play_decision_builder(app.scenes.current.inner, decision_keys=decision)
+
+    assert isinstance(app.scenes.current.inner, _OfferThenTaskScene)  # optional mastery
+    offer = app.scenes.current.inner
+    if mastery_engage:
+        offer.buttons.buttons[0].on_activate()  # Engage
+        assert isinstance(offer._active, _SequenceScene)
+        offer._active.continue_button.on_activate()  # inspect the mastery export
+        select_scene = offer._active._active
+        _fill_multi_select(select_scene, MASTERY_FIELD, mastery_selection)
+    else:
+        offer.buttons.buttons[1].on_activate()  # Skip
+
+    assert isinstance(app.scenes.current.inner, LessonFeedbackScene)
+    return app.scenes.current.inner
+
+
+def test_the_full_lesson_plays_through_all_sixteen_stages_to_a_result():
     app = _init_app()
     try:
         finished_results = []
-        runner, collected = build_lesson_six_runner(
-            app, on_finished=lambda result: finished_results.append(result)
-        )
+        runner, collected = build_lesson_six_runner(app, on_finished=lambda result: finished_results.append(result))
         runner.start()
         click_through_mission_briefing(app)
 
-        # Every stage is wrapped in Pausable (Escape opens the pause menu);
-        # .inner is the actual stage scene the factory returned.
-
-        assert isinstance(app.scenes.current.inner, DialogueScene)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)
-
-        assert isinstance(app.scenes.current.inner, DialogueScene)  # investigation
-        _play_dialogue_to_the_end(app.scenes.current)
-
-        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # guided
-        guided_scene = app.scenes.current.inner
-        assert guided_scene.guided is True
-        _repair_every_issue_correctly(guided_scene)
-        assert len(guided_scene.context.actions) == len(REPAIR_ISSUES)
-        assert len(guided_scene.context.evidence) == len(REPAIR_ISSUES)
-        app.scenes.current.continue_button.on_activate()
-
-        assert isinstance(app.scenes.current.inner, DialogueScene)  # independent intro
-        _play_dialogue_to_the_end(app.scenes.current)
-
-        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # independent
-        independent_scene = app.scenes.current.inner
-        assert independent_scene.guided is False
-        # Persistence proof: the independent round's context already holds
-        # the guided round's actions/evidence before the player has done
-        # anything independently - same shared LessonContext, not a fresh
-        # one per stage.
-        assert independent_scene.context is guided_scene.context
-        assert len(independent_scene.context.actions) == len(REPAIR_ISSUES)
-        _repair_every_issue_correctly(independent_scene)
-        # Dedup proof: both rounds resolved every issue with the same
-        # (correct, options[0]) pick, so the shared context must not have
-        # doubled - same count as after the guided round alone.
-        assert len(independent_scene.context.actions) == len(REPAIR_ISSUES)
-        assert len(independent_scene.context.evidence) == len(REPAIR_ISSUES)
-        app.scenes.current.continue_button.on_activate()
-
-        assert isinstance(app.scenes.current.inner, TwistRevealScene)
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))
-
-        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # decision
-        _fill_out_brief(app.scenes.current, DECISION_FIELDS)
+        _play_lesson_to_feedback(app, mastery_engage=True)
+        app.scenes.current.on_complete()  # feedback -> debrief
 
         assert isinstance(app.scenes.current.inner, DialogueScene)  # debrief
         _play_dialogue_to_the_end(app.scenes.current)
@@ -118,50 +219,162 @@ def test_the_full_lesson_plays_through_all_eight_stages_to_a_result():
         result = finished_results[0]
         assert isinstance(result, LessonSixResult)
         assert result.completed_thoughtfully() is True
-        assert result.guided_resolution == CORRECT_RESOLUTION
-        assert result.independent_resolution == CORRECT_RESOLUTION
-        assert set(result.decision_brief) == {field.key for field in DECISION_FIELDS}
-        assert collected["result"] is result
+        assert result.round1_resolution == {"shipment_id": "cast_to_text", "delivered_at": "coerce_keep_nat"}
+        assert result.round2_resolution == {"duration_minutes": "fix_store_d_only"}
+        assert result.malformed_count_reported == 2
+        assert set(result.decision) == {field.key for field in DECISION_FIELDS_IN_ORDER} | {"evidence"}
+        assert result.mastery_engaged is True
+        assert result.mastery_selection == frozenset({"store_id", "revenue"})
+        assert collected is not None  # the same dict passed to LessonRunner throughout
     finally:
         pygame.quit()
 
 
-@pytest.mark.parametrize("field", list(DECISION_FIELDS))
-def test_every_decision_field_has_at_least_two_options(field):
-    assert len(field.options) >= 2
+def test_a_playthrough_that_skips_mastery_still_completes():
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_six_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_lesson_to_feedback(app, mastery_engage=False)
+        app.scenes.current.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.mastery_engaged is False
+        assert result.mastery_selection == frozenset()
+    finally:
+        pygame.quit()
 
 
 def test_analytical_context_survives_a_checkpoint_new_app_and_resume():
-    # Real cross-process resume, not just a second LessonRunner against the
-    # same in-memory App: a fresh App() picks up whatever the redirected
-    # DEFAULT_SAVE_PATH holds on disk (tests/conftest.py's autouse fixture
-    # points it at one tmp_path for this whole test), matching how PR A's
-    # own manual end-to-end verification simulated a real relaunch.
     app1 = _init_app()
     try:
         runner1, _ = build_lesson_six_runner(app1, on_finished=lambda result: None)
         runner1.start()
         click_through_mission_briefing(app1)
         _play_dialogue_to_the_end(app1.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app1.scenes.current)  # investigation
+        _answer_inspection(app1.scenes.current.inner, "dtypes_are_a_starting_point")  # raw inspection
+        _fill_multi_select(app1.scenes.current.inner, SAFE_COLUMNS_FIELD, ("item_count",))  # prediction
+        _play_dialogue_to_the_end(app1.scenes.current)  # first attempt
+        scene = app1.scenes.current.inner
+        _fill_single_select(scene, SHIPMENT_ID_CONTRACT_FIELD, "identifier")
+        _fill_single_select(app1.scenes.current.inner, DELIVERED_AT_CONTRACT_FIELD, "timestamp")
 
-        assert isinstance(app1.scenes.current.inner, WorkbenchScene)  # guided
-        _repair_every_issue_correctly(app1.scenes.current)
+        assert isinstance(app1.scenes.current.inner, WorkbenchScene)  # repair round 1
+        _repair_issues(app1.scenes.current.inner, {"shipment_id": "cast_to_text", "delivered_at": "coerce_keep_nat"})
         app1.scenes.current.continue_button.on_activate()  # advances + checkpoints; quit right here
     finally:
         pygame.quit()
 
-    app2 = _init_app()  # a brand new App(), same on-disk save - simulates relaunching
+    app2 = _init_app()
     try:
         runner2, _ = build_lesson_six_runner(app2, on_finished=lambda result: None)
-        runner2.start()  # resumes straight into independent_intro, skipping the briefing
+        runner2.start()  # resumes straight into kpi_reveal1
 
-        assert isinstance(app2.scenes.current.inner, DialogueScene)  # independent intro
-        _play_dialogue_to_the_end(app2.scenes.current)
-
-        assert isinstance(app2.scenes.current.inner, WorkbenchScene)  # independent
+        assert isinstance(app2.scenes.current.inner, ComparisonRevealScene)
         resumed_context = app2.scenes.current.inner.context
-        assert len(resumed_context.actions) == len(REPAIR_ISSUES)
-        assert len(resumed_context.evidence) == len(REPAIR_ISSUES)
+        assert len(resumed_context.actions) == 2  # both round-1 issues' evidence already recorded
+        assert len(resumed_context.evidence) == 2
     finally:
         pygame.quit()
+
+
+@pytest.mark.parametrize("field", [*DECISION_FIELDS_IN_ORDER, SAFE_COLUMNS_FIELD, SHIPMENT_ID_CONTRACT_FIELD, DELIVERED_AT_CONTRACT_FIELD, DURATION_CONTRACT_FIELD, MASTERY_FIELD])
+def test_every_field_has_at_least_three_options(field):
+    assert len(field.options) >= 3
+
+
+# --- Scoring, exercised directly against hand-built results ---------------
+
+
+def _result(**overrides) -> LessonSixResult:
+    base = dict(
+        safe_columns=frozenset({"item_count"}),
+        shipment_id_contract="identifier",
+        delivered_at_contract="timestamp",
+        duration_contract="per_store_unit_drift",
+        round1_resolution={"shipment_id": "cast_to_text", "delivered_at": "coerce_keep_nat"},
+        round2_resolution={"duration_minutes": "fix_store_d_only"},
+        malformed_count_reported=2,
+        decision=dict(GOOD_DECISION, evidence=("e1", "e2")),
+        critical_evidence_present=(
+            "issue.shipment_id.evidence",
+            "issue.delivered_at.evidence",
+            "reveal2.corrected_label",
+        ),
+    )
+    base.update(overrides)
+    return LessonSixResult(**base)
+
+
+def test_data_quality_rewards_all_four_correct_declarations():
+    good = score_lesson_six(_result(), LESSON_06, hints_used=0)
+    bad = score_lesson_six(
+        _result(safe_columns=frozenset(), shipment_id_contract="numeric_measure", duration_contract="uniform_minutes"),
+        LESSON_06,
+        hints_used=0,
+    )
+    assert good.dimension_scores[ScoreDimension.DATA_QUALITY] > bad.dimension_scores[ScoreDimension.DATA_QUALITY]
+    assert good.dimension_scores[ScoreDimension.DATA_QUALITY] == 100.0
+
+
+def test_data_quality_flags_duration_declared_uniform_after_the_twist():
+    result = score_lesson_six(_result(duration_contract="uniform_minutes"), LESSON_06, hints_used=0)
+    assert any(o.text_key == "lesson.l06.feedback.duration_declared_uniform_after_twist" for o in result.observations)
+
+
+def test_reproducibility_rewards_repairs_that_actually_generalize():
+    good = score_lesson_six(_result(), LESSON_06, hints_used=0)
+    over_corrected = score_lesson_six(
+        _result(round2_resolution={"duration_minutes": "fix_every_row"}), LESSON_06, hints_used=0
+    )
+    assert good.dimension_scores[ScoreDimension.REPRODUCIBILITY] > over_corrected.dimension_scores[ScoreDimension.REPRODUCIBILITY]
+
+
+def test_data_quality_and_reproducibility_are_independent_signals():
+    # Correct concept (Contract Builder), wrong execution (repair picker) -
+    # the two dimensions must actually diverge, not move together.
+    result = score_lesson_six(
+        _result(round2_resolution={"duration_minutes": "fix_every_row"}), LESSON_06, hints_used=0
+    )
+    assert result.dimension_scores[ScoreDimension.DATA_QUALITY] == 100.0
+    assert result.dimension_scores[ScoreDimension.REPRODUCIBILITY] < 100.0
+
+
+def test_evidence_rewards_citing_the_critical_facts():
+    good = score_lesson_six(_result(), LESSON_06, hints_used=0)
+    empty = score_lesson_six(_result(critical_evidence_present=()), LESSON_06, hints_used=0)
+    assert good.dimension_scores[ScoreDimension.EVIDENCE] > empty.dimension_scores[ScoreDimension.EVIDENCE]
+
+
+def test_reasoning_catches_reporting_the_naive_number():
+    good = score_lesson_six(_result(), LESSON_06, hints_used=0)
+    naive = score_lesson_six(
+        _result(decision=dict(GOOD_DECISION, kpi_result="naive_29", evidence=("e1", "e2"))), LESSON_06, hints_used=0
+    )
+    assert good.dimension_scores[ScoreDimension.REASONING] > naive.dimension_scores[ScoreDimension.REASONING]
+
+
+def test_reasoning_catches_readiness_contradicting_ambiguity():
+    result = score_lesson_six(
+        _result(decision=dict(GOOD_DECISION, readiness="ready", evidence=("e1", "e2"))), LESSON_06, hints_used=0
+    )
+    assert any(o.text_key == "lesson.l06.feedback.readiness_contradicts_ambiguity" for o in result.observations)
+
+
+def test_method_rewards_conditionally_ready_and_the_systemic_fix():
+    good = score_lesson_six(_result(), LESSON_06, hints_used=0)
+    weak = score_lesson_six(
+        _result(decision=dict(GOOD_DECISION, required_change="nothing_needed", evidence=("e1", "e2"))),
+        LESSON_06,
+        hints_used=0,
+    )
+    assert good.dimension_scores[ScoreDimension.METHOD] > weak.dimension_scores[ScoreDimension.METHOD]
+
+
+def test_mastery_requires_the_exact_correct_set_not_a_superset_or_subset():
+    assert _mastery_succeeded(_result(mastery_selection=frozenset({"store_id", "revenue"})))
+    assert not _mastery_succeeded(_result(mastery_selection=frozenset({"store_id", "revenue", "quantity"})))
+    assert not _mastery_succeeded(_result(mastery_selection=frozenset({"store_id"})))

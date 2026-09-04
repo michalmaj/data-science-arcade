@@ -1,4 +1,5 @@
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
+from data_science_arcade.lessons.l06_schema_repair_shop.scoring import score_lesson_six
 
 LESSON_06 = LessonDefinition(
     id="ds06_schema_repair_shop",
@@ -10,6 +11,17 @@ LESSON_06 = LessonDefinition(
         "lesson.l06.objective2",
         "lesson.l06.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.DATA_QUALITY, ScoreDimension.METHOD, ScoreDimension.REASONING),
-    estimated_minutes=15,
+    scoring_dimensions=(
+        ScoreDimension.DATA_QUALITY,
+        ScoreDimension.REPRODUCIBILITY,
+        ScoreDimension.EVIDENCE,
+        ScoreDimension.REASONING,
+        ScoreDimension.METHOD,
+    ),
+    # Honest per-stage estimate for the required path only (core path,
+    # matching every prior lesson's own convention of excluding the
+    # optional mastery act) - not reverse-engineered toward any target.
+    estimated_minutes=31,
+    related_handbook_entry_id="schema_is_a_contract",
+    scorer=score_lesson_six,
 )

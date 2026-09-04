@@ -38,9 +38,10 @@ class LessonDefinition:
     pass."""
     related_handbook_entry_id: str | None = None
     """When set, MissionBriefingScene shows an extra "Learn More" button
-    linking to this Handbook entry (handbook/registry.py). Only Lesson 01
-    sets this today - proof-of-concept, not a pattern the other 29 lessons
-    need to adopt."""
+    linking to this Handbook entry (handbook/registry.py). Lessons 01, 02,
+    and 06 set this today - a real, recurring pattern where a lesson's own
+    content genuinely needs the Handbook's deeper theory layer, not
+    something every lesson needs to adopt."""
     scorer: Callable[[object, "LessonDefinition", int], object] | None = None
     """A lesson-specific replacement for evaluation.py's default_scorer,
     same (result, definition, hints_used) -> LessonEvaluation shape -
