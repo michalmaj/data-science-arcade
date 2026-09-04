@@ -28,7 +28,12 @@ from data_science_arcade.lessons.l05_sampling_mission.scenario import (
     _DesignThenAllocateScene,
     build_lesson_five_runner,
 )
-from data_science_arcade.lessons.l05_sampling_mission.scoring import LessonFiveResult, round_quality, score_lesson_five
+from data_science_arcade.lessons.l05_sampling_mission.scoring import (
+    LessonFiveResult,
+    _mastery_transfer_succeeded,
+    round_quality,
+    score_lesson_five,
+)
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene
@@ -388,6 +393,10 @@ def test_mastery_metric_and_interpret_options_are_both_real_choices():
 # --- Scoring, exercised directly against hand-built results ---------------
 
 
+GOOD_ALLOCATION = {"metro": 25, "suburban": 20, "coastal": 20, "rural": 15}
+GOOD_AVAILABILITY = {"metro": 400, "suburban": 300, "coastal": 180, "rural": 15}
+
+
 def _result(**overrides) -> LessonFiveResult:
     base = dict(
         round1_frame="tracking_export",
@@ -395,9 +404,13 @@ def _result(**overrides) -> LessonFiveResult:
         round4_strategy="stratified",
         prediction1="frame_coverage_gap",
         prediction2="frame_ceiling_remains",
+        reveal1_interpretation="frame_coverage_gap",
+        reveal2_interpretation="frame_coverage_gap",
+        reveal3_interpretation="consistent_with_chance",
+        reveal4_interpretation="frame_coverage_gap",
         decision=dict(GOOD_DECISION, evidence=("e1", "e2")),
-        round1_quality=round_quality("tracking_export", "stratified"),
-        round4_quality=round_quality("tracking_export", "stratified"),
+        round1_quality=round_quality("tracking_export", "stratified", GOOD_ALLOCATION, GOOD_AVAILABILITY),
+        round4_quality=round_quality("tracking_export", "stratified", GOOD_ALLOCATION, GOOD_AVAILABILITY),
         critical_evidence_present=("reveal1.rural_share_label", "reveal3.draw_a_label", "reveal3.draw_b_label"),
     )
     base.update(overrides)
@@ -433,17 +446,24 @@ def test_evidence_rewards_citing_the_critical_facts():
 
 def test_uncertainty_rewards_correct_predictions_and_penalizes_overreach():
     good = score_lesson_five(_result(), LESSON_05, hints_used=0)
+    # Wrong predictions alone cost little by design (see the prediction-vs-
+    # interpretation weighting tests below) - this scenario also breaks
+    # both post-reveal interpretations tied to Round 1, so the claim-scope
+    # overreach's own penalty isn't diluted by an otherwise-perfect,
+    # unrelated interpretation trail.
     overreach = score_lesson_five(
         _result(
             prediction1="looks_solid",
             prediction2="fully_fixed",
+            reveal1_interpretation="looks_solid",
+            reveal4_interpretation="looks_solid",
             decision=dict(GOOD_DECISION, claim_scope="whole_company_one_rate", evidence=("e1", "e2")),
         ),
         LESSON_05,
         hints_used=0,
     )
     assert good.dimension_scores[ScoreDimension.UNCERTAINTY] > overreach.dimension_scores[ScoreDimension.UNCERTAINTY]
-    assert overreach.dimension_scores[ScoreDimension.UNCERTAINTY] < 50.0
+    assert overreach.dimension_scores[ScoreDimension.UNCERTAINTY] <= 50.0
 
 
 def test_reasoning_catches_a_design_estimate_mismatch():
@@ -464,3 +484,131 @@ def test_reasoning_catches_a_scope_improvement_mismatch():
         hints_used=0,
     )
     assert good.dimension_scores[ScoreDimension.REASONING] > mismatch.dimension_scores[ScoreDimension.REASONING]
+
+
+# --- Follow-up P0s: allocation-aware quality, productive failure, and the
+# prediction/interpretation trajectory --------------------------------------
+
+
+def test_round_quality_ignores_a_degenerate_single_region_allocation():
+    # The P0: "stratified" used to score 1.0 regardless of the allocation -
+    # a student could dump the whole 80-unit budget into Metro alone and
+    # still get full marks just for having picked the "stratified" label.
+    degenerate = round_quality("tracking_export", "stratified", {"metro": 80, "suburban": 0, "coastal": 0, "rural": 0}, GOOD_AVAILABILITY)
+    good_random = round_quality("tracking_export", "simple_random")
+    assert degenerate < good_random
+
+
+def test_round_quality_rewards_stratified_only_when_the_allocation_actually_covers_rural():
+    well_allocated = round_quality("tracking_export", "stratified", GOOD_ALLOCATION, GOOD_AVAILABILITY)
+    good_random = round_quality("tracking_export", "simple_random")
+    assert well_allocated > good_random  # stratified earns its edge, doesn't just claim it
+
+
+def test_round_quality_never_lets_a_missing_allocation_default_to_full_marks():
+    assert round_quality("tracking_export", "stratified", None, GOOD_AVAILABILITY) < round_quality(
+        "tracking_export", "simple_random"
+    )
+
+
+def test_data_quality_is_dominated_by_round4_not_averaged_with_round1():
+    # The P0: DATA_QUALITY used to be a plain average, so a badly-biased
+    # Round 1 permanently capped the score even after a fully correct
+    # Round 4 revision - directly contradicting this lesson's own
+    # productive-failure requirement.
+    recovered = score_lesson_five(
+        _result(round1_frame="support_tickets", round1_strategy="convenience", round1_quality=0.0), LESSON_05, hints_used=0
+    )
+    never_struggled = score_lesson_five(_result(), LESSON_05, hints_used=0)
+    assert recovered.dimension_scores[ScoreDimension.DATA_QUALITY] >= 95.0
+    # The recovery bonus can even edge past a path that never had a bad
+    # Round 1 to recognize and fix in the first place.
+    assert recovered.dimension_scores[ScoreDimension.DATA_QUALITY] >= never_struggled.dimension_scores[ScoreDimension.DATA_QUALITY]
+
+
+def test_a_weak_round4_still_scores_low_even_with_a_strong_round1():
+    # The dominance is real, not "whichever round is better wins" - Round 4
+    # is the final, corrected design and is what actually counts.
+    regressed = score_lesson_five(
+        _result(round4_strategy="convenience", round4_quality=round_quality("tracking_export", "convenience")),
+        LESSON_05,
+        hints_used=0,
+    )
+    assert regressed.dimension_scores[ScoreDimension.DATA_QUALITY] < 80.0
+
+
+def test_uncertainty_weighs_interpretation_after_a_reveal_more_than_the_prediction_before_it():
+    # Prediction = prior (a guess before any evidence), interpretation =
+    # learning (a read of the real reveal that just happened) - a wrong
+    # prediction followed by correct interpretations throughout should
+    # score close to a student who simply guessed right from the start,
+    # not be penalized as if the wrong guess were the real failure.
+    guessed_right_from_the_start = score_lesson_five(_result(), LESSON_05, hints_used=0)
+    wrong_prediction_but_learned = score_lesson_five(
+        _result(prediction1="looks_solid"),  # every post-reveal interpretation still correct
+        LESSON_05,
+        hints_used=0,
+    )
+    never_learned = score_lesson_five(
+        _result(
+            prediction1="looks_solid",
+            reveal1_interpretation="looks_solid",
+            reveal2_interpretation="looks_solid",
+            reveal4_interpretation="looks_solid",
+        ),
+        LESSON_05,
+        hints_used=0,
+    )
+    guessed_right_score = guessed_right_from_the_start.dimension_scores[ScoreDimension.UNCERTAINTY]
+    learned_score = wrong_prediction_but_learned.dimension_scores[ScoreDimension.UNCERTAINTY]
+    never_learned_score = never_learned.dimension_scores[ScoreDimension.UNCERTAINTY]
+    assert learned_score > never_learned_score
+    assert (guessed_right_score - learned_score) < (learned_score - never_learned_score)
+
+
+def test_uncertainty_observation_names_a_recovered_wrong_prediction():
+    result = _result(prediction1="looks_solid", prediction2="fully_fixed")
+    evaluation = score_lesson_five(result, LESSON_05, hints_used=0)
+    assert any(o.text_key == "lesson.l05.feedback.learned_from_the_evidence" for o in evaluation.observations)
+
+
+# --- Mastery: metric + interpretation together, the same pattern already
+# fixed once in L03/L04 and now regression-tested here too --------------
+
+
+def test_mastery_transfer_requires_both_the_correct_metric_and_interpretation():
+    assert _mastery_transfer_succeeded(
+        _result(mastery_metric="tracking_export", mastery_interpretation="needs_own_stratification")
+    )
+
+
+def test_mastery_transfer_fails_with_the_right_interpretation_but_the_weaker_metric():
+    # The regression this test exists to prevent: an earlier version only
+    # checked mastery_interpretation, so picking the weaker metric
+    # (the Round 4 sample, ~10x fewer real Express rows than the full
+    # tracking export) still counted as a full success.
+    assert not _mastery_transfer_succeeded(
+        _result(mastery_metric="stratified_sample", mastery_interpretation="needs_own_stratification")
+    )
+
+
+def test_mastery_transfer_fails_with_the_right_metric_but_the_wrong_interpretation():
+    assert not _mastery_transfer_succeeded(
+        _result(mastery_metric="tracking_export", mastery_interpretation="trust_existing_sample")
+    )
+
+
+def test_mastery_observation_only_fires_when_transfer_actually_succeeded():
+    weaker_metric = score_lesson_five(
+        _result(mastery_engaged=True, mastery_metric="stratified_sample", mastery_interpretation="needs_own_stratification"),
+        LESSON_05,
+        hints_used=0,
+    )
+    assert not any(o.text_key == "lesson.l05.feedback.mastery_transfer_succeeded" for o in weaker_metric.observations)
+
+    real_success = score_lesson_five(
+        _result(mastery_engaged=True, mastery_metric="tracking_export", mastery_interpretation="needs_own_stratification"),
+        LESSON_05,
+        hints_used=0,
+    )
+    assert any(o.text_key == "lesson.l05.feedback.mastery_transfer_succeeded" for o in real_success.observations)
