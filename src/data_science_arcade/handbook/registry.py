@@ -61,11 +61,25 @@ TIME_WINDOWS_CHANGE_ANSWERS = HandbookEntry(
     related_entry_ids=("time_window", "timeframe"),
 )
 
+SCHEMA_IS_A_CONTRACT = HandbookEntry(
+    id="schema_is_a_contract",
+    title_key="handbook.article.schema_is_a_contract.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.schema_is_a_contract.body.1",
+        "handbook.article.schema_is_a_contract.body.2",
+        "handbook.article.schema_is_a_contract.body.3",
+        "handbook.article.schema_is_a_contract.body.4",
+        "handbook.article.schema_is_a_contract.body.5",
+    ),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
     METRICS_NEED_DEFINITIONS,
     TIME_WINDOWS_CHANGE_ANSWERS,
+    SCHEMA_IS_A_CONTRACT,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
