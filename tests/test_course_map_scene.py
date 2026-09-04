@@ -16,8 +16,9 @@ from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
 from data_science_arcade.lessons.l05_sampling_mission.scenario import _DesignThenAllocateScene as L05DesignThenAllocateScene
-from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPAIR_ISSUES as L06_REPAIR_ISSUES
-from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION_FIELDS as L06_DECISION_FIELDS
+from data_science_arcade.lessons.l06_schema_repair_shop.scenario import _OfferThenTaskScene as L06OfferThenTaskScene
+from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND1_ISSUES as L06_ROUND1_ISSUES
+from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND2_ISSUES as L06_ROUND2_ISSUES
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import DECISION_FIELDS as L07_DECISION_FIELDS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import STRATEGIES as L07_STRATEGIES
 from data_science_arcade.lessons.l08_duplicate_detective.candidate_pairs import CANDIDATE_PAIRS as L08_CANDIDATE_PAIRS
@@ -1078,8 +1079,8 @@ def _first_flagged_cell_button(scene: WorkbenchScene) -> Button:
     return next(b for b in scene.buttons.buttons if b.label not in chrome_labels and b.label not in tab_labels)
 
 
-def _repair_every_l06_issue_correctly(scene: WorkbenchScene) -> None:
-    for _ in L06_REPAIR_ISSUES:
+def _repair_every_issue_correctly(scene: WorkbenchScene, issues) -> None:
+    for _ in issues:
         flagged_cell = _first_flagged_cell_button(scene)
         flagged_cell.on_activate()
         correct_key = scene.active_issue.options[0].key
@@ -1087,6 +1088,11 @@ def _repair_every_l06_issue_correctly(scene: WorkbenchScene) -> None:
 
 
 def test_finishing_lesson_six_marks_it_complete_and_unlocks_lesson_seven():
+    """Picks index-0/first-real-option everywhere this smoke test can -
+    the exact correctness of each pick is its own separately-tested
+    behavior (see test_lesson06_scenario.py). This is a smoke test for the
+    real 16-stage flow finishing and unlocking Lesson 07, not a scoring
+    test."""
     app = App()
     app.init()
     try:
@@ -1097,14 +1103,59 @@ def test_finishing_lesson_six_marks_it_complete_and_unlocks_lesson_seven():
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _repair_every_l06_issue_correctly(app.scenes.current)  # guided workbench
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # raw_inspection
+        raw_inspection = app.scenes.current.inner
+        option_key = raw_inspection.inspection_prompt.options[0].key
+        raw_inspection.inspection_buttons[option_key].on_activate()
+        raw_inspection.continue_button.on_activate()
+
+        _fill_out(app.scenes.current, range(1))  # safe_columns_prediction
+
+        _play_dialogue_to_the_end(app.scenes.current)  # first_kpi_attempt
+
+        _fill_out(app.scenes.current, range(2))  # contract_builder_round1
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair_round1
+        _repair_every_issue_correctly(app.scenes.current.inner, L06_ROUND1_ISSUES)
         app.scenes.current.continue_button.on_activate()
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _repair_every_l06_issue_correctly(app.scenes.current)  # independent workbench
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # kpi_reveal1
+        _confirm_reveal(app.scenes.current.inner)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # root_cause_pivot
+
+        _fill_out(app.scenes.current, range(1))  # contract_builder_round2
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair_round2
+        _repair_every_issue_correctly(app.scenes.current.inner, L06_ROUND2_ISSUES)
         app.scenes.current.continue_button.on_activate()
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L06_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # kpi_reveal2
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for _ in range(2):  # readiness, kpi_result
+            decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+        evidence_ids = list(decision._evidence_toggle_buttons.keys())
+        decision._evidence_toggle_buttons[evidence_ids[0]].on_activate()
+        decision._evidence_toggle_buttons[evidence_ids[1]].on_activate()
+        decision.next_button.on_activate()
+        for _ in range(3):  # remaining_ambiguity, safe_use, required_change
+            decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, L06OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

@@ -81,8 +81,12 @@ from data_science_arcade.lessons.l05_sampling_mission.scenario import (
     MECHANISM_INTERPRET_OPTIONS as L05_MECHANISM_INTERPRET_OPTIONS,
     VARIABILITY_INTERPRET_OPTIONS as L05_VARIABILITY_INTERPRET_OPTIONS,
 )
-from data_science_arcade.lessons.l06_schema_repair_shop.sales_export import REPAIR_ISSUES as L06_REPAIR_ISSUES
 from data_science_arcade.lessons.l06_schema_repair_shop.scenario import DECISION_FIELDS as L06_DECISION_FIELDS
+from data_science_arcade.lessons.l06_schema_repair_shop.scenario import RAW_INSPECTION_PROMPT as L06_RAW_INSPECTION_PROMPT
+from data_science_arcade.lessons.l06_schema_repair_shop.scenario import REVEAL1_INTERPRET_OPTIONS as L06_REVEAL1_INTERPRET_OPTIONS
+from data_science_arcade.lessons.l06_schema_repair_shop.scenario import REVEAL2_INTERPRET_OPTIONS as L06_REVEAL2_INTERPRET_OPTIONS
+from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND1_ISSUES as L06_ROUND1_ISSUES
+from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND2_ISSUES as L06_ROUND2_ISSUES
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import DECISION_FIELDS as L07_DECISION_FIELDS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import STRATEGIES as L07_STRATEGIES
 from data_science_arcade.lessons.l08_duplicate_detective.scenario import DECISION_FIELDS as L08_DECISION_FIELDS
@@ -367,7 +371,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{request.key}.{option.key}", option.label_key, correlation_option_button_width))
 
     picker_option_button_width = PICKER_OPTION_SIZE[0] - BUTTON_PADDING
-    for issue in L06_REPAIR_ISSUES:
+    for issue in (*L06_ROUND1_ISSUES, *L06_ROUND2_ISSUES):
         for option in issue.options:
             checks.append((f"{issue.column}.{option.key}", option.label_key, picker_option_button_width))
     for option in L01_INSPECTION_PROMPT.options:
@@ -375,6 +379,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for prompt in (L02_BILLING_INSPECTION, L02_APP_LOG_INSPECTION, L02_MARKETING_INSPECTION):
         for option in prompt.options:
             checks.append((f"inspection.{option.key}", option.label_key, picker_option_button_width))
+    for option in L06_RAW_INSPECTION_PROMPT.options:
+        checks.append((f"l06_inspection.{option.key}", option.label_key, picker_option_button_width))
 
     comparison_reveal_option_button_width = COMPARISON_REVEAL_OPTION_SIZE[0] - BUTTON_PADDING
     for options in (
@@ -388,6 +394,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L04_EVENT_A_INTERPRET_OPTIONS,
         L05_MECHANISM_INTERPRET_OPTIONS,
         L05_VARIABILITY_INTERPRET_OPTIONS,
+        L06_REVEAL1_INTERPRET_OPTIONS,
+        L06_REVEAL2_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
