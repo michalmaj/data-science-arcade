@@ -83,13 +83,18 @@ class InterpretOption:
 
 
 class ComparisonRevealScene(Scene):
-    """Shows exactly two real, caller-computed values side by side, then
-    asks the student to interpret the gap before continuing. Deliberately
-    a fixed pair, not TwistRevealScene's variadic N-way comparisons - a
-    3rd or 4th value here would mean the student can no longer tell which
-    of several differences actually explains the gap. TwistRevealScene
-    itself (a lesson's own narrative twist reveal showing every gathered
-    number together at once) is untouched by this scene.
+    """Shows a small set of real, caller-computed values side by side, then
+    asks the student to interpret them before continuing. `comparisons`
+    was a hardcoded 2-tuple through Lesson 06 - deliberately, since a 3rd
+    or 4th *competing explanation* would mean the student can no longer
+    tell which one actually explains the gap - widened to a variadic
+    tuple for Lesson 07's own sensitivity reveal, whose 3rd value (a
+    fixed target threshold) isn't a competing explanation the other two
+    are weighed against each other for, but a reference line they're both
+    judged against; two real values still explaining one real gap is the
+    common case this scene stays built for. TwistRevealScene itself (a
+    lesson's own narrative twist reveal showing every gathered number
+    together at once, with no interpret step) is untouched by this scene.
 
     Two real shapes of "why do these two values differ," both real uses
     today: a single-variable sensitivity check (one definition changed,
@@ -125,7 +130,7 @@ class ComparisonRevealScene(Scene):
         app,
         title_key: str,
         narrative_keys: tuple[str, ...],
-        comparisons: tuple[ComparisonValue, ComparisonValue],
+        comparisons: tuple[ComparisonValue, ...],
         interpret_prompt_key: str,
         interpret_options: tuple[InterpretOption, ...],
         on_complete: Callable[[str], None],
