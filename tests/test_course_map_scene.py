@@ -16,11 +16,12 @@ from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
 from data_science_arcade.lessons.l05_sampling_mission.scenario import _DesignThenAllocateScene as L05DesignThenAllocateScene
-from data_science_arcade.lessons.l06_schema_repair_shop.scenario import _OfferThenTaskScene as L06OfferThenTaskScene
+from data_science_arcade.ui.composite_scene import OfferThenTaskScene
 from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND1_ISSUES as L06_ROUND1_ISSUES
 from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND2_ISSUES as L06_ROUND2_ISSUES
-from data_science_arcade.lessons.l07_missing_data_clinic.scenario import DECISION_FIELDS as L07_DECISION_FIELDS
-from data_science_arcade.lessons.l07_missing_data_clinic.scenario import STRATEGIES as L07_STRATEGIES
+from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import ROUND1_ISSUES as L07_ROUND1_ISSUES
+from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import ROUND2_ISSUES as L07_ROUND2_ISSUES
+from data_science_arcade.ui.segment_slicer_scene import SegmentSlicerScene
 from data_science_arcade.lessons.l08_duplicate_detective.candidate_pairs import CANDIDATE_PAIRS as L08_CANDIDATE_PAIRS
 from data_science_arcade.lessons.l08_duplicate_detective.candidate_pairs import (
     CORRECT_DECISION_BY_PAIR as L08_CORRECT_DECISION_BY_PAIR,
@@ -1153,7 +1154,7 @@ def test_finishing_lesson_six_marks_it_complete_and_unlocks_lesson_seven():
             decision.buttons.buttons[0].on_activate()
             decision.next_button.on_activate()
 
-        assert isinstance(app.scenes.current.inner, L06OfferThenTaskScene)  # mastery_challenge - skipped
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
@@ -1168,13 +1169,18 @@ def test_finishing_lesson_six_marks_it_complete_and_unlocks_lesson_seven():
         pygame.quit()
 
 
-def _pick_the_first_l07_strategy(scene) -> None:
-    first_strategy_key = L07_STRATEGIES[0].key
-    scene.source_buttons[first_strategy_key].on_activate()
-    scene.confirm_button.on_activate()
+def _pick_first_segment_option_for_every_request(scene: SegmentSlicerScene) -> None:
+    for _ in scene.requests:
+        scene.buttons.buttons[0].on_activate()
+        scene.next_button.on_activate()
 
 
 def test_finishing_lesson_seven_marks_it_complete_and_unlocks_lesson_eight():
+    """Picks index-0/first-real-option everywhere this smoke test can -
+    the exact correctness of each pick is its own separately-tested
+    behavior (see test_lesson07_scenario.py). This is a smoke test for
+    the real 15-stage flow finishing and unlocking Lesson 08, not a
+    scoring test."""
     app = App()
     app.init()
     try:
@@ -1185,12 +1191,58 @@ def test_finishing_lesson_seven_marks_it_complete_and_unlocks_lesson_eight():
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _pick_the_first_l07_strategy(app.scenes.current)  # guided comparison
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _pick_the_first_l07_strategy(app.scenes.current)  # independent comparison
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L07_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # raw_inspection
+        raw_inspection = app.scenes.current.inner
+        option_key = raw_inspection.inspection_prompt.options[0].key
+        raw_inspection.inspection_buttons[option_key].on_activate()
+        raw_inspection.continue_button.on_activate()
+
+        _fill_out(app.scenes.current, range(2))  # contract_builder_round1
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair_round1
+        _repair_every_issue_correctly(app.scenes.current.inner, L07_ROUND1_ISSUES)
+        app.scenes.current.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # first_attempt
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, SegmentSlicerScene)  # missingness_investigation
+        _pick_first_segment_option_for_every_request(app.scenes.current.inner)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # root_cause_pivot
+
+        _fill_out(app.scenes.current, range(1))  # contract_builder_round2
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair_round2
+        _repair_every_issue_correctly(app.scenes.current.inner, L07_ROUND2_ISSUES)
+        app.scenes.current.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # sensitivity_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for _ in range(2):  # target_scope, missingness_diagnosis
+            decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+        evidence_ids = list(decision._evidence_toggle_buttons.keys())
+        decision._evidence_toggle_buttons[evidence_ids[0]].on_activate()
+        decision._evidence_toggle_buttons[evidence_ids[1]].on_activate()
+        decision.next_button.on_activate()
+        for _ in range(5):  # treatment, kpi_result, sensitivity, structural_treatment, required_action
+            decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
