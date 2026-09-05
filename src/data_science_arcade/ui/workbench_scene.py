@@ -91,6 +91,12 @@ class WorkbenchScene(Scene):
     dispatch is unchanged either way - a tab left out of `visible_tabs`
     just never gets a button to click into.
 
+    `initial_data_view`, when given, opens the DATA tab already showing
+    SCHEMA instead of TABLE - for a stage whose whole purpose is a real,
+    guaranteed look at a column's own schema/provenance note (e.g. before
+    asking the player to declare that column's contract), rather than
+    leaving it reachable-but-optional behind the default TABLE view.
+
     `inspection_prompt`, when given, is an ungraded micro-decision shown
     once, the first time the DATA tab opens with `issues=()` (no repair
     task active) - e.g. "what does one row represent here?" Continue stays
@@ -109,6 +115,7 @@ class WorkbenchScene(Scene):
         context: LessonContext | None = None,
         visible_tabs: tuple["WorkbenchTab", ...] = tuple(WorkbenchTab),
         inspection_prompt: InspectionPrompt | None = None,
+        initial_data_view: "DataView" = DataView.TABLE,
     ) -> None:
         super().__init__(app)
         self.dataset = dataset
@@ -120,7 +127,7 @@ class WorkbenchScene(Scene):
         self.inspection_prompt = inspection_prompt
         self._inspection_answered = False
         self.active_tab = WorkbenchTab.DATA
-        self.data_view = DataView.TABLE
+        self.data_view = initial_data_view
         self.resolution: RepairResolution = {}
         self.active_issue: RepairIssue | None = None
         self._rebuild_buttons()
@@ -256,10 +263,18 @@ class WorkbenchScene(Scene):
     def _make_choose(self, issue: RepairIssue, option_key: str) -> Callable[[], None]:
         def choose() -> None:
             option = next(o for o in issue.options if o.key == option_key)
+            # Per-option, not per-issue: this option's own real result
+            # dtype/description replaces only this one column's schema
+            # entry - a different option on the same issue (or a still-
+            # unresolved sibling column) is never touched as a side
+            # effect. See Schema.with_column's own docstring.
+            schema = self.dataset.schema.with_column(
+                issue.column, dtype=option.result_dtype, description_key=option.result_description_key
+            )
             self.dataset = self.dataset.then(
                 f"{issue.column}_{option.key}",
                 option.apply,
-                schema=issue.schema_after,
+                schema=schema,
             )
             # key=issue.column: guided_work and independent_challenge
             # deliberately resolve the *same* issues again - this makes a
