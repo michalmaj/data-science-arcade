@@ -74,12 +74,26 @@ SCHEMA_IS_A_CONTRACT = HandbookEntry(
     ),
 )
 
+MISSINGNESS_HAS_A_MECHANISM = HandbookEntry(
+    id="missingness_has_a_mechanism",
+    title_key="handbook.article.missingness_has_a_mechanism.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.missingness_has_a_mechanism.body.1",
+        "handbook.article.missingness_has_a_mechanism.body.2",
+        "handbook.article.missingness_has_a_mechanism.body.3",
+        "handbook.article.missingness_has_a_mechanism.body.4",
+        "handbook.article.missingness_has_a_mechanism.body.5",
+    ),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
     METRICS_NEED_DEFINITIONS,
     TIME_WINDOWS_CHANGE_ANSWERS,
     SCHEMA_IS_A_CONTRACT,
+    MISSINGNESS_HAS_A_MECHANISM,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
