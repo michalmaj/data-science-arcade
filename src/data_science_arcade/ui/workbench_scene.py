@@ -269,7 +269,10 @@ class WorkbenchScene(Scene):
             # unresolved sibling column) is never touched as a side
             # effect. See Schema.with_column's own docstring.
             schema = self.dataset.schema.with_column(
-                issue.column, dtype=option.result_dtype, description_key=option.result_description_key
+                issue.column,
+                dtype=option.result_dtype,
+                description_key=option.result_description_key,
+                nullable=option.result_nullable,
             )
             self.dataset = self.dataset.then(
                 f"{issue.column}_{option.key}",

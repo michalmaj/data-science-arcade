@@ -27,6 +27,14 @@ def test_with_column_replaces_only_the_named_columns_dtype_and_description():
     assert updated.columns[1] == schema.columns[1]  # untouched sibling column
 
 
+def test_with_column_can_flip_nullable_false_without_bool_default_masking_it():
+    schema = Schema(columns=(ColumnSchema("promo_code", "object", nullable=True),))
+
+    updated = schema.with_column("promo_code", nullable=False)
+
+    assert updated.columns[0].nullable is False
+
+
 def test_with_column_with_no_overrides_keeps_the_column_exactly_as_it_was():
     schema = Schema(columns=(ColumnSchema("customer_id", "int64", description_key="a"),))
 
