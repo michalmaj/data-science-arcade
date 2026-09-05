@@ -21,7 +21,10 @@ LESSON_06 = LessonDefinition(
     # Honest per-stage estimate for the required path only (core path,
     # matching every prior lesson's own convention of excluding the
     # optional mastery act) - not reverse-engineered toward any target.
-    estimated_minutes=31,
+    # +2 over the original estimate for the corrective follow-up's new
+    # duration_schema_check beat (a guaranteed real look at the migration
+    # note before declaring its contract).
+    estimated_minutes=33,
     related_handbook_entry_id="schema_is_a_contract",
     scorer=score_lesson_six,
 )

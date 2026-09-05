@@ -150,6 +150,54 @@ def test_choosing_a_picker_option_applies_it_and_resolves_the_issue():
         pygame.quit()
 
 
+def test_resolving_an_option_updates_only_that_columns_own_schema_entry():
+    # The real invariant a per-option schema update must hold: the
+    # displayed schema's physical dtype matches the real DataFrame after
+    # the choice, and a still-unresolved sibling column's own schema
+    # entry is never touched as a side effect of resolving this one.
+    app = _init_app()
+    try:
+        option = RepairOption(
+            "as_float",
+            "app.title",
+            lambda frame: frame.assign(id=frame["id"].astype("float64")),
+            result_dtype="float64",
+            result_description_key="common.back",
+        )
+        issues = (RepairIssue(column="id", prompt_key="app.title", options=(option,)),)
+        scene = WorkbenchScene(app, make_dataset(), issues, lambda resolution: None)
+        cell = next(b for b in scene.buttons.buttons if b.label in ("1", "2", "3"))
+        cell.on_activate()
+
+        scene.picker_buttons["as_float"].on_activate()
+
+        id_schema = next(c for c in scene.dataset.schema.columns if c.name == "id")
+        code_schema = next(c for c in scene.dataset.schema.columns if c.name == "code")
+        assert scene.dataset.frame["id"].dtype == "float64"
+        assert id_schema.dtype == "float64"
+        assert id_schema.description_key == "common.back"
+        assert code_schema.dtype == "object"  # untouched sibling column
+        assert code_schema.description_key is None  # untouched - SCHEMA never set one for "code"
+    finally:
+        pygame.quit()
+
+
+def test_an_option_with_no_result_dtype_or_description_leaves_the_schema_unchanged():
+    app = _init_app()
+    try:
+        scene = _make_scene(app)  # ISSUES' options set neither result_dtype nor result_description_key
+        flagged_cell = next(b for b in scene.buttons.buttons if b.label in ("a1", "A1"))
+        flagged_cell.on_activate()
+
+        scene.picker_buttons["upper"].on_activate()
+
+        code_schema = next(c for c in scene.dataset.schema.columns if c.name == "code")
+        assert code_schema.dtype == "object"
+        assert code_schema.description_key is None
+    finally:
+        pygame.quit()
+
+
 def test_a_wrong_choice_still_resolves_the_issue_non_punitively():
     app = _init_app()
     try:

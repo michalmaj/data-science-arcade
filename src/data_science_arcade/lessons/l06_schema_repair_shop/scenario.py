@@ -10,13 +10,15 @@ from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.l06_schema_repair_shop.definition import LESSON_06
 from data_science_arcade.lessons.l06_schema_repair_shop.scoring import CRITICAL_EVIDENCE_KEYS, LessonSixResult, score_lesson_six
 from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import (
+    CORRECT_REPAIR,
     ROUND1_ISSUES,
     ROUND2_ISSUES,
+    apply_round1,
+    apply_round2,
     breach_rate,
     breach_rate_python_code,
     generate_mastery_export,
     generate_shipments,
-    generate_shipments_after_round1,
     last_month_breach_rate,
     last_month_breach_rate_python_code,
     malformed_count,
@@ -31,10 +33,23 @@ from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene, EvidenceField
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text
-from data_science_arcade.ui.workbench_scene import WorkbenchScene, WorkbenchTab
+from data_science_arcade.ui.workbench_scene import DataView, WorkbenchScene, WorkbenchTab
 from data_science_arcade.workbench.context import DecisionState, LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
+
+
+def _format_rate(value: float) -> str:
+    # value != value is a real, deliberate NaN test (IEEE floats: NaN is
+    # the only value that never equals itself) - a badly chosen
+    # delivered_at repair can leave zero "this month" rows with any
+    # parseable timestamp at all, and breach_rate() returns NaN rather
+    # than crashing; this is what keeps that a real, readable "can't
+    # compute this yet" consequence on screen instead of a literal "nan%".
+    if value != value:
+        return "n/a"
+    return f"{value:.0%}"
+
 
 # --- The Ask ---------------------------------------------------------------
 
@@ -128,7 +143,8 @@ ROUND1_CONTRACT_TIERED_HINTS = {
 }
 
 # --- Contract Builder, round 2: duration_minutes's real unit, informed by
-# its own schema description (the migration note). ---
+# its own schema description (the migration note) - guaranteed visible via
+# duration_schema_check, not just reachable if the player happens to look. ---
 
 DURATION_CONTRACT_FIELD = BriefField(
     key="duration_contract",
@@ -173,6 +189,7 @@ KPI_RESULT_FIELD = BriefField(
     options=(
         BriefOption("naive_29", "lesson.l06.decision.kpi_result.option.naive_29"),
         BriefOption("corrected_12", "lesson.l06.decision.kpi_result.option.corrected_12"),
+        BriefOption("corrected_12_all_month", "lesson.l06.decision.kpi_result.option.corrected_12_all_month"),
         BriefOption("cannot_determine", "lesson.l06.decision.kpi_result.option.cannot_determine"),
         BriefOption("average_based", "lesson.l06.decision.kpi_result.option.average_based"),
     ),
@@ -366,12 +383,14 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     changes - never a bare "correct/incorrect" click. LessonContext is
     threaded through every analytical stage exactly like L01-L05.
 
-    Round 2's WorkbenchScene and both KPI reveals all regenerate a fresh
-    Dataset via twist_data's own generator functions rather than carrying
-    forward WorkbenchScene's own resulting Dataset, since on_complete only
-    ever returns the RepairResolution dict, not the dataset itself - the
-    same pattern the original L06 and L04's own evidence_review already
-    use."""
+    Every downstream stage reconstructs the real dataset via
+    twist_data.apply_round1/apply_round2, replaying the student's own
+    actual RepairResolution against the raw export - never a ground-truth
+    substitute for what they actually picked. Round 2's own WorkbenchScene
+    also re-offers any Round 1 issue that wasn't resolved correctly the
+    first time, alongside duration_minutes - a real second chance, taken
+    right after Reveal 1 showed that issue's own real consequence, not a
+    silent correction happening underneath the student."""
     collected: dict = {}
     context = LessonContext()
 
@@ -438,11 +457,12 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         return WorkbenchScene(app, generate_shipments(), ROUND1_ISSUES, on_complete, guided=True, context=context)
 
     def kpi_reveal1(advance):
-        dataset = generate_shipments_after_round1()
-        naive = breach_rate(dataset, corrected=False)
+        dataset = apply_round1(collected.get("round1_resolution", {}))
+        naive = breach_rate(dataset)
         baseline = last_month_breach_rate(dataset)
 
-        def on_complete(_interpretation):
+        def on_complete(interpretation):
+            collected["reveal1_interpretation"] = interpretation
             _sync_context_into_collected()
             advance()
 
@@ -451,9 +471,7 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l06.reveal1.title",
             narrative_keys=("dialogue.l06_reveal1.line1", "dialogue.l06_reveal1.line2"),
             comparisons=(
-                ComparisonValue(
-                    "lesson.l06.reveal1.naive_label", naive, python_code=breach_rate_python_code(corrected=False)
-                ),
+                ComparisonValue("lesson.l06.reveal1.naive_label", naive, python_code=breach_rate_python_code()),
                 ComparisonValue(
                     "lesson.l06.reveal1.last_month_label", baseline, python_code=last_month_breach_rate_python_code()
                 ),
@@ -462,12 +480,28 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             interpret_options=REVEAL1_INTERPRET_OPTIONS,
             on_complete=on_complete,
             context=context,
+            value_format=_format_rate,
         )
 
     def root_cause_pivot(advance):
         return DialogueScene(app, ROOT_CAUSE_PIVOT_DIALOGUE, on_complete=advance)
 
-    # --- Round 2: declare, then execute ---
+    # --- Round 2: a guaranteed real look at the migration note, declare,
+    # then execute (with a real second chance at any Round 1 miss) ---
+
+    def duration_schema_check(advance):
+        def on_complete(_resolution):
+            advance()
+
+        dataset = apply_round1(collected.get("round1_resolution", {}))
+        return WorkbenchScene(
+            app,
+            dataset,
+            issues=(),
+            on_complete=on_complete,
+            visible_tabs=(WorkbenchTab.DATA, WorkbenchTab.PYTHON),
+            initial_data_view=DataView.SCHEMA,
+        )
 
     def contract_builder_round2(advance):
         def on_complete(brief):
@@ -479,20 +513,44 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         )
 
     def repair_round2(advance):
+        round1_resolution = collected.get("round1_resolution", {})
+        revision_issues = tuple(
+            issue for issue in ROUND1_ISSUES if round1_resolution.get(issue.column) not in CORRECT_REPAIR[issue.column]
+        )
+
         def on_complete(resolution):
-            collected["round2_resolution"] = resolution
+            # Anything from a re-offered Round 1 issue (its column is
+            # already a key in round1_resolution, right or wrong) updates
+            # that column's own slot in place - a real, final correction,
+            # not a separate parallel record; duration_minutes (never a
+            # Round 1 key) always lands in round2_resolution.
+            updated_round1 = dict(round1_resolution)
+            round2_resolution = {}
+            for column, option_key in resolution.items():
+                if column in updated_round1:
+                    updated_round1[column] = option_key
+                else:
+                    round2_resolution[column] = option_key
+            collected["round1_resolution"] = updated_round1
+            collected["round2_resolution"] = round2_resolution
             _sync_context_into_collected()
             advance()
 
-        dataset = generate_shipments_after_round1()
-        return WorkbenchScene(app, dataset, ROUND2_ISSUES, on_complete, guided=True, context=context)
+        dataset = apply_round1(round1_resolution)
+        return WorkbenchScene(
+            app, dataset, (*revision_issues, *ROUND2_ISSUES), on_complete, guided=True, context=context
+        )
 
     def kpi_reveal2(advance):
-        dataset = generate_shipments_after_round1()
-        naive = breach_rate(dataset, corrected=False)
-        corrected = breach_rate(dataset, corrected=True)
+        round1_resolution = collected.get("round1_resolution", {})
+        round2_resolution = collected.get("round2_resolution", {})
+        before = apply_round1(round1_resolution)
+        after = apply_round2(round1_resolution, round2_resolution)
+        naive = breach_rate(before)
+        actual = breach_rate(after)
 
-        def on_complete(_interpretation):
+        def on_complete(interpretation):
+            collected["reveal2_interpretation"] = interpretation
             _sync_context_into_collected()
             advance()
 
@@ -501,25 +559,24 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l06.reveal2.title",
             narrative_keys=("dialogue.l06_reveal2.line1", "dialogue.l06_reveal2.line2"),
             comparisons=(
-                ComparisonValue(
-                    "lesson.l06.reveal2.naive_label", naive, python_code=breach_rate_python_code(corrected=False)
-                ),
+                ComparisonValue("lesson.l06.reveal2.naive_label", naive, python_code=breach_rate_python_code()),
                 ComparisonValue(
                     "lesson.l06.reveal2.corrected_label",
-                    corrected,
-                    python_code=breach_rate_python_code(corrected=True),
+                    actual,
+                    python_code=breach_rate_python_code(),
                 ),
             ),
             interpret_prompt_key="lesson.l06.reveal2.interpret_prompt",
             interpret_options=REVEAL2_INTERPRET_OPTIONS,
             on_complete=on_complete,
             context=context,
+            value_format=_format_rate,
         )
 
     # --- Evidence review ---
 
     def evidence_review(advance):
-        dataset = generate_shipments_after_round1()
+        dataset = apply_round2(collected.get("round1_resolution", {}), collected.get("round2_resolution", {}))
 
         def on_complete(_resolution):
             _sync_context_into_collected()
@@ -612,19 +669,22 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         round2_contract = collected.get("round2_contract", {})
         decision = collected.get("decision", {})
         selected_evidence_ids = set(decision.get("evidence", ()))
+        round1_resolution = collected.get("round1_resolution", {})
 
         return LessonSixResult(
             safe_columns=frozenset(collected.get("safe_columns", ())),
             shipment_id_contract=round1_contract.get("shipment_id_contract", ""),
             delivered_at_contract=round1_contract.get("delivered_at_contract", ""),
             duration_contract=round2_contract.get("duration_contract", ""),
-            round1_resolution=collected.get("round1_resolution", {}),
+            round1_resolution=round1_resolution,
             round2_resolution=collected.get("round2_resolution", {}),
-            malformed_count_reported=malformed_count(generate_shipments_after_round1()),
+            malformed_count_reported=malformed_count(apply_round1(round1_resolution)),
             decision=decision,
             critical_evidence_present=_critical_evidence_present(selected_evidence_ids),
             mastery_engaged=collected.get("mastery_engaged", False),
             mastery_selection=frozenset(collected.get("mastery_selection", ())),
+            reveal1_interpretation=collected.get("reveal1_interpretation", ""),
+            reveal2_interpretation=collected.get("reveal2_interpretation", ""),
         )
 
     def feedback(advance):
@@ -650,6 +710,7 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         repair_round1,
         kpi_reveal1,
         root_cause_pivot,
+        duration_schema_check,
         contract_builder_round2,
         repair_round2,
         kpi_reveal2,

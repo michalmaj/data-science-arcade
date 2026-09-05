@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass(frozen=True)
@@ -26,3 +26,24 @@ class Schema:
 
     def column_names(self) -> tuple[str, ...]:
         return tuple(column.name for column in self.columns)
+
+    def with_column(self, name: str, *, dtype: str | None = None, description_key: str | None = None) -> "Schema":
+        """Returns a new Schema with only the named column's dtype and/or
+        description_key replaced - every other column, resolved or not,
+        passes through completely untouched. This is what lets a repair
+        mechanic update one column's own schema metadata without ever
+        silently rewriting another, still-unresolved column's own entry
+        as a side effect (a real bug once one shared "fixed" Schema was
+        swapped in wholesale for an issue with several columns). `dtype`/
+        `description_key` left None keep that column's current value."""
+        columns = tuple(
+            replace(
+                column,
+                dtype=column.dtype if dtype is None else dtype,
+                description_key=column.description_key if description_key is None else description_key,
+            )
+            if column.name == name
+            else column
+            for column in self.columns
+        )
+        return Schema(columns=columns)

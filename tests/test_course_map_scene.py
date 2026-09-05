@@ -1091,7 +1091,7 @@ def test_finishing_lesson_six_marks_it_complete_and_unlocks_lesson_seven():
     """Picks index-0/first-real-option everywhere this smoke test can -
     the exact correctness of each pick is its own separately-tested
     behavior (see test_lesson06_scenario.py). This is a smoke test for the
-    real 16-stage flow finishing and unlocking Lesson 07, not a scoring
+    real 17-stage flow finishing and unlocking Lesson 07, not a scoring
     test."""
     app = App()
     app.init()
@@ -1124,6 +1124,9 @@ def test_finishing_lesson_six_marks_it_complete_and_unlocks_lesson_seven():
         _confirm_reveal(app.scenes.current.inner)
 
         _play_dialogue_to_the_end(app.scenes.current)  # root_cause_pivot
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # duration_schema_check
+        app.scenes.current.inner.continue_button.on_activate()
 
         _fill_out(app.scenes.current, range(1))  # contract_builder_round2
 

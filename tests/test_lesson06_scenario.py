@@ -20,6 +20,7 @@ from data_science_arcade.lessons.l06_schema_repair_shop.scenario import (
     SAFE_COLUMNS_FIELD,
     SAFE_USE_FIELD,
     SHIPMENT_ID_CONTRACT_FIELD,
+    _format_rate,
     _OfferThenTaskScene,
     _SequenceScene,
     build_lesson_six_runner,
@@ -170,6 +171,9 @@ def _play_lesson_to_feedback(
     assert isinstance(app.scenes.current.inner, DialogueScene)  # root cause pivot
     _play_dialogue_to_the_end(app.scenes.current)
 
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # duration schema check
+    app.scenes.current.continue_button.on_activate()
+
     assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # contract builder round 2
     _fill_single_select(app.scenes.current.inner, DURATION_CONTRACT_FIELD, contract_round2["duration_contract"])
 
@@ -201,7 +205,7 @@ def _play_lesson_to_feedback(
     return app.scenes.current.inner
 
 
-def test_the_full_lesson_plays_through_all_sixteen_stages_to_a_result():
+def test_the_full_lesson_plays_through_all_seventeen_stages_to_a_result():
     app = _init_app()
     try:
         finished_results = []
@@ -279,6 +283,66 @@ def test_analytical_context_survives_a_checkpoint_new_app_and_resume():
         assert len(resumed_context.evidence) == 2
     finally:
         pygame.quit()
+
+
+def test_a_round1_mistake_gets_a_real_second_chance_in_round2_and_the_final_result_reflects_the_fix():
+    # cast_category is a real wrong pick for shipment_id (see
+    # CORRECT_REPAIR) - Round 2's own WorkbenchScene must re-offer it
+    # alongside duration_minutes, and the corrected pick there must be
+    # what the final, checkpointed round1_resolution actually shows -
+    # never a silently-preserved first mistake.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_six_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+
+        _play_lesson_to_feedback(
+            app,
+            resolution_round1={"shipment_id": "cast_category", "delivered_at": "coerce_keep_nat"},
+            resolution_round2={"shipment_id": "cast_to_text", "duration_minutes": "fix_store_d_only"},
+        )
+        app.scenes.current.on_complete()  # feedback -> debrief
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.round1_resolution == {"shipment_id": "cast_to_text", "delivered_at": "coerce_keep_nat"}
+        assert result.round2_resolution == {"duration_minutes": "fix_store_d_only"}
+    finally:
+        pygame.quit()
+
+
+def test_a_round1_issue_resolved_correctly_the_first_time_is_not_re_offered():
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_six_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _answer_inspection(app.scenes.current.inner, "dtypes_are_a_starting_point")
+        _fill_multi_select(app.scenes.current.inner, SAFE_COLUMNS_FIELD, ("item_count",))
+        _play_dialogue_to_the_end(app.scenes.current)  # first attempt
+        scene = app.scenes.current.inner
+        _fill_single_select(scene, SHIPMENT_ID_CONTRACT_FIELD, "identifier")
+        _fill_single_select(app.scenes.current.inner, DELIVERED_AT_CONTRACT_FIELD, "timestamp")
+        _repair_issues(app.scenes.current.inner, GOOD_RESOLUTION)  # both correct the first time
+        app.scenes.current.continue_button.on_activate()
+        _play_comparison_reveal(app.scenes.current.inner, "worth_checking")
+        _play_dialogue_to_the_end(app.scenes.current)  # root cause pivot
+        app.scenes.current.continue_button.on_activate()  # duration schema check
+        _fill_single_select(app.scenes.current.inner, DURATION_CONTRACT_FIELD, "per_store_unit_drift")
+
+        repair_round2_scene = app.scenes.current.inner
+        assert isinstance(repair_round2_scene, WorkbenchScene)
+        assert [issue.column for issue in repair_round2_scene.issues] == ["duration_minutes"]
+    finally:
+        pygame.quit()
+
+
+def test_format_rate_handles_nan_without_crashing():
+    assert _format_rate(float("nan")) == "n/a"
+    assert _format_rate(0.294) == "29%"
 
 
 @pytest.mark.parametrize("field", [*DECISION_FIELDS_IN_ORDER, SAFE_COLUMNS_FIELD, SHIPMENT_ID_CONTRACT_FIELD, DELIVERED_AT_CONTRACT_FIELD, DURATION_CONTRACT_FIELD, MASTERY_FIELD])
@@ -378,3 +442,59 @@ def test_mastery_requires_the_exact_correct_set_not_a_superset_or_subset():
     assert _mastery_succeeded(_result(mastery_selection=frozenset({"store_id", "revenue"})))
     assert not _mastery_succeeded(_result(mastery_selection=frozenset({"store_id", "revenue", "quantity"})))
     assert not _mastery_succeeded(_result(mastery_selection=frozenset({"store_id"})))
+
+
+def test_data_quality_is_not_capped_by_a_wrong_early_safe_columns_guess():
+    # The safe-columns prediction is a prior, made before any real
+    # evidence - a wrong guess there must never permanently cap a
+    # student whose real, final contract declarations are all correct.
+    result = score_lesson_six(_result(safe_columns=frozenset()), LESSON_06, hints_used=0)
+    assert result.dimension_scores[ScoreDimension.DATA_QUALITY] == 100.0
+    assert any(o.text_key == "lesson.l06.feedback.contract_recovered_after_early_miss" for o in result.observations)
+
+
+def test_reproducibility_accepts_either_valid_shipment_id_representation():
+    # An identifier's own physical representation doesn't need to change
+    # just because its semantic type is "identifier" - keeping it int64
+    # is just as reproducibility-correct as casting it to text.
+    cast_to_text = score_lesson_six(_result(), LESSON_06, hints_used=0)
+    kept_int = score_lesson_six(
+        _result(round1_resolution={"shipment_id": "recast_int", "delivered_at": "coerce_keep_nat"}),
+        LESSON_06,
+        hints_used=0,
+    )
+    assert cast_to_text.dimension_scores[ScoreDimension.REPRODUCIBILITY] == 100.0
+    assert kept_int.dimension_scores[ScoreDimension.REPRODUCIBILITY] == 100.0
+
+
+def test_reasoning_catches_citing_malformed_pattern_when_the_pipeline_shows_zero():
+    # A repair that silently dropped the 2 malformed rows (coerce_then_drop)
+    # leaves nothing for "whether the pattern recurs" to have been noticed
+    # from - citing it anyway is a real, checkable incoherence.
+    result = score_lesson_six(_result(malformed_count_reported=0), LESSON_06, hints_used=0)
+    assert any(o.text_key == "lesson.l06.feedback.ambiguity_contradicts_own_pipeline" for o in result.observations)
+
+
+def test_reasoning_catches_overclaiming_exactness_for_the_whole_month():
+    result = score_lesson_six(
+        _result(decision=dict(GOOD_DECISION, kpi_result="corrected_12_all_month", evidence=("e1", "e2"))),
+        LESSON_06,
+        hints_used=0,
+    )
+    assert any(o.text_key == "lesson.l06.feedback.kpi_overclaimed_exactness" for o in result.observations)
+    good = score_lesson_six(_result(), LESSON_06, hints_used=0)
+    assert result.dimension_scores[ScoreDimension.REASONING] < good.dimension_scores[ScoreDimension.REASONING]
+
+
+def test_trajectory_feedback_notes_recovering_the_read_by_reveal_two():
+    result = score_lesson_six(
+        _result(reveal1_interpretation="ship_as_is", reveal2_interpretation="unit_drift"), LESSON_06, hints_used=0
+    )
+    assert any(o.text_key == "lesson.l06.feedback.recovered_the_read_by_reveal_two" for o in result.observations)
+
+    flagged_early = score_lesson_six(
+        _result(reveal1_interpretation="worth_checking", reveal2_interpretation="unit_drift"), LESSON_06, hints_used=0
+    )
+    assert not any(
+        o.text_key == "lesson.l06.feedback.recovered_the_read_by_reveal_two" for o in flagged_early.observations
+    )

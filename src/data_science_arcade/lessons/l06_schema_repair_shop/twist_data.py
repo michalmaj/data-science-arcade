@@ -2,7 +2,7 @@ import pandas as pd
 
 from data_science_arcade.data_engine.dataset import Dataset, PipelineStep
 from data_science_arcade.data_engine.schema import ColumnSchema, Schema
-from data_science_arcade.lessons.framework.repair import RepairIssue, RepairOption
+from data_science_arcade.lessons.framework.repair import RepairIssue, RepairOption, RepairResolution, apply_resolution
 
 # --- Hidden ground truth: 180 "this month" shipments across 4 stores,
 # plus 40 "last month" shipments that must be excluded by a real date
@@ -44,43 +44,6 @@ RAW_SCHEMA = Schema(
         ColumnSchema("store", "object"),
         ColumnSchema("delivered_at", "object", description_key="lesson.l06.schema.delivered_at.description"),
         ColumnSchema("duration_minutes", "float64", description_key="lesson.l06.schema.duration_minutes.description"),
-        ColumnSchema("item_count", "int64", description_key="lesson.l06.schema.item_count.description"),
-    )
-)
-
-# shipment_id and delivered_at are the two Round-1 issues, both fixed in the
-# same WorkbenchScene visit - both get this one, shared, fully-repaired
-# schema as their schema_after, so the schema tab is correct regardless of
-# which of the two the student resolves first (a single-issue schema_after
-# for either one alone would, for whichever issue resolves second, still
-# show the *other* one as unfixed even after it's genuinely fixed).
-ROUND1_FIXED_SCHEMA = Schema(
-    columns=(
-        ColumnSchema("shipment_id", "string", description_key="lesson.l06.schema.shipment_id.description_fixed"),
-        ColumnSchema("store", "object"),
-        ColumnSchema(
-            "delivered_at", "datetime64[ns]", description_key="lesson.l06.schema.delivered_at.description_fixed"
-        ),
-        ColumnSchema("duration_minutes", "float64", description_key="lesson.l06.schema.duration_minutes.description"),
-        ColumnSchema("item_count", "int64", description_key="lesson.l06.schema.item_count.description"),
-    )
-)
-
-# duration_minutes's own dtype never changes (float64 throughout) - only
-# its *values* change for Store D, and only its *description* needs to
-# change (the migration note is no longer relevant once fixed) - the same
-# "value/description change, no dtype change" shape the original L06's
-# own currency issue used.
-ROUND2_FIXED_SCHEMA = Schema(
-    columns=(
-        ColumnSchema("shipment_id", "string", description_key="lesson.l06.schema.shipment_id.description_fixed"),
-        ColumnSchema("store", "object"),
-        ColumnSchema(
-            "delivered_at", "datetime64[ns]", description_key="lesson.l06.schema.delivered_at.description_fixed"
-        ),
-        ColumnSchema(
-            "duration_minutes", "float64", description_key="lesson.l06.schema.duration_minutes.description_fixed"
-        ),
         ColumnSchema("item_count", "int64", description_key="lesson.l06.schema.item_count.description"),
     )
 )
@@ -146,29 +109,21 @@ def generate_shipments() -> Dataset:
     return Dataset(name="shipments", frame=frame, schema=RAW_SCHEMA, history=(step,))
 
 
-def generate_shipments_after_round1() -> Dataset:
-    """The same population, with Round 1's two fixes (shipment_id cast to
-    text, delivered_at parsed with malformed rows excluded and counted)
-    already baked in - regenerated fresh rather than carrying forward the
-    real WorkbenchScene's own resulting Dataset, since on_complete only
-    returns the RepairResolution dict, not the dataset itself. Matches
-    this project's own established pattern (the original L06's two rounds
-    each call generate_sales_export() fresh; L04's evidence_review
-    regenerates from an earlier declaration) - the correct fix always
-    applies regardless of what the student actually picked, the same way
-    L04's own Combined Workbench visit doesn't depend on an earlier
-    stage's real correctness either."""
-    frame = pd.DataFrame(_rows())
-    frame["shipment_id"] = frame["shipment_id"].astype("string")
-    frame["delivered_at"] = pd.to_datetime(frame["delivered_at"], errors="coerce")
-    step = PipelineStep(
-        "round1_repaired",
-        python_code=(
-            "shipments['shipment_id'] = shipments['shipment_id'].astype('string')\n"
-            "shipments['delivered_at'] = pd.to_datetime(shipments['delivered_at'], errors='coerce')"
-        ),
-    )
-    return Dataset(name="shipments", frame=frame, schema=ROUND1_FIXED_SCHEMA, history=(step,))
+def apply_round1(resolution: RepairResolution) -> Dataset:
+    """Replays whatever the student actually picked for shipment_id and
+    delivered_at against the real raw export - right or wrong. Every
+    downstream stage works from this, never from a ground-truth
+    substitute for what actually happened; an unresolved column (not yet
+    in `resolution`) is simply left as-is, matching apply_resolution's
+    own contract."""
+    return apply_resolution(generate_shipments(), ROUND1_ISSUES, resolution)
+
+
+def apply_round2(round1_resolution: RepairResolution, round2_resolution: RepairResolution) -> Dataset:
+    """Round 1's real result, with Round 2's real duration_minutes pick
+    replayed on top of it - the actual final dataset every KPI reveal
+    from Reveal 2 onward is computed against."""
+    return apply_resolution(apply_round1(round1_resolution), ROUND2_ISSUES, round2_resolution)
 
 
 def _this_month(frame: pd.DataFrame) -> pd.DataFrame:
@@ -176,25 +131,32 @@ def _this_month(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def malformed_count(dataset: Dataset) -> int:
-    """How many rows failed to parse as a real timestamp at all - a NaT
-    delivered_at can't itself be dated as "this month" or not, so this
-    counts every parse failure directly (all 2 of them are genuinely this
-    month's own shipments in this generator, not last-month noise)."""
+    """How many rows currently hold an unparseable (NaT) delivered_at -
+    computed on whatever the student's own delivered_at repair actually
+    produced, not assumed. The true 2 malformed rows only show up as 2
+    here if they were kept visible (coerce_keep_nat); a repair that
+    drops them instead removes any trace (0), and one that mismatches
+    the real format turns every row into NaT (very large) - both real,
+    honest consequences of that choice, not a fixed constant."""
     return int(dataset.frame["delivered_at"].isna().sum())
 
 
-def breach_rate(dataset: Dataset, corrected: bool) -> float:
-    """The one real KPI this lesson reports: the fraction of this month's
-    shipments whose delivery duration exceeded the 60-minute SLA.
-    `corrected=False` reads duration_minutes at face value (the naive,
-    plausible-but-wrong 29.4% - Store D's rows are all misread as
-    breaching); `corrected=True` first converts Store D's rows from
-    seconds to minutes (12.2%, the true rate)."""
+def breach_rate(dataset: Dataset) -> float:
+    """The one real KPI this lesson reports: the fraction of this
+    month's shipments whose delivery duration exceeded the 60-minute
+    SLA, read at face value from duration_minutes on whatever dataset is
+    passed in - never a separately-applied "correct" conversion. Before
+    duration_minutes is repaired this is the naive, plausible-but-wrong
+    reading (Store D's rows are all misread as breaching); after a real
+    repair has actually changed the underlying values, this reads
+    whatever that repair really produced, right or wrong. Returns NaN if
+    no row this month has a parseable timestamp at all (a real, honest
+    "can't compute this" consequence of a badly chosen delivered_at
+    repair, not a crash)."""
     frame = _this_month(dataset.frame)
-    duration = frame["duration_minutes"]
-    if corrected:
-        duration = duration.where(frame["store"] != "D", duration / 60)
-    return float((duration > SLA_MINUTES).mean())
+    if len(frame) == 0:
+        return float("nan")
+    return float((frame["duration_minutes"] > SLA_MINUTES).mean())
 
 
 def last_month_breach_rate(dataset: Dataset) -> float:
@@ -213,16 +175,14 @@ def last_month_breach_rate_python_code() -> str:
     return "last_month = shipments[shipments['delivered_at'].dt.strftime('%Y-%m') == '2026-08']\n(last_month['duration_minutes'] > 60).mean()"
 
 
-def breach_rate_python_code(corrected: bool) -> str:
-    if not corrected:
-        return (
-            "this_month = shipments[shipments['delivered_at'].dt.strftime('%Y-%m') == '2026-09']\n"
-            "(this_month['duration_minutes'] > 60).mean()"
-        )
+def breach_rate_python_code() -> str:
+    # The same one-liner regardless of which reveal shows it: any real
+    # duration_minutes repair already happened upstream (and is shown
+    # there, in the Workbench's own Python Mirror) - this just reads
+    # whatever the column currently holds, honestly, at either point.
     return (
         "this_month = shipments[shipments['delivered_at'].dt.strftime('%Y-%m') == '2026-09']\n"
-        "corrected = this_month['duration_minutes'].where(this_month['store'] != 'D', this_month['duration_minutes'] / 60)\n"
-        "(corrected > 60).mean()"
+        "(this_month['duration_minutes'] > 60).mean()"
     )
 
 
@@ -260,25 +220,33 @@ SHIPMENT_ID_ISSUE = RepairIssue(
     prompt_key="lesson.l06.issue.shipment_id.prompt",
     hint_key="lesson.l06.issue.shipment_id.hint",
     evidence_key="lesson.l06.issue.shipment_id.evidence",
-    schema_after=ROUND1_FIXED_SCHEMA,
     options=(
+        # An identifier can be validly kept numeric or cast to text - both
+        # protect it from being treated as a quantity by accident; only
+        # category (a poor fit for ~220 nearly-unique values) is the real
+        # wrong pick here. See CORRECT_REPAIR below.
         RepairOption(
             "cast_to_text",
             "lesson.l06.option.shipment_id.cast_to_text",
             _shipment_id_as_text,
             python_code="shipments['shipment_id'] = shipments['shipment_id'].astype('string')",
+            result_dtype="string",
+            result_description_key="lesson.l06.schema.shipment_id.description_fixed",
         ),
         RepairOption(
             "recast_int",
             "lesson.l06.option.shipment_id.recast_int",
             _shipment_id_recast_int,
             python_code="shipments['shipment_id'] = shipments['shipment_id'].astype('int64')",
+            result_dtype="int64",
+            result_description_key="lesson.l06.schema.shipment_id.description_fixed",
         ),
         RepairOption(
             "cast_category",
             "lesson.l06.option.shipment_id.cast_category",
             _shipment_id_as_category,
             python_code="shipments['shipment_id'] = shipments['shipment_id'].astype('category')",
+            result_dtype="category",
         ),
     ),
 )
@@ -288,13 +256,14 @@ DELIVERED_AT_ISSUE = RepairIssue(
     prompt_key="lesson.l06.issue.delivered_at.prompt",
     hint_key="lesson.l06.issue.delivered_at.hint",
     evidence_key="lesson.l06.issue.delivered_at.evidence",
-    schema_after=ROUND1_FIXED_SCHEMA,
     options=(
         RepairOption(
             "coerce_keep_nat",
             "lesson.l06.option.delivered_at.coerce_keep_nat",
             _delivered_at_coerce_keep_nat,
             python_code="shipments['delivered_at'] = pd.to_datetime(shipments['delivered_at'], errors='coerce')",
+            result_dtype="datetime64[ns]",
+            result_description_key="lesson.l06.schema.delivered_at.description_fixed",
         ),
         RepairOption(
             "coerce_then_drop",
@@ -304,12 +273,16 @@ DELIVERED_AT_ISSUE = RepairIssue(
                 "shipments['delivered_at'] = pd.to_datetime(shipments['delivered_at'], errors='coerce')\n"
                 "shipments = shipments.dropna(subset=['delivered_at'])"
             ),
+            result_dtype="datetime64[ns]",
+            result_description_key="lesson.l06.schema.delivered_at.description_fixed_dropped",
         ),
         RepairOption(
             "wrong_format",
             "lesson.l06.option.delivered_at.wrong_format",
             _delivered_at_wrong_format,
             python_code="shipments['delivered_at'] = pd.to_datetime(shipments['delivered_at'], format='%d-%m-%Y', errors='coerce')",
+            result_dtype="datetime64[ns]",
+            result_description_key="lesson.l06.schema.delivered_at.description_fixed_wrong_format",
         ),
     ),
 )
@@ -338,30 +311,51 @@ DURATION_ISSUE = RepairIssue(
     prompt_key="lesson.l06.issue.duration_minutes.prompt",
     hint_key="lesson.l06.issue.duration_minutes.hint",
     evidence_key="lesson.l06.issue.duration_minutes.evidence",
-    schema_after=ROUND2_FIXED_SCHEMA,
     options=(
         RepairOption(
             "fix_store_d_only",
             "lesson.l06.option.duration_minutes.fix_store_d_only",
             _duration_fix_store_d_only,
             python_code="shipments.loc[shipments['store'] == 'D', 'duration_minutes'] /= 60",
+            result_description_key="lesson.l06.schema.duration_minutes.description_fixed",
         ),
         RepairOption(
             "fix_every_row",
             "lesson.l06.option.duration_minutes.fix_every_row",
             _duration_fix_every_row,
             python_code="shipments['duration_minutes'] /= 60",
+            result_description_key="lesson.l06.schema.duration_minutes.description_fixed_every_row",
         ),
         RepairOption(
             "recast_float",
             "lesson.l06.option.duration_minutes.recast_float",
             _duration_recast_float,
             python_code="shipments['duration_minutes'] = shipments['duration_minutes'].astype('float64')",
+            # No result_description_key: this option is a real no-op (the
+            # column was already float64), so nothing about the migration
+            # note has actually stopped being true - flipping it to the
+            # "fixed" description here would claim a fix that never
+            # happened.
         ),
     ),
 )
 
 ROUND2_ISSUES: tuple[RepairIssue, ...] = (DURATION_ISSUE,)
+
+CORRECT_REPAIR: dict[str, frozenset[str]] = {
+    "shipment_id": frozenset({"cast_to_text", "recast_int"}),
+    "delivered_at": frozenset({"coerce_keep_nat"}),
+    "duration_minutes": frozenset({"fix_store_d_only"}),
+}
+"""The objectively acceptable resolution(s) for each real schema problem -
+shipment_id has *two*, deliberately: an identifier's own physical
+representation doesn't need to change just because its semantic type is
+"identifier" (keeping it int64 is just as valid as casting it to text, as
+long as nothing aggregates it) - only delivered_at and duration_minutes
+have exactly one real fix. Shared by the scorer (which resolution counts
+as REPRODUCIBILITY) and by the scenario itself (which Round-1 issues get
+a real second chance in Round 2, once their own consequence has actually
+been seen)."""
 
 
 # --- Optional mastery: a new, small export - transfer, not repetition ---
@@ -386,11 +380,15 @@ _MASTERY_ROWS = [
 
 
 MASTERY_CORRECT: frozenset[str] = frozenset({"store_id", "revenue"})
-"""store_id looks fine (int64) but is an identifier; revenue looks wrong
-(object) but is a cleanly parseable currency string - both genuinely need
-a fix. promo_code and quantity are deliberately not in this set - one
-*looks* unusual but is already correctly typed, the other already
-correctly is a measure."""
+"""store_id looks fine (int64) but is an identifier that still needs its
+contract declared and protected from aggregation, even though its own
+physical dtype doesn't need to change; revenue looks wrong (object) but
+is a cleanly parseable currency string that does need a real fix. A
+"schema fix" here means resolving the real contract gap, not necessarily
+a dtype cast - the same distinction the shipment_id issue itself teaches.
+promo_code and quantity are deliberately not in this set - one *looks*
+unusual but is already correctly typed, the other already correctly is a
+measure."""
 
 SAFE_COLUMNS_CORRECT: frozenset[str] = frozenset({"item_count"})
 """shipment_id (an identifier) and delivered_at (unparsed text) are never
