@@ -27,20 +27,31 @@ class Schema:
     def column_names(self) -> tuple[str, ...]:
         return tuple(column.name for column in self.columns)
 
-    def with_column(self, name: str, *, dtype: str | None = None, description_key: str | None = None) -> "Schema":
-        """Returns a new Schema with only the named column's dtype and/or
-        description_key replaced - every other column, resolved or not,
-        passes through completely untouched. This is what lets a repair
-        mechanic update one column's own schema metadata without ever
-        silently rewriting another, still-unresolved column's own entry
-        as a side effect (a real bug once one shared "fixed" Schema was
-        swapped in wholesale for an issue with several columns). `dtype`/
-        `description_key` left None keep that column's current value."""
+    def with_column(
+        self,
+        name: str,
+        *,
+        dtype: str | None = None,
+        description_key: str | None = None,
+        nullable: bool | None = None,
+    ) -> "Schema":
+        """Returns a new Schema with only the named column's dtype,
+        description_key, and/or nullable flag replaced - every other
+        column, resolved or not, passes through completely untouched.
+        This is what lets a repair mechanic update one column's own
+        schema metadata without ever silently rewriting another, still-
+        unresolved column's own entry as a side effect (a real bug once
+        one shared "fixed" Schema was swapped in wholesale for an issue
+        with several columns). Every parameter left None keeps that
+        column's current value - `nullable` is `bool | None` rather than
+        reusing `False` as "no change" since `False` is itself a real,
+        meaningful value a caller needs to be able to set."""
         columns = tuple(
             replace(
                 column,
                 dtype=column.dtype if dtype is None else dtype,
                 description_key=column.description_key if description_key is None else description_key,
+                nullable=column.nullable if nullable is None else nullable,
             )
             if column.name == name
             else column

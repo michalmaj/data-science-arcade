@@ -21,8 +21,6 @@ from data_science_arcade.lessons.l06_schema_repair_shop.scenario import (
     SAFE_USE_FIELD,
     SHIPMENT_ID_CONTRACT_FIELD,
     _format_rate,
-    _OfferThenTaskScene,
-    _SequenceScene,
     build_lesson_six_runner,
 )
 from data_science_arcade.lessons.l06_schema_repair_shop.scoring import (
@@ -33,6 +31,7 @@ from data_science_arcade.lessons.l06_schema_repair_shop.scoring import (
 from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND1_ISSUES, ROUND2_ISSUES
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
+from data_science_arcade.ui.composite_scene import OfferThenTaskScene, SequenceScene
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
@@ -190,11 +189,11 @@ def _play_lesson_to_feedback(
     assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final decision
     _play_decision_builder(app.scenes.current.inner, decision_keys=decision)
 
-    assert isinstance(app.scenes.current.inner, _OfferThenTaskScene)  # optional mastery
+    assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # optional mastery
     offer = app.scenes.current.inner
     if mastery_engage:
         offer.buttons.buttons[0].on_activate()  # Engage
-        assert isinstance(offer._active, _SequenceScene)
+        assert isinstance(offer._active, SequenceScene)
         offer._active.continue_button.on_activate()  # inspect the mastery export
         select_scene = offer._active._active
         _fill_multi_select(select_scene, MASTERY_FIELD, mastery_selection)

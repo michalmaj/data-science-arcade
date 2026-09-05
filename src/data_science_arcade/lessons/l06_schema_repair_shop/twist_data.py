@@ -221,8 +221,11 @@ SHIPMENT_ID_ISSUE = RepairIssue(
     hint_key="lesson.l06.issue.shipment_id.hint",
     evidence_key="lesson.l06.issue.shipment_id.evidence",
     options=(
-        # An identifier can be validly kept numeric or cast to text - both
-        # protect it from being treated as a quantity by accident; only
+        # An identifier can be validly kept numeric or cast to text - either
+        # representation is fine, since what actually keeps it from being
+        # treated as a quantity is the declared identifier contract, never
+        # the physical dtype itself (int64 doesn't mechanically stop mean()
+        # from running; only the discipline of never calling it does). Only
         # category (a poor fit for ~220 nearly-unique values) is the real
         # wrong pick here. See CORRECT_REPAIR below.
         RepairOption(

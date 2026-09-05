@@ -29,6 +29,12 @@ class RepairOption:
     genuinely resolved - but not for an option that only pretends to
     resolve it, like a no-op recast). None keeps the column's current
     description_key unchanged."""
+    result_nullable: bool | None = None
+    """This option's own real nullable state for the issue's column, if
+    it changes - e.g. False once a fill/recode option has genuinely
+    removed every null, or explicitly True (unchanged) for an option that
+    deliberately keeps real nulls in place. None keeps the column's
+    current nullable flag unchanged."""
 
 
 @dataclass(frozen=True)
@@ -67,7 +73,10 @@ def apply_resolution(dataset: Dataset, issues: tuple[RepairIssue, ...], resoluti
             continue
         option = next(o for o in issue.options if o.key == option_key)
         schema = dataset.schema.with_column(
-            issue.column, dtype=option.result_dtype, description_key=option.result_description_key
+            issue.column,
+            dtype=option.result_dtype,
+            description_key=option.result_description_key,
+            nullable=option.result_nullable,
         )
         dataset = dataset.then(
             f"{issue.column}_{option.key}", option.apply, schema=schema, python_code=option.python_code

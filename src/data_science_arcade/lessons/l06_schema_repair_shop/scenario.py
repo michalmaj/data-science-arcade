@@ -1,9 +1,3 @@
-from collections.abc import Callable
-
-import pygame
-
-from data_science_arcade.core.display import LOGICAL_SIZE
-from data_science_arcade.core.scenes import Scene
 from data_science_arcade.lessons.framework.brief import BriefField, BriefOption, MultiChoiceField
 from data_science_arcade.lessons.framework.inspection import InspectionOption, InspectionPrompt
 from data_science_arcade.lessons.framework.runner import LessonRunner
@@ -25,18 +19,13 @@ from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import (
 )
 from data_science_arcade.narrative.dialogue import Dialogue, DialogueLine
 from data_science_arcade.narrative.npc import DATA_ENGINEER, MENTOR, PRODUCT_MANAGER
-from data_science_arcade.ui import colors
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
-from data_science_arcade.ui.button import Button
-from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene, ComparisonValue, InterpretOption
+from data_science_arcade.ui.composite_scene import OfferThenTaskScene, SequenceScene
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene, EvidenceField
 from data_science_arcade.ui.dialogue_scene import DialogueScene
-from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text
 from data_science_arcade.ui.workbench_scene import DataView, WorkbenchScene, WorkbenchTab
 from data_science_arcade.workbench.context import DecisionState, LessonContext
-
-CENTER_X = LOGICAL_SIZE[0] // 2
 
 
 def _format_rate(value: float) -> str:
@@ -268,108 +257,6 @@ DECISION_FIELDS: tuple[BriefField | MultiChoiceField, ...] = (
     REQUIRED_CHANGE_FIELD,
     MASTERY_FIELD,
 )
-
-
-class _SequenceScene(Scene):
-    """Shows `first`, then swaps to `build_second()` once `advance_to_second`
-    is called - a single LessonRunner-stage-shaped composition of two
-    already-existing scenes shown back to back, matching the same
-    "runtime-conditional sub-scene can't be a second, sometimes-included
-    stage" reasoning _DesignThenAllocateScene already established in L05,
-    generalized here to an unconditional two-step sequence (inspect the
-    mastery export, then decide) rather than a conditional one."""
-
-    def __init__(self, app, first: Scene, build_second: Callable[[], Scene]) -> None:
-        super().__init__(app)
-        self._build_second = build_second
-        self._active = first
-
-    def advance_to_second(self) -> None:
-        self._active = self._build_second()
-
-    def __getattr__(self, name: str):
-        return getattr(self._active, name)
-
-    def on_enter(self) -> None:
-        self._active.on_enter()
-
-    def on_exit(self) -> None:
-        self._active.on_exit()
-
-    def handle_event(self, event) -> None:
-        self._active.handle_event(event)
-
-    def draw(self, surface) -> None:
-        self._active.draw(surface)
-
-
-class _OfferThenTaskScene(Scene):
-    """Engage-or-skip gate for the optional mastery act, mirroring
-    MasteryChallengeScene's own OFFER phase - needed because this lesson's
-    mastery task (a MultiChoiceField: "which of these genuinely need a
-    fix") doesn't fit that scene's own pick-a-metric-then-compare-two-
-    values shape, but skipping still needs to stay a real, zero-
-    consequence choice like every other lesson's optional act. A single
-    LessonRunner stage either way, matching _DesignThenAllocateScene's own
-    reasoning in L05 for why a runtime-conditional sub-scene can't be a
-    second, sometimes-included item in LessonRunner's own fixed stage
-    list."""
-
-    def __init__(self, app, build_task: Callable[[Callable[[dict], None]], Scene], on_complete: Callable[[bool, dict | None], None]) -> None:
-        super().__init__(app)
-        self._build_task = build_task
-        self._on_complete = on_complete
-        self._active: Scene | None = None
-        self._rebuild_offer_buttons()
-
-    def __getattr__(self, name: str):
-        if self._active is not None:
-            return getattr(self._active, name)
-        raise AttributeError(name)
-
-    def _rebuild_offer_buttons(self) -> None:
-        loc = self.app.localization
-        engage_rect = pygame.Rect(0, 0, 420, 46)
-        engage_rect.center = (CENTER_X, 260)
-        skip_rect = pygame.Rect(0, 0, 420, 46)
-        skip_rect.center = (CENTER_X, 320)
-        self.buttons = ButtonGroup(
-            [
-                Button(engage_rect, loc.t("mastery.engage"), self._engage),
-                Button(skip_rect, loc.t("mastery.skip"), self._skip),
-            ]
-        )
-
-    def _engage(self) -> None:
-        self._active = self._build_task(lambda result: self._on_complete(True, result))
-
-    def _skip(self) -> None:
-        self._on_complete(False, None)
-
-    def on_enter(self) -> None:
-        if self._active is not None:
-            self._active.on_enter()
-
-    def on_exit(self) -> None:
-        if self._active is not None:
-            self._active.on_exit()
-
-    def handle_event(self, event) -> None:
-        if self._active is not None:
-            self._active.handle_event(event)
-        else:
-            self.buttons.handle_event(event)
-
-    def draw(self, surface) -> None:
-        if self._active is not None:
-            self._active.draw(surface)
-            return
-        loc = self.app.localization
-        surface.fill(colors.BACKGROUND)
-        draw_centered_text(surface, loc.t("lesson.l06.mastery.title"), (CENTER_X, 90), 28, colors.TEXT)
-        draw_wrapped_text(surface, loc.t("dialogue.l06_mastery.line1"), (CENTER_X - 400, 150), 800, 16, colors.TEXT)
-        draw_wrapped_text(surface, loc.t("dialogue.l06_mastery.line2"), (CENTER_X - 400, 190), 800, 16, colors.TEXT)
-        self.buttons.draw(surface)
 
 
 def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
@@ -632,7 +519,7 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                     app, "lesson.l06.mastery.title", (MASTERY_FIELD,), on_task_complete, guided=False
                 )
 
-            sequence = _SequenceScene(
+            sequence = SequenceScene(
                 app,
                 first=WorkbenchScene(
                     app,
@@ -650,7 +537,13 @@ def build_lesson_six_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             collected["mastery_selection"] = result["needs_fix"] if result else ()
             advance()
 
-        return _OfferThenTaskScene(app, build_task, on_complete)
+        return OfferThenTaskScene(
+            app,
+            build_task,
+            on_complete,
+            title_key="lesson.l06.mastery.title",
+            line_keys=("dialogue.l06_mastery.line1", "dialogue.l06_mastery.line2"),
+        )
 
     # --- Feedback / Debrief ---
 

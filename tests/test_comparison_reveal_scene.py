@@ -278,6 +278,39 @@ def test_a_third_narrative_line_grows_the_box_instead_of_overflowing_it():
         pygame.quit()
 
 
+def test_three_comparisons_all_render_and_record_as_real_evidence():
+    # Widened from a hardcoded 2-tuple for Lesson 07's own sensitivity
+    # reveal (lower bound / upper bound / target) - every internal use of
+    # self.comparisons was already length-generic, so a real 3-value case
+    # should just work without any further scene changes.
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = ComparisonRevealScene(
+            app,
+            title_key="app.title",
+            narrative_keys=("app.title",),
+            comparisons=(
+                ComparisonValue("common.back", 0.775),
+                ComparisonValue("dialogue.continue_hint", 0.915),
+                ComparisonValue("workbench.continue", 0.85),
+            ),
+            interpret_prompt_key="app.title",
+            interpret_options=OPTIONS,
+            on_complete=lambda choice: None,
+            context=context,
+        )
+
+        scene.draw(app.logical_surface)  # doesn't crash with 3 rows
+        scene.buttons.buttons[0].on_activate()
+        scene.continue_button.on_activate()
+
+        assert len(context.evidence) == 3
+        assert [item.detail for item in context.evidence] == ["78%", "92%", "85%"]
+    finally:
+        pygame.quit()
+
+
 def test_draw_does_not_crash_guided_or_not_with_or_without_a_hint():
     app = _init_app()
     try:
