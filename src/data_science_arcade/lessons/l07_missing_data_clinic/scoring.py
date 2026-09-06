@@ -3,7 +3,13 @@ from dataclasses import dataclass, field
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
 from data_science_arcade.lessons.framework.evaluation import FeedbackObservation, LessonEvaluation
 from data_science_arcade.lessons.framework.repair import RepairResolution
-from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import CORRECT_TREATMENT, MASTERY_CORRECT
+from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import (
+    CORRECT_TREATMENT,
+    MASTERY_CORRECT,
+    apply_round1,
+    apply_round2,
+    generate_orders,
+)
 
 # The objectively correct declaration for each of the three real
 # missingness cases - fixed, not branched on student state, since the
@@ -43,9 +49,23 @@ class LessonSevenResult:
     critical_evidence_present: tuple[str, ...] = field(default_factory=tuple)
     mastery_engaged: bool = False
     mastery_selection: frozenset[str] = frozenset()
+    initial_round1_resolution: RepairResolution = field(default_factory=dict)
+    round1_revised: bool = False
+    initial_pick_treatment: str = ""
+    pick_minutes_revised: bool = False
 
     def completed_thoughtfully(self) -> bool:
         return bool(self.round1_resolution) and bool(self.round2_resolution) and len(self.decision) > 0
+
+    def final_row_count(self) -> int:
+        """The real, final analysis population - replayed from the
+        student's own final resolutions, never assumed to still be the
+        raw 400 just because that's the common case."""
+        dataset = apply_round2(self.round1_resolution, self.round2_resolution)
+        return len(dataset.frame)
+
+    def has_real_sensitivity_range(self) -> bool:
+        return self.round2_resolution.get("pick_minutes") == "preserve_and_report"
 
 
 def _score_data_quality(result: LessonSevenResult) -> tuple[float, FeedbackObservation | None]:
@@ -66,11 +86,14 @@ def _score_data_quality(result: LessonSevenResult) -> tuple[float, FeedbackObser
 
 def _score_reproducibility(result: LessonSevenResult) -> tuple[float, FeedbackObservation | None]:
     """Whether the actually-executed treatments are the ones that
-    genuinely match each column's own real meaning - a student can
-    correctly declare a column's meaning (Data Quality above) and still
-    pick a fabricating treatment for it, and vice versa; the two are
-    scored independently on purpose, the same justification the L06
-    follow-up already established for this project."""
+    genuinely match each column's own real meaning - reads the
+    student's *final* resolution (post any Round 1 or pick_minutes
+    revision), never the first attempt, matching "final scorer
+    evaluates final executed state." A student can correctly declare a
+    column's meaning (Data Quality above) and still pick a fabricating
+    treatment for it, and vice versa; the two are scored independently
+    on purpose, the same justification the L06 follow-up already
+    established for this project."""
     resolution = {**result.round1_resolution, **result.round2_resolution}
     hits = sum(1 for column, correct_keys in CORRECT_TREATMENT.items() if resolution.get(column) in correct_keys)
     score = 100.0 * hits / 3.0
@@ -94,21 +117,30 @@ def _score_evidence(result: LessonSevenResult) -> tuple[float, FeedbackObservati
 
 def _score_reasoning(result: LessonSevenResult) -> tuple[float, FeedbackObservation | None]:
     """Coherence only - never "is this the objectively best answer in
-    general," which is Uncertainty's and Method's own job. A range-real
-    question genuinely has one right shape (does the student's own final
-    argument actually match what their own pipeline produced), decoupled
-    from whether that pipeline itself was the correct one to build."""
+    general," which is Uncertainty's and Method's own job. Every check
+    here compares one part of the student's own final argument against
+    another real fact about what they actually did, decoupled from
+    whether what they did was itself the correct choice to make."""
     treatment_claim = result.decision.get("treatment")
     treatment_coherent = treatment_claim == result.round2_resolution.get("pick_minutes")
 
-    has_real_range = result.round2_resolution.get("pick_minutes") == "preserve_and_report"
+    has_real_range = result.has_real_sensitivity_range()
     kpi_claims_range = result.decision.get("kpi_result") == "range_straddles"
     kpi_claim_coherent = kpi_claims_range == has_real_range
 
     diagnosis_correct = result.decision.get("missingness_diagnosis") == "legacy_peak_workflow"
 
-    hits = int(treatment_coherent) + int(kpi_claim_coherent) + int(diagnosis_correct)
-    score = {3: 92.0, 2: 60.0, 1: 32.0, 0: 12.0}[hits]
+    # A destructive Round 1 treatment (dropping every row missing
+    # cold_pack_temp_c or promo_code) really does shrink the analysis
+    # population - claiming the KPI still describes "this period's Go
+    # orders, overall" is only coherent if the population is still all
+    # 400 of them.
+    population_unchanged = result.final_row_count() == len(generate_orders().frame)
+    scope_claims_full_population = result.decision.get("target_scope") == "this_period_go_orders"
+    scope_coherent = scope_claims_full_population == population_unchanged
+
+    hits = int(treatment_coherent) + int(kpi_claim_coherent) + int(diagnosis_correct) + int(scope_coherent)
+    score = {4: 92.0, 3: 68.0, 2: 45.0, 1: 24.0, 0: 10.0}[hits]
     if not treatment_coherent:
         return score, FeedbackObservation(
             "lesson.l07.feedback.claimed_treatment_doesnt_match_execution", ScoreDimension.REASONING
@@ -119,20 +151,28 @@ def _score_reasoning(result: LessonSevenResult) -> tuple[float, FeedbackObservat
         )
     if not diagnosis_correct:
         return score, FeedbackObservation("lesson.l07.feedback.diagnosis_denies_the_pattern", ScoreDimension.REASONING)
+    if not scope_coherent:
+        return score, FeedbackObservation(
+            "lesson.l07.feedback.target_scope_ignores_dropped_rows", ScoreDimension.REASONING
+        )
     return score, None
 
 
 def _score_uncertainty(result: LessonSevenResult) -> tuple[float, FeedbackObservation | None]:
-    """Process (the sensitivity reveal's own interpret click, mid-lesson)
-    plus final (the Sensitivity/uncertainty Decision field's own
-    conceptual-correctness) - deliberately not the kpi_result field too,
-    since that field's own coherence is already Reasoning's job; scoring
-    it again here under a different label would be the same click judged
-    twice, not two independent signals."""
-    has_real_range = result.round2_resolution.get("pick_minutes") == "preserve_and_report"
+    """Process (the sensitivity reveal's own interpret click - the
+    *last* one shown, if the treatment was revised) plus final (the
+    Sensitivity Decision field) - both path-aware, since a collapsed
+    range and a real one call for genuinely different correct answers,
+    not the same one regardless of what actually happened. Deliberately
+    not the kpi_result field too, since that field's own coherence is
+    already Reasoning's job; scoring it again here under a different
+    label would be the same click judged twice, not two independent
+    signals."""
+    has_real_range = result.has_real_sensitivity_range()
     correct_mid_choice = "range_real_undecided" if has_real_range else "range_collapsed_erased"
     mid_hit = result.sensitivity_interpretation == correct_mid_choice
-    final_hit = result.decision.get("sensitivity") == "bounds_are_real_assumptions"
+    correct_final_choice = "bounds_are_real_assumptions" if has_real_range else "fill_collapsed_the_calculation"
+    final_hit = result.decision.get("sensitivity") == correct_final_choice
 
     hits = int(mid_hit) + int(final_hit)
     score = {2: 90.0, 1: 50.0, 0: 15.0}[hits]
@@ -151,9 +191,10 @@ def _score_uncertainty(result: LessonSevenResult) -> tuple[float, FeedbackObserv
 
 def _score_method(result: LessonSevenResult) -> tuple[float, FeedbackObservation | None]:
     treatment_correct = result.decision.get("treatment") == "preserve_and_report"
+    structural_treatment_correct = result.decision.get("structural_treatment") == "leave_as_missing"
     required_action_correct = result.decision.get("required_action") == "fix_capture_path"
-    hits = int(treatment_correct) + int(required_action_correct)
-    score = {2: 94.0, 1: 55.0, 0: 18.0}[hits]
+    hits = int(treatment_correct) + int(structural_treatment_correct) + int(required_action_correct)
+    score = {3: 94.0, 2: 68.0, 1: 40.0, 0: 15.0}[hits]
     if result.decision.get("required_action") == "nothing_needed":
         return score, FeedbackObservation("lesson.l07.feedback.no_systemic_fix_proposed", ScoreDimension.METHOD)
     return score, None
@@ -161,6 +202,26 @@ def _score_method(result: LessonSevenResult) -> tuple[float, FeedbackObservation
 
 def _mastery_succeeded(result: LessonSevenResult) -> bool:
     return result.mastery_selection == MASTERY_CORRECT
+
+
+def _trajectory_observations(result: LessonSevenResult) -> list[FeedbackObservation]:
+    """Real productive-failure recoveries, never a dimension-score
+    change - the final resolutions already carry all of the actual
+    scoring weight. These exist purely to name what the sequence
+    itself shows: a first mistake seen through to a corrected final
+    state, not silently erased and not permanently punished either."""
+    observations: list[FeedbackObservation] = []
+    if (
+        result.pick_minutes_revised
+        and result.initial_pick_treatment in ("fill_global_median", "fill_group_median", "fill_zero")
+        and result.round2_resolution.get("pick_minutes") == "preserve_and_report"
+    ):
+        observations.append(FeedbackObservation("lesson.l07.feedback.pick_minutes_recovered_via_revision"))
+    if result.round1_revised:
+        initial_row_count = len(apply_round1(result.initial_round1_resolution).frame)
+        if initial_row_count < len(generate_orders().frame) and result.final_row_count() == len(generate_orders().frame):
+            observations.append(FeedbackObservation("lesson.l07.feedback.round1_population_recovered_via_revision"))
+    return observations
 
 
 def score_lesson_seven(result: LessonSevenResult, definition: LessonDefinition, hints_used: int) -> LessonEvaluation:
@@ -192,6 +253,7 @@ def score_lesson_seven(result: LessonSevenResult, definition: LessonDefinition, 
         )
         if observation is not None
     ]
+    observations.extend(_trajectory_observations(result))
     if result.mastery_engaged and _mastery_succeeded(result):
         observations.append(FeedbackObservation("lesson.l07.feedback.mastery_transfer_succeeded"))
     if hints_used > 0:
