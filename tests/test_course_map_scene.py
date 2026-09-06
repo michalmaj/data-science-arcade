@@ -22,10 +22,10 @@ from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND2
 from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import ROUND1_ISSUES as L07_ROUND1_ISSUES
 from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import ROUND2_ISSUES as L07_ROUND2_ISSUES
 from data_science_arcade.ui.segment_slicer_scene import SegmentSlicerScene
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import AUTOMATIC_REMOVAL_RULE_FIELD as L08_AUTOMATIC_REMOVAL_RULE_FIELD
 from data_science_arcade.lessons.l08_duplicate_detective.scenario import CONFLICT_POLICY_FIELD as L08_CONFLICT_POLICY_FIELD
 from data_science_arcade.lessons.l08_duplicate_detective.scenario import DECISION_EVIDENCE_FIELD as L08_DECISION_EVIDENCE_FIELD
-from data_science_arcade.lessons.l08_duplicate_detective.scenario import DEDUPE_KEY_FIELD as L08_DEDUPE_KEY_FIELD
-from data_science_arcade.lessons.l08_duplicate_detective.scenario import DUPLICATE_DEFINITION_FIELD as L08_DUPLICATE_DEFINITION_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import IDENTITY_KEY_FIELD as L08_IDENTITY_KEY_FIELD
 from data_science_arcade.lessons.l08_duplicate_detective.scenario import KPI_RESULT_FIELD as L08_KPI_RESULT_FIELD
 from data_science_arcade.lessons.l08_duplicate_detective.scenario import LEGITIMATE_REPEATS_FIELD as L08_LEGITIMATE_REPEATS_FIELD
 from data_science_arcade.lessons.l08_duplicate_detective.scenario import MASTERY_KEY_FIELD as L08_MASTERY_KEY_FIELD
@@ -1360,8 +1360,8 @@ def test_finishing_lesson_eight_marks_it_complete_and_unlocks_lesson_nine():
         decision = app.scenes.current.inner
         for field, key in (
             (L08_OBSERVATION_UNIT_FIELD, "paid_orders_with_captured_payment"),
-            (L08_DUPLICATE_DEFINITION_FIELD, "shared_event_id"),
-            (L08_DEDUPE_KEY_FIELD, "remove_exact_repeats_only"),
+            (L08_IDENTITY_KEY_FIELD, "shared_event_id"),
+            (L08_AUTOMATIC_REMOVAL_RULE_FIELD, "remove_exact_repeats_only"),
         ):
             decision.buttons.buttons[_l08_option_index(field, key)].on_activate()
             decision.next_button.on_activate()
@@ -1370,7 +1370,7 @@ def test_finishing_lesson_eight_marks_it_complete_and_unlocks_lesson_nine():
         decision.next_button.on_activate()
         for field, key in (
             (L08_CONFLICT_POLICY_FIELD, "quarantine_and_disclose"),
-            (L08_KPI_RESULT_FIELD, "nineteen_orders_950_one_excluded"),
+            (L08_KPI_RESULT_FIELD, "twenty_orders_range_995_to_1000"),
         ):
             decision.buttons.buttons[_l08_option_index(field, key)].on_activate()
             decision.next_button.on_activate()
@@ -1379,7 +1379,7 @@ def test_finishing_lesson_eight_marks_it_complete_and_unlocks_lesson_nine():
             decision._evidence_toggle_buttons[item_id].on_activate()
         decision.next_button.on_activate()
         for field, key in (
-            (L08_SAFE_CLAIM_FIELD, "one_conflicting_payment_excluded_pending_reconciliation"),
+            (L08_SAFE_CLAIM_FIELD, "twenty_confirmed_range_disclosed"),
             (L08_REQUIRED_PREVENTION_FIELD, "idempotent_ingestion_and_uniqueness_validation"),
         ):
             decision.buttons.buttons[_l08_option_index(field, key)].on_activate()
