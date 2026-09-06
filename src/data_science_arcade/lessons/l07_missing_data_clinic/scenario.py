@@ -250,22 +250,38 @@ def _build_investigation_requests(dataset) -> tuple[SegmentRequest, SegmentReque
     return primary_cut, secondary_cut
 
 
-def _build_followup_investigation_request(dataset) -> SegmentRequest:
-    """Only shown when both of the first two cuts landed on a decoy -
-    both real signals this time, so whichever gets picked guarantees the
-    student actually sees at least one real pattern before the root-
-    cause dialogue ever names one."""
+_REAL_SIGNALS: tuple[str, ...] = ("scanner_type", "hour_bucket")
+
+
+def _missing_real_signals(choices: dict[str, str]) -> tuple[str, ...]:
+    """Which real signal(s) the first investigation pass didn't actually
+    land on - the combined legacy-scanner/peak-hour diagnosis can only
+    be required (Contract Builder round 2) or scored (Final Decision)
+    once this is empty. Seeing just one real signal used to be enough to
+    skip any follow-up at all, which let a student get the combined
+    diagnosis required/scored on the strength of a pattern they'd only
+    checked half of."""
+    seen = set(choices.values())
+    return tuple(signal for signal in _REAL_SIGNALS if signal not in seen)
+
+
+def _build_followup_investigation_requests(dataset, missing: tuple[str, ...]) -> tuple[SegmentRequest, ...]:
+    """One request per real signal the first pass didn't land on - each
+    offering only that one real cut, a forced real look rather than
+    another chance to pick a decoy instead. 1 request if exactly one
+    signal was missing, 2 in sequence if neither was - either way, by
+    the time this scene completes, both real signals are guaranteed
+    seen."""
     options = _build_investigation_slice_options(dataset)
-    return SegmentRequest(
-        key="followup_cut",
-        prompt_key="lesson.l07.investigation.followup_cut.prompt",
-        hint_key="lesson.l07.investigation.followup_hint",
-        options=(options["scanner_type"], options["hour_bucket"]),
+    return tuple(
+        SegmentRequest(
+            key=f"followup_{signal}",
+            prompt_key="lesson.l07.investigation.followup_cut.prompt",
+            hint_key="lesson.l07.investigation.followup_hint",
+            options=(options[signal],),
+        )
+        for signal in missing
     )
-
-
-def _saw_a_real_signal(choices: dict[str, str]) -> bool:
-    return "scanner_type" in choices.values() or "hour_bucket" in choices.values()
 
 
 def _record_investigation_evidence(context: LessonContext, dataset, choices: dict[str, str]) -> None:
@@ -314,6 +330,9 @@ TARGET_SCOPE_FIELD = BriefField(
     prompt_key="lesson.l07.decision.target_scope.prompt",
     options=(
         BriefOption("this_period_go_orders", "lesson.l07.decision.target_scope.option.this_period_go_orders"),
+        BriefOption(
+            "remaining_subset_after_filtering", "lesson.l07.decision.target_scope.option.remaining_subset_after_filtering"
+        ),
         BriefOption("captured_only", "lesson.l07.decision.target_scope.option.captured_only"),
         BriefOption("all_novamart_orders", "lesson.l07.decision.target_scope.option.all_novamart_orders"),
     ),
@@ -581,11 +600,13 @@ def build_lesson_seven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
 
     def missingness_investigation(advance):
         """Both real signals (scanner_type, hour_bucket) are genuinely
-        skippable - a student can pick both decoys (store, basket_size)
-        and never see either. The follow-up cut only appears in that
-        exact case, offering both real signals directly so the student
-        is guaranteed to see at least the one the diagnosis actually
-        needs - never a discovery the next dialogue simply asserts."""
+        skippable individually - a student can pick a decoy on either
+        request, or both. The combined legacy-scanner/peak-hour
+        diagnosis is only ever required or scored once both real
+        signals have actually been seen, so the follow-up here forces
+        whichever one(s) the first pass missed - never a discovery the
+        next dialogue, Contract Builder, or Final Decision simply
+        assumes."""
         dataset = apply_round1(collected.get("round1_resolution", {}))
         requests = _build_investigation_requests(dataset)
 
@@ -593,13 +614,14 @@ def build_lesson_seven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             _record_investigation_evidence(context, dataset, choices)
             collected["investigation_choices"] = dict(choices)
             _sync_context_into_collected()
-            if _saw_a_real_signal(choices):
+            if not _missing_real_signals(choices):
                 advance()
             else:
                 sequence.advance_to_second()
 
         def build_followup():
-            followup_request = _build_followup_investigation_request(dataset)
+            missing = _missing_real_signals(collected.get("investigation_choices", {}))
+            followup_requests = _build_followup_investigation_requests(dataset, missing)
 
             def on_followup_complete(followup_choices):
                 _record_investigation_evidence(context, dataset, followup_choices)
@@ -610,7 +632,7 @@ def build_lesson_seven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             return SegmentSlicerScene(
                 app,
                 "lesson.l07.investigation_title",
-                (followup_request,),
+                followup_requests,
                 on_followup_complete,
                 guided=True,
                 row_column_label_key="lesson.l07.investigation.row_column_label",

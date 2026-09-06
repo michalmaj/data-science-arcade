@@ -115,6 +115,25 @@ def _score_evidence(result: LessonSevenResult) -> tuple[float, FeedbackObservati
     return score, observation
 
 
+def _defensible_target_scope(result: LessonSevenResult) -> str:
+    """The one target-scope claim that's actually coherent with what the
+    student's own final pipeline produced - a real mapping from final
+    pipeline state to the single defensible claim, not a boolean
+    equivalence against just one option. That distinction matters: a
+    destructive Round 1 treatment (dropping every row missing
+    cold_pack_temp_c or promo_code) really does shrink the analysis
+    population below 400, and "the subset remaining after my own
+    filtering" is the only claim that's actually true of it -
+    "all_novamart_orders" (a real overreach) and "captured_only" (a
+    real, different undercount - orders with a captured pick time, which
+    a Round 1 drop doesn't even affect) never become correct just
+    because "this_period_go_orders" also fails to describe a narrowed
+    population."""
+    if result.final_row_count() == len(generate_orders().frame):
+        return "this_period_go_orders"
+    return "remaining_subset_after_filtering"
+
+
 def _score_reasoning(result: LessonSevenResult) -> tuple[float, FeedbackObservation | None]:
     """Coherence only - never "is this the objectively best answer in
     general," which is Uncertainty's and Method's own job. Every check
@@ -130,14 +149,7 @@ def _score_reasoning(result: LessonSevenResult) -> tuple[float, FeedbackObservat
 
     diagnosis_correct = result.decision.get("missingness_diagnosis") == "legacy_peak_workflow"
 
-    # A destructive Round 1 treatment (dropping every row missing
-    # cold_pack_temp_c or promo_code) really does shrink the analysis
-    # population - claiming the KPI still describes "this period's Go
-    # orders, overall" is only coherent if the population is still all
-    # 400 of them.
-    population_unchanged = result.final_row_count() == len(generate_orders().frame)
-    scope_claims_full_population = result.decision.get("target_scope") == "this_period_go_orders"
-    scope_coherent = scope_claims_full_population == population_unchanged
+    scope_coherent = result.decision.get("target_scope") == _defensible_target_scope(result)
 
     hits = int(treatment_coherent) + int(kpi_claim_coherent) + int(diagnosis_correct) + int(scope_coherent)
     score = {4: 92.0, 3: 68.0, 2: 45.0, 1: 24.0, 0: 10.0}[hits]
