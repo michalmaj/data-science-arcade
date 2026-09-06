@@ -9,6 +9,7 @@ from data_science_arcade.core.display import (
 )
 from data_science_arcade.core.scenes import SceneManager
 from data_science_arcade.localization.service import Localization
+from data_science_arcade.progress import store as progress_store_module
 from data_science_arcade.progress.dev_mode import is_dev_mode
 from data_science_arcade.progress.model import LessonState
 from data_science_arcade.progress.store import ProgressStore
@@ -28,7 +29,12 @@ class App:
     fullscreen. See spec §11.
     """
 
-    def __init__(self, size: tuple[int, int] = LOGICAL_SIZE, fps: int = TARGET_FPS) -> None:
+    def __init__(
+        self,
+        size: tuple[int, int] = LOGICAL_SIZE,
+        fps: int = TARGET_FPS,
+        progress_store: ProgressStore | None = None,
+    ) -> None:
         self.size = size
         self.fps = fps
         self.logical_surface: pygame.Surface | None = None
@@ -38,7 +44,12 @@ class App:
         self.fullscreen = False
         self.scenes = SceneManager()
         self.localization = Localization()
-        self.progress_store = ProgressStore()
+        # Never DEFAULT_SAVE_PATH's own real-user counterpart - see that
+        # module's docstring. The real application entry point is the one
+        # caller that opts into the real save location explicitly.
+        self.progress_store = (
+            progress_store if progress_store is not None else ProgressStore(progress_store_module.DEFAULT_SAVE_PATH)
+        )
         self.progress = self.progress_store.load()
         self.dev_mode = is_dev_mode()
 
