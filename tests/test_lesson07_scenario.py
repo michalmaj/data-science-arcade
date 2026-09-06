@@ -175,18 +175,19 @@ def _play_repair_round1(
             app.scenes.current.continue_button.on_activate()
 
 
-def _play_missingness_investigation(app, investigation: dict[str, str], *, followup: str | None = None) -> None:
-    """Drives the missingness_investigation composite. Picking both
-    decoys (store, basket_size) triggers a real follow-up cut offering
-    both real signals directly, guaranteeing the student sees at least
-    one real pattern before the root-cause dialogue ever names one."""
+def _play_missingness_investigation(app, investigation: dict[str, str]) -> None:
+    """Drives the missingness_investigation composite. Whichever real
+    signal(s) the first pass didn't land on get forced open here - each
+    follow-up request offers only that one real cut (no decoy
+    alternative to sidestep it again), so there's never a real "choice"
+    left to make; just click through whatever's offered."""
     assert isinstance(_leaf_scene(app.scenes.current.inner), SegmentSlicerScene)
     _play_segment_slicer(app.scenes.current.inner, investigation)
 
     leaf = _leaf_scene(app.scenes.current.inner)
     if isinstance(leaf, SegmentSlicerScene):
-        assert followup is not None
-        _play_segment_slicer(app.scenes.current.inner, {"followup_cut": followup})
+        followup_choices = {request.key: request.options[0].key for request in leaf.requests}
+        _play_segment_slicer(app.scenes.current.inner, followup_choices)
 
 
 def _play_sensitivity_reveal(
@@ -251,7 +252,6 @@ def _play_lesson_to_feedback(
     round1_revised_resolution=None,
     first_attempt_key="worth_checking",
     investigation=GOOD_INVESTIGATION,
-    investigation_followup=None,
     contract_round2=GOOD_CONTRACT_ROUND2,
     resolution_round2=GOOD_RESOLUTION_ROUND2,
     sensitivity_key="range_real_undecided",
@@ -283,7 +283,7 @@ def _play_lesson_to_feedback(
     assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # first attempt
     _play_comparison_reveal(app.scenes.current.inner, first_attempt_key)
 
-    _play_missingness_investigation(app, investigation, followup=investigation_followup)
+    _play_missingness_investigation(app, investigation)
 
     assert isinstance(app.scenes.current.inner, DialogueScene)  # root cause pivot
     _play_dialogue_to_the_end(app.scenes.current)
@@ -370,11 +370,35 @@ def test_a_playthrough_that_skips_mastery_still_completes():
         pygame.quit()
 
 
-def test_picking_both_decoy_investigation_options_forces_a_real_followup_cut():
+def test_picking_both_decoy_investigation_options_forces_both_real_signals_via_followup():
     # Both decoys (store, basket_size) show a real, flat table each time -
     # a real finding, not a wasted click - but neither is the pattern the
-    # root-cause dialogue is about to name, so a follow-up cut (offering
-    # only the two real signals) must appear before the lesson moves on.
+    # combined diagnosis is about to require, so the follow-up here must
+    # force BOTH real signals open before the lesson moves on.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_seven_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        feedback = _play_lesson_to_feedback(app, investigation={"primary_cut": "store", "secondary_cut": "basket_size"})
+        assert isinstance(feedback, LessonFeedbackScene)
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief
+
+        result = finished_results[0]
+        assert result.decision.get("missingness_diagnosis") == "legacy_peak_workflow"
+    finally:
+        pygame.quit()
+
+
+def test_picking_one_real_signal_and_one_decoy_forces_only_the_missing_real_signal():
+    # The exact bug this corrective pass closes: seeing scanner_type
+    # alone used to be enough to skip any follow-up at all, so the
+    # combined legacy-scanner/peak-hour diagnosis could be required and
+    # scored on the strength of a pattern only half-checked. Now the
+    # still-missing signal (hour_bucket) gets forced open before the
+    # lesson can require or score the combined answer.
     app = _init_app()
     try:
         finished_results = []
@@ -382,9 +406,7 @@ def test_picking_both_decoy_investigation_options_forces_a_real_followup_cut():
         runner.start()
         click_through_mission_briefing(app)
         feedback = _play_lesson_to_feedback(
-            app,
-            investigation={"primary_cut": "store", "secondary_cut": "basket_size"},
-            investigation_followup="scanner_type",
+            app, investigation={"primary_cut": "scanner_type", "secondary_cut": "basket_size"}
         )
         assert isinstance(feedback, LessonFeedbackScene)
         feedback.on_complete()
@@ -396,24 +418,71 @@ def test_picking_both_decoy_investigation_options_forces_a_real_followup_cut():
         pygame.quit()
 
 
-def test_skipping_the_followup_cut_is_not_possible_without_a_real_signal():
-    # A student who picks both decoys and then has NOTHING left to click
-    # on the follow-up screen (only two real options, both real) always
-    # ends up having actually seen a real signal - asserted here by
-    # driving the exact same path with the other real option, confirming
-    # either choice on the follow-up screen is enough to unblock the
-    # lesson.
+def _play_investigation_first_pass(app, investigation: dict[str, str]) -> None:
+    assert isinstance(_leaf_scene(app.scenes.current.inner), SegmentSlicerScene)
+    _play_segment_slicer(app.scenes.current.inner, investigation)
+
+
+def test_followup_forces_only_the_one_missing_real_signal():
     app = _init_app()
     try:
         runner, _ = build_lesson_seven_runner(app, on_finished=lambda result: None)
         runner.start()
         click_through_mission_briefing(app)
-        feedback = _play_lesson_to_feedback(
-            app,
-            investigation={"primary_cut": "store", "secondary_cut": "basket_size"},
-            investigation_followup="hour_bucket",
-        )
-        assert isinstance(feedback, LessonFeedbackScene)
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _answer_inspection(app.scenes.current.inner, "missingness_needs_diagnosis")
+        _fill_single_select(app.scenes.current.inner, COLD_PACK_MEANING_FIELD, GOOD_CONTRACT_ROUND1["cold_pack_meaning"])
+        _fill_single_select(app.scenes.current.inner, PROMO_MEANING_FIELD, GOOD_CONTRACT_ROUND1["promo_meaning"])
+        _play_repair_round1(app, GOOD_RESOLUTION_ROUND1)
+        _play_comparison_reveal(app.scenes.current.inner, "worth_checking")
+
+        _play_investigation_first_pass(app, {"primary_cut": "scanner_type", "secondary_cut": "basket_size"})
+
+        leaf = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(leaf, SegmentSlicerScene)
+        assert [request.key for request in leaf.requests] == ["followup_hour_bucket"]
+    finally:
+        pygame.quit()
+
+
+def test_followup_forces_both_real_signals_when_neither_was_seen():
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_seven_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _answer_inspection(app.scenes.current.inner, "missingness_needs_diagnosis")
+        _fill_single_select(app.scenes.current.inner, COLD_PACK_MEANING_FIELD, GOOD_CONTRACT_ROUND1["cold_pack_meaning"])
+        _fill_single_select(app.scenes.current.inner, PROMO_MEANING_FIELD, GOOD_CONTRACT_ROUND1["promo_meaning"])
+        _play_repair_round1(app, GOOD_RESOLUTION_ROUND1)
+        _play_comparison_reveal(app.scenes.current.inner, "worth_checking")
+
+        _play_investigation_first_pass(app, {"primary_cut": "store", "secondary_cut": "basket_size"})
+
+        leaf = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(leaf, SegmentSlicerScene)
+        assert [request.key for request in leaf.requests] == ["followup_scanner_type", "followup_hour_bucket"]
+    finally:
+        pygame.quit()
+
+
+def test_no_followup_when_both_real_signals_already_seen():
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_seven_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _answer_inspection(app.scenes.current.inner, "missingness_needs_diagnosis")
+        _fill_single_select(app.scenes.current.inner, COLD_PACK_MEANING_FIELD, GOOD_CONTRACT_ROUND1["cold_pack_meaning"])
+        _fill_single_select(app.scenes.current.inner, PROMO_MEANING_FIELD, GOOD_CONTRACT_ROUND1["promo_meaning"])
+        _play_repair_round1(app, GOOD_RESOLUTION_ROUND1)
+        _play_comparison_reveal(app.scenes.current.inner, "worth_checking")
+
+        _play_investigation_first_pass(app, GOOD_INVESTIGATION)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)  # root cause pivot, no followup
     finally:
         pygame.quit()
 
@@ -755,16 +824,50 @@ def test_uncertainty_final_field_is_path_aware():
     )
 
 
-def test_reasoning_catches_a_target_scope_that_ignores_dropped_rows():
+_ROUND1_UNCHANGED = GOOD_RESOLUTION_ROUND1
+_ROUND1_NARROWED_BY_COLD_PACK = {"cold_pack_temp_c": "drop_missing_cold_pack", "promo_code": "recode_no_promo"}
+_ROUND1_NARROWED_BY_PROMO = {"cold_pack_temp_c": "leave_as_missing", "promo_code": "drop_missing_promo"}
+
+
+@pytest.mark.parametrize(
+    "round1_resolution,claimed_scope,expected_coherent",
+    [
+        # Population unchanged (still all 400 orders) - only
+        # this_period_go_orders is actually true of it.
+        (_ROUND1_UNCHANGED, "this_period_go_orders", True),
+        (_ROUND1_UNCHANGED, "remaining_subset_after_filtering", False),
+        (_ROUND1_UNCHANGED, "captured_only", False),
+        (_ROUND1_UNCHANGED, "all_novamart_orders", False),
+        # Population narrowed by a kept destructive Round 1 pick (two
+        # different real ways to get there) - only
+        # remaining_subset_after_filtering is true of it. Every other
+        # option, all_novamart_orders included, stays wrong - it must
+        # never become "coherent" just because this_period_go_orders
+        # also fails, which was the actual bug (a boolean equivalence
+        # against a single option rather than a real mapping).
+        (_ROUND1_NARROWED_BY_COLD_PACK, "remaining_subset_after_filtering", True),
+        (_ROUND1_NARROWED_BY_COLD_PACK, "this_period_go_orders", False),
+        (_ROUND1_NARROWED_BY_COLD_PACK, "captured_only", False),
+        (_ROUND1_NARROWED_BY_COLD_PACK, "all_novamart_orders", False),
+        (_ROUND1_NARROWED_BY_PROMO, "remaining_subset_after_filtering", True),
+        (_ROUND1_NARROWED_BY_PROMO, "this_period_go_orders", False),
+        (_ROUND1_NARROWED_BY_PROMO, "captured_only", False),
+        (_ROUND1_NARROWED_BY_PROMO, "all_novamart_orders", False),
+    ],
+)
+def test_scope_coherent_maps_final_pipeline_state_to_the_one_defensible_claim(
+    round1_resolution, claimed_scope, expected_coherent
+):
     result = score_lesson_seven(
         _result(
-            round1_resolution={"cold_pack_temp_c": "drop_missing_cold_pack", "promo_code": "recode_no_promo"},
-            decision=dict(GOOD_DECISION, evidence=("e1", "e2")),
+            round1_resolution=round1_resolution,
+            decision=dict(GOOD_DECISION, target_scope=claimed_scope, evidence=("e1", "e2")),
         ),
         LESSON_07,
         hints_used=0,
     )
-    assert any(o.text_key == "lesson.l07.feedback.target_scope_ignores_dropped_rows" for o in result.observations)
+    scope_feedback_fired = any(o.text_key == "lesson.l07.feedback.target_scope_ignores_dropped_rows" for o in result.observations)
+    assert scope_feedback_fired == (not expected_coherent)
 
 
 def test_method_rewards_the_correct_treatment_and_the_systemic_fix():
