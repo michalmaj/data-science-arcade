@@ -62,6 +62,12 @@ class ComparisonValue:
     since a bare "marketing.customer_id.nunique()" would otherwise read
     as a script using an undefined variable to anyone reading the
     Evidence Review's own Python tab top to bottom."""
+    value_format: Callable[[float], str] | None = None
+    """Overrides the scene's own shared `value_format` for this one
+    comparison - e.g. a plain count next to a dollar figure in the same
+    reveal, where a single scene-wide formatter can't render both
+    correctly. None (the default) keeps every existing caller unaffected
+    byte-for-byte, falling back to the scene's own `value_format`."""
 
 
 @dataclass(frozen=True)
@@ -153,6 +159,10 @@ class ComparisonRevealScene(Scene):
         self._interpret_choice: str | None = None
         self._rebuild_buttons()
 
+    def _format_value(self, item: ComparisonValue) -> str:
+        formatter = item.value_format if item.value_format is not None else self.value_format
+        return formatter(item.value)
+
     def _content_width(self) -> int:
         return BOX_WIDTH - 40
 
@@ -223,7 +233,7 @@ class ComparisonRevealScene(Scene):
         for item in self.comparisons:
             action = self.context.record_action(label_key=item.label_key, python_code=item.python_code, key=item.label_key)
             self.context.record_evidence(
-                label_key=item.label_key, source_action=action, key=item.label_key, detail=self.value_format(item.value)
+                label_key=item.label_key, source_action=action, key=item.label_key, detail=self._format_value(item)
             )
         chosen = next(o for o in self.interpret_options if o.key == self._interpret_choice)
         action = self.context.record_action(label_key=chosen.label_key)
@@ -258,7 +268,7 @@ class ComparisonRevealScene(Scene):
 
         y += NARRATIVE_COMPARISON_GAP
         for item in self.comparisons:
-            text = f"{loc.t(item.label_key)} {self.value_format(item.value)}"
+            text = f"{loc.t(item.label_key)} {self._format_value(item)}"
             draw_wrapped_text(surface, text, (left, y), width, COMPARISON_TEXT_SIZE, colors.BUTTON_FOCUS_BORDER)
             y += COMPARISON_ROW_HEIGHT
 

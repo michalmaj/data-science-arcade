@@ -22,11 +22,21 @@ from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND2
 from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import ROUND1_ISSUES as L07_ROUND1_ISSUES
 from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import ROUND2_ISSUES as L07_ROUND2_ISSUES
 from data_science_arcade.ui.segment_slicer_scene import SegmentSlicerScene
-from data_science_arcade.lessons.l08_duplicate_detective.candidate_pairs import CANDIDATE_PAIRS as L08_CANDIDATE_PAIRS
-from data_science_arcade.lessons.l08_duplicate_detective.candidate_pairs import (
-    CORRECT_DECISION_BY_PAIR as L08_CORRECT_DECISION_BY_PAIR,
-)
-from data_science_arcade.lessons.l08_duplicate_detective.scenario import DECISION_FIELDS as L08_DECISION_FIELDS
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import CONFLICT_POLICY_FIELD as L08_CONFLICT_POLICY_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import DECISION_EVIDENCE_FIELD as L08_DECISION_EVIDENCE_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import DEDUPE_KEY_FIELD as L08_DEDUPE_KEY_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import DUPLICATE_DEFINITION_FIELD as L08_DUPLICATE_DEFINITION_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import KPI_RESULT_FIELD as L08_KPI_RESULT_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import LEGITIMATE_REPEATS_FIELD as L08_LEGITIMATE_REPEATS_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import MASTERY_KEY_FIELD as L08_MASTERY_KEY_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import MASTERY_PRESERVE_FIELD as L08_MASTERY_PRESERVE_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import OBSERVATION_UNIT_FIELD as L08_OBSERVATION_UNIT_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import REQUIRED_PREVENTION_FIELD as L08_REQUIRED_PREVENTION_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.scenario import SAFE_CLAIM_FIELD as L08_SAFE_CLAIM_FIELD
+from data_science_arcade.lessons.l08_duplicate_detective.twist_data import CORRECT_VERDICT_BY_GROUP as L08_CORRECT_VERDICT_BY_GROUP
+from data_science_arcade.lessons.l08_duplicate_detective.twist_data import ROUND1_ISSUE as L08_ROUND1_ISSUE
+from data_science_arcade.lessons.l08_duplicate_detective.twist_data import ROUND2_ISSUE as L08_ROUND2_ISSUE
+from data_science_arcade.ui.duplicate_group_scene import DuplicateGroupScene
 from data_science_arcade.lessons.l09_outlier_patrol.scenario import DECISION_FIELDS as L09_DECISION_FIELDS
 from data_science_arcade.lessons.l09_outlier_patrol.transactions import CORRECT_ACTION_BY_CASE as L09_CORRECT_ACTION_BY_CASE
 from data_science_arcade.lessons.l09_outlier_patrol.transactions import OUTLIER_CASES as L09_OUTLIER_CASES
@@ -94,13 +104,11 @@ from data_science_arcade.ui.mission_briefing_scene import MissionBriefingScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
 from data_science_arcade.ui.prediction_scene import PredictionScene
-from data_science_arcade.ui.record_pair_scene import RecordPairScene
 from data_science_arcade.ui.resume_confirmation_scene import ResumeConfirmationScene
 from data_science_arcade.ui.sampling_allocator_scene import SamplingAllocatorScene
 from data_science_arcade.ui.segment_slicer_scene import SegmentSlicerScene
 from data_science_arcade.ui.survey_builder_scene import SurveyBuilderScene
 from data_science_arcade.ui.timeseries_scene import TimeSeriesScene
-from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
 
 from lesson_test_helpers import click_through_mission_briefing
@@ -1278,15 +1286,30 @@ def test_finishing_lesson_seven_marks_it_complete_and_unlocks_lesson_eight():
         pygame.quit()
 
 
-def _decide_every_l08_pair_correctly(scene: RecordPairScene) -> None:
-    for pair in L08_CANDIDATE_PAIRS:
-        decision = L08_CORRECT_DECISION_BY_PAIR[pair.key]
-        button = scene.merge_button if decision == "merge" else scene.keep_separate_button
-        button.on_activate()
+def _l08_option_index(field_or_options, option_key: str) -> int:
+    options = field_or_options.options if hasattr(field_or_options, "options") else field_or_options
+    return next(i for i, option in enumerate(options) if option.key == option_key)
+
+
+def _l08_repair_correctly(scene: WorkbenchScene, issue, correct_key: str) -> None:
+    flagged_cell = _first_flagged_cell_button(scene)
+    flagged_cell.on_activate()
+    scene.picker_buttons[correct_key].on_activate()
+
+
+def _l08_play_duplicate_groups(scene: DuplicateGroupScene) -> None:
+    for group in scene.groups:
+        correct_verdict = L08_CORRECT_VERDICT_BY_GROUP[group.key]
+        index = next(i for i, option in enumerate(scene.verdict_options) if option.key == correct_verdict)
+        scene.buttons.buttons[index].on_activate()
         scene.next_button.on_activate()
 
 
 def test_finishing_lesson_eight_marks_it_complete_and_unlocks_lesson_nine():
+    """Picks the real correct option everywhere this smoke test can - the
+    exact correctness of each pick is its own separately-tested behavior
+    (see test_lesson08_scenario.py). This is a smoke test for the real
+    15-stage flow finishing and unlocking Lesson 09, not a scoring test."""
     app = App()
     app.init()
     try:
@@ -1297,12 +1320,77 @@ def test_finishing_lesson_eight_marks_it_complete_and_unlocks_lesson_nine():
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _decide_every_l08_pair_correctly(app.scenes.current)  # guided pairs
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _decide_every_l08_pair_correctly(app.scenes.current)  # independent pairs
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L08_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # raw_inspection
+        raw_inspection = app.scenes.current.inner
+        option_key = raw_inspection.inspection_prompt.options[0].key
+        raw_inspection.inspection_buttons[option_key].on_activate()
+        raw_inspection.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # profiling_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair_round1
+        _l08_repair_correctly(app.scenes.current.inner, L08_ROUND1_ISSUE, "remove_exact_repeats_only")
+        app.scenes.current.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # consequence_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, DuplicateGroupScene)  # group_investigation
+        _l08_play_duplicate_groups(app.scenes.current.inner)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # root_cause_pivot
+
+        assert isinstance(app.scenes.current.inner, DuplicateGroupScene)  # twist_conflict
+        _l08_play_duplicate_groups(app.scenes.current.inner)
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair_round2
+        _l08_repair_correctly(app.scenes.current.inner, L08_ROUND2_ISSUE, "quarantine_and_disclose")
+        app.scenes.current.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for field, key in (
+            (L08_OBSERVATION_UNIT_FIELD, "paid_orders_with_captured_payment"),
+            (L08_DUPLICATE_DEFINITION_FIELD, "shared_event_id"),
+            (L08_DEDUPE_KEY_FIELD, "remove_exact_repeats_only"),
+        ):
+            decision.buttons.buttons[_l08_option_index(field, key)].on_activate()
+            decision.next_button.on_activate()
+        for key in ("multiple_lifecycle_events", "multiple_payment_attempts", "repeat_purchases"):
+            decision.buttons.buttons[_l08_option_index(L08_LEGITIMATE_REPEATS_FIELD, key)].on_activate()
+        decision.next_button.on_activate()
+        for field, key in (
+            (L08_CONFLICT_POLICY_FIELD, "quarantine_and_disclose"),
+            (L08_KPI_RESULT_FIELD, "nineteen_orders_950_one_excluded"),
+        ):
+            decision.buttons.buttons[_l08_option_index(field, key)].on_activate()
+            decision.next_button.on_activate()
+        evidence_ids = list(decision._evidence_toggle_buttons.keys())[: L08_DECISION_EVIDENCE_FIELD.max_count]
+        for item_id in evidence_ids:
+            decision._evidence_toggle_buttons[item_id].on_activate()
+        decision.next_button.on_activate()
+        for field, key in (
+            (L08_SAFE_CLAIM_FIELD, "one_conflicting_payment_excluded_pending_reconciliation"),
+            (L08_REQUIRED_PREVENTION_FIELD, "idempotent_ingestion_and_uniqueness_validation"),
+        ):
+            decision.buttons.buttons[_l08_option_index(field, key)].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

@@ -5,7 +5,7 @@ import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
 from data_science_arcade.core.scenes import Scene
-from data_science_arcade.lessons.framework.brief import BriefField
+from data_science_arcade.lessons.framework.brief import BriefField, MultiChoiceField
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
@@ -54,15 +54,16 @@ class EvidenceField:
     hint_key: str | None = None
 
 
-DecisionStep = BriefField | EvidenceField
+DecisionStep = BriefField | MultiChoiceField | EvidenceField
 
 
 class DecisionBuilderScene(Scene):
     """The lesson's final argument, composed step by step and sequenced
     with Back/Next exactly like BriefBuilderScene. `steps` is an arbitrary
-    ordered sequence of BriefField/EvidenceField, not a fixed set of named
-    params - a lesson's own argument shape (how many steps, what they're
-    called, whether a confidence step even exists) is content, not
+    ordered sequence of BriefField/MultiChoiceField/EvidenceField, not a
+    fixed set of named params - a lesson's own argument shape (how many
+    steps, what they're called, whether a confidence step even exists) is
+    content, not
     something this scene should hardcode after only one lesson used it.
     L01 sequences Claim -> Evidence -> Limitation -> Confidence ->
     Recommendation -> Follow-up; L02's own shape drops Confidence entirely
@@ -112,7 +113,7 @@ class DecisionBuilderScene(Scene):
         self.guided = guided
         self._steps: tuple[DecisionStep, ...] = steps
         self.step_index = 0
-        self.single_choices: dict[str, str] = {}
+        self.single_choices: dict[str, str | tuple[str, ...]] = {}
         self._evidence_selected: list[str] = []
         self._rebuild_buttons()
 
@@ -128,6 +129,9 @@ class DecisionBuilderScene(Scene):
     def _step_satisfied(self, step: DecisionStep) -> bool:
         if isinstance(step, EvidenceField):
             return step.min_count <= len(self._evidence_selected) <= step.max_count
+        if isinstance(step, MultiChoiceField):
+            selected = self.single_choices.get(step.key, ())
+            return step.min_count <= len(selected) <= step.max_count
         return step.key in self.single_choices
 
     def _evidence_layout(self, count: int) -> tuple[int, int]:
@@ -160,6 +164,14 @@ class DecisionBuilderScene(Scene):
                 button = Button(rect, label, self._make_toggle_evidence(item.id), enabled=enabled)
                 self._evidence_toggle_buttons[item.id] = button
                 buttons.append(button)
+        elif isinstance(step, MultiChoiceField):
+            selected_multi = self.single_choices.get(step.key, ())
+            for index, option in enumerate(step.options):
+                rect = pygame.Rect(0, 0, *OPTION_SIZE)
+                rect.center = (CENTER_X, FIRST_OPTION_Y + index * OPTION_SPACING)
+                selected = option.key in selected_multi
+                enabled = selected or len(selected_multi) < step.max_count
+                buttons.append(Button(rect, loc.t(option.label_key), self._make_toggle_multi(option.key), enabled=enabled))
         else:
             for index, option in enumerate(step.options):
                 rect = pygame.Rect(0, 0, *OPTION_SIZE)
@@ -185,6 +197,20 @@ class DecisionBuilderScene(Scene):
             self._rebuild_buttons()
 
         return choose
+
+    def _make_toggle_multi(self, option_key: str) -> Callable[[], None]:
+        def toggle() -> None:
+            step = self._current_step()
+            assert isinstance(step, MultiChoiceField)
+            selected = list(self.single_choices.get(step.key, ()))
+            if option_key in selected:
+                selected.remove(option_key)
+            elif len(selected) < step.max_count:
+                selected.append(option_key)
+            self.single_choices[step.key] = tuple(selected)
+            self._rebuild_buttons()
+
+        return toggle
 
     def _make_toggle_evidence(self, item_id: str) -> Callable[[], None]:
         def toggle() -> None:
@@ -232,6 +258,10 @@ class DecisionBuilderScene(Scene):
         if isinstance(step, EvidenceField):
             count_text = f"{len(self._evidence_selected)} / {step.min_count}-{step.max_count}"
             draw_centered_text(surface, count_text, (CENTER_X, EVIDENCE_COUNT_Y), 14, colors.BUTTON_TEXT_DISABLED)
+        elif isinstance(step, MultiChoiceField):
+            selected_count = len(self.single_choices.get(step.key, ()))
+            count_text = f"{selected_count} / {step.min_count}-{step.max_count}"
+            draw_centered_text(surface, count_text, (CENTER_X, EVIDENCE_COUNT_Y), 14, colors.BUTTON_TEXT_DISABLED)
 
         self.buttons.draw(surface)
         self._draw_selected_indicators(surface, step)
@@ -249,6 +279,13 @@ class DecisionBuilderScene(Scene):
     def _draw_selected_indicators(self, surface: pygame.Surface, step: DecisionStep) -> None:
         if isinstance(step, EvidenceField):
             buttons = [self._evidence_toggle_buttons[item_id] for item_id in self._evidence_selected]
+        elif isinstance(step, MultiChoiceField):
+            selected_multi = self.single_choices.get(step.key, ())
+            buttons = [
+                self.buttons.buttons[index]
+                for index, option in enumerate(step.options)
+                if option.key in selected_multi
+            ]
         else:
             selected_key = self.single_choices.get(step.key)
             if selected_key is None:

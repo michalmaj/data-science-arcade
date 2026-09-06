@@ -87,6 +87,20 @@ MISSINGNESS_HAS_A_MECHANISM = HandbookEntry(
     ),
 )
 
+DUPLICATES_NEED_AN_IDENTITY = HandbookEntry(
+    id="duplicates_need_an_identity",
+    title_key="handbook.article.duplicates_need_an_identity.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.duplicates_need_an_identity.body.1",
+        "handbook.article.duplicates_need_an_identity.body.2",
+        "handbook.article.duplicates_need_an_identity.body.3",
+        "handbook.article.duplicates_need_an_identity.body.4",
+        "handbook.article.duplicates_need_an_identity.body.5",
+    ),
+    related_entry_ids=("observation_unit_and_grain",),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -94,6 +108,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     TIME_WINDOWS_CHANGE_ANSWERS,
     SCHEMA_IS_A_CONTRACT,
     MISSINGNESS_HAS_A_MECHANISM,
+    DUPLICATES_NEED_AN_IDENTITY,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
