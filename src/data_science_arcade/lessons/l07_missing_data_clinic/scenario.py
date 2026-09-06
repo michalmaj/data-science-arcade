@@ -48,12 +48,44 @@ BRIEFING_DIALOGUE = Dialogue(
     )
 )
 
-ROOT_CAUSE_PIVOT_DIALOGUE = Dialogue(
+ROOT_CAUSE_PIVOT_DIALOGUE_BOTH = Dialogue(
     lines=(
         DialogueLine(speaker=DATA_ENGINEER, text_key="dialogue.l07_root_cause_pivot.line1"),
         DialogueLine(speaker=DATA_ENGINEER, text_key="dialogue.l07_root_cause_pivot.line2"),
     )
 )
+
+ROOT_CAUSE_PIVOT_DIALOGUE_SCANNER_ONLY = Dialogue(
+    lines=(
+        DialogueLine(speaker=DATA_ENGINEER, text_key="dialogue.l07_root_cause_pivot.line1"),
+        DialogueLine(speaker=DATA_ENGINEER, text_key="dialogue.l07_root_cause_pivot.line2_scanner_only"),
+    )
+)
+
+ROOT_CAUSE_PIVOT_DIALOGUE_HOUR_ONLY = Dialogue(
+    lines=(
+        DialogueLine(speaker=DATA_ENGINEER, text_key="dialogue.l07_root_cause_pivot.line1"),
+        DialogueLine(speaker=DATA_ENGINEER, text_key="dialogue.l07_root_cause_pivot.line2_hour_only"),
+    )
+)
+
+
+def _root_cause_dialogue_for(investigation_choices: dict[str, str]) -> Dialogue:
+    """Never claims a table the student never opened - which variant
+    plays depends on which real signal(s) they actually saw. Falls back
+    to the "both" variant only as a defensive default; the investigation
+    stage's own follow-up loop guarantees at least one real signal was
+    seen before this stage can ever be reached."""
+    seen = set(investigation_choices.values())
+    saw_scanner = "scanner_type" in seen
+    saw_hour = "hour_bucket" in seen
+    if saw_scanner and saw_hour:
+        return ROOT_CAUSE_PIVOT_DIALOGUE_BOTH
+    if saw_scanner:
+        return ROOT_CAUSE_PIVOT_DIALOGUE_SCANNER_ONLY
+    if saw_hour:
+        return ROOT_CAUSE_PIVOT_DIALOGUE_HOUR_ONLY
+    return ROOT_CAUSE_PIVOT_DIALOGUE_BOTH
 
 DEBRIEF_DIALOGUE = Dialogue(
     lines=(
@@ -145,62 +177,95 @@ _INVESTIGATION_EVIDENCE_KEY_BY_OPTION: dict[str, str] = {
 }
 
 
-def _build_investigation_requests(dataset) -> tuple[SegmentRequest, SegmentRequest]:
+def _build_investigation_slice_options(dataset) -> dict[str, SliceOption]:
+    """Every real cut this stage can ever offer, built once from whatever
+    dataset is passed in - shared by the initial 2-request slicer and the
+    follow-up request, so the two never compute the same real numbers
+    twice or risk drifting apart."""
+    # A destructive Round 1 treatment can leave a segment with zero
+    # remaining rows (e.g. every order for one store happened to need
+    # cold_pack_temp_c and got dropped) - groupby then never produces
+    # that key at all, so every lookup below defaults to 0.0 rather than
+    # raising: "no orders left here" is a real, if degenerate, 0%
+    # missing rate, not a crash.
     baseline = overall_missing_rate(dataset)
     by_scanner = missing_rate_by(dataset, "scanner_type")
     by_store = missing_rate_by(dataset, "store")
     by_hour = missing_rate_by(dataset, "hour_bucket")
     by_basket = missing_rate_by(dataset, "basket_size")
+    return {
+        "scanner_type": SliceOption(
+            "scanner_type",
+            "lesson.l07.investigation.option.scanner_type",
+            segments=(
+                Segment("legacy", "lesson.l07.investigation.segment.scanner_legacy", baseline, by_scanner.get("legacy", 0.0)),
+                Segment(
+                    "current", "lesson.l07.investigation.segment.scanner_current", baseline, by_scanner.get("current", 0.0)
+                ),
+            ),
+        ),
+        "store": SliceOption(
+            "store",
+            "lesson.l07.investigation.option.store",
+            segments=tuple(
+                Segment(
+                    f"store_{s.lower()}", f"lesson.l07.investigation.segment.store_{s.lower()}", baseline, by_store.get(s, 0.0)
+                )
+                for s in STORES
+            ),
+        ),
+        "hour_bucket": SliceOption(
+            "hour_bucket",
+            "lesson.l07.investigation.option.hour_bucket",
+            segments=(
+                Segment("peak", "lesson.l07.investigation.segment.hour_peak", baseline, by_hour.get("peak", 0.0)),
+                Segment("offpeak", "lesson.l07.investigation.segment.hour_offpeak", baseline, by_hour.get("offpeak", 0.0)),
+            ),
+        ),
+        "basket_size": SliceOption(
+            "basket_size",
+            "lesson.l07.investigation.option.basket_size",
+            segments=(
+                Segment("small", "lesson.l07.investigation.segment.basket_small", baseline, by_basket.get("small", 0.0)),
+                Segment("large", "lesson.l07.investigation.segment.basket_large", baseline, by_basket.get("large", 0.0)),
+            ),
+        ),
+    }
 
+
+def _build_investigation_requests(dataset) -> tuple[SegmentRequest, SegmentRequest]:
+    options = _build_investigation_slice_options(dataset)
     primary_cut = SegmentRequest(
         key="primary_cut",
         prompt_key="lesson.l07.investigation.primary_cut.prompt",
         hint_key="lesson.l07.investigation.hint",
-        options=(
-            SliceOption(
-                "scanner_type",
-                "lesson.l07.investigation.option.scanner_type",
-                segments=(
-                    Segment("legacy", "lesson.l07.investigation.segment.scanner_legacy", baseline, by_scanner["legacy"]),
-                    Segment("current", "lesson.l07.investigation.segment.scanner_current", baseline, by_scanner["current"]),
-                ),
-            ),
-            SliceOption(
-                "store",
-                "lesson.l07.investigation.option.store",
-                segments=tuple(
-                    Segment(f"store_{s.lower()}", f"lesson.l07.investigation.segment.store_{s.lower()}", baseline, by_store[s])
-                    for s in STORES
-                ),
-            ),
-        ),
+        options=(options["scanner_type"], options["store"]),
     )
-
     secondary_cut = SegmentRequest(
         key="secondary_cut",
         prompt_key="lesson.l07.investigation.secondary_cut.prompt",
         hint_key="lesson.l07.investigation.hint",
-        options=(
-            SliceOption(
-                "hour_bucket",
-                "lesson.l07.investigation.option.hour_bucket",
-                segments=(
-                    Segment("peak", "lesson.l07.investigation.segment.hour_peak", baseline, by_hour["peak"]),
-                    Segment("offpeak", "lesson.l07.investigation.segment.hour_offpeak", baseline, by_hour["offpeak"]),
-                ),
-            ),
-            SliceOption(
-                "basket_size",
-                "lesson.l07.investigation.option.basket_size",
-                segments=(
-                    Segment("small", "lesson.l07.investigation.segment.basket_small", baseline, by_basket["small"]),
-                    Segment("large", "lesson.l07.investigation.segment.basket_large", baseline, by_basket["large"]),
-                ),
-            ),
-        ),
+        options=(options["hour_bucket"], options["basket_size"]),
+    )
+    return primary_cut, secondary_cut
+
+
+def _build_followup_investigation_request(dataset) -> SegmentRequest:
+    """Only shown when both of the first two cuts landed on a decoy -
+    both real signals this time, so whichever gets picked guarantees the
+    student actually sees at least one real pattern before the root-
+    cause dialogue ever names one."""
+    options = _build_investigation_slice_options(dataset)
+    return SegmentRequest(
+        key="followup_cut",
+        prompt_key="lesson.l07.investigation.followup_cut.prompt",
+        hint_key="lesson.l07.investigation.followup_hint",
+        options=(options["scanner_type"], options["hour_bucket"]),
     )
 
-    return primary_cut, secondary_cut
+
+def _saw_a_real_signal(choices: dict[str, str]) -> bool:
+    return "scanner_type" in choices.values() or "hour_bucket" in choices.values()
 
 
 def _record_investigation_evidence(context: LessonContext, dataset, choices: dict[str, str]) -> None:
@@ -222,6 +287,16 @@ def _record_investigation_evidence(context: LessonContext, dataset, choices: dic
         )
         context.record_evidence(label_key=evidence_key, source_action=action, key=f"investigation_{request_key}", detail=detail)
 
+
+# --- Round 1 population-consequence check: a destructive treatment
+# (dropping every row missing a column) really does shrink the analysis
+# population - shown as a real fact, with the interpret choice itself
+# doubling as a real "keep it or reconsider" decision. ---
+
+CONSEQUENCE_INTERPRET_OPTIONS = (
+    InterpretOption("keep_this_population", "lesson.l07.round1_consequence.interpret.option.keep"),
+    InterpretOption("revise_the_treatment", "lesson.l07.round1_consequence.interpret.option.revise"),
+)
 
 # --- Sensitivity reveal ---------------------------------------------------
 
@@ -288,6 +363,7 @@ SENSITIVITY_FIELD = BriefField(
     prompt_key="lesson.l07.decision.sensitivity.prompt",
     options=(
         BriefOption("bounds_are_real_assumptions", "lesson.l07.decision.sensitivity.option.bounds_are_real_assumptions"),
+        BriefOption("fill_collapsed_the_calculation", "lesson.l07.decision.sensitivity.option.fill_collapsed_the_calculation"),
         BriefOption("bounds_are_decorative", "lesson.l07.decision.sensitivity.option.bounds_are_decorative"),
         BriefOption("exact_truth_knowable", "lesson.l07.decision.sensitivity.option.exact_truth_knowable"),
     ),
@@ -410,12 +486,70 @@ def build_lesson_seven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         )
 
     def repair_round1(advance):
-        def on_complete(resolution):
+        """A destructive Round 1 pick (dropping every row missing
+        cold_pack_temp_c or promo_code) really does shrink the analysis
+        population - shown as a real fact immediately, with a real,
+        un-punished chance to reconsider before the central SLA
+        investigation ever runs against a narrowed population."""
+
+        def on_first_repair_complete(resolution):
+            collected["initial_round1_resolution"] = dict(resolution)
             collected["round1_resolution"] = resolution
             _sync_context_into_collected()
-            advance()
+            if len(apply_round1(resolution).frame) == len(generate_orders().frame):
+                advance()
+            else:
+                composite.advance_to_second()
 
-        return WorkbenchScene(app, generate_orders(), ROUND1_ISSUES, on_complete, guided=True, context=context)
+        def build_consequence_and_maybe_revise():
+            before_count = len(generate_orders().frame)
+            after_count = len(apply_round1(collected["round1_resolution"]).frame)
+
+            def on_consequence_complete(interpretation):
+                collected["round1_population_choice"] = interpretation
+                _sync_context_into_collected()
+                if interpretation == "revise_the_treatment":
+                    consequence_sequence.advance_to_second()
+                else:
+                    advance()
+
+            def build_revision_repair():
+                def on_revised_repair_complete(resolution):
+                    collected["round1_resolution"] = resolution
+                    collected["round1_revised"] = True
+                    _sync_context_into_collected()
+                    advance()
+
+                return WorkbenchScene(
+                    app, generate_orders(), ROUND1_ISSUES, on_revised_repair_complete, guided=True, context=context
+                )
+
+            consequence_sequence = SequenceScene(
+                app,
+                first=ComparisonRevealScene(
+                    app,
+                    title_key="lesson.l07.round1_consequence.title",
+                    narrative_keys=("dialogue.l07_round1_consequence.line1", "dialogue.l07_round1_consequence.line2"),
+                    comparisons=(
+                        ComparisonValue("lesson.l07.round1_consequence.before_label", float(before_count)),
+                        ComparisonValue("lesson.l07.round1_consequence.after_label", float(after_count)),
+                    ),
+                    interpret_prompt_key="lesson.l07.round1_consequence.interpret_prompt",
+                    interpret_options=CONSEQUENCE_INTERPRET_OPTIONS,
+                    on_complete=on_consequence_complete,
+                    context=context,
+                    value_format=lambda value: f"{int(value)}",
+                ),
+                build_second=build_revision_repair,
+            )
+            return consequence_sequence
+
+        composite = SequenceScene(
+            app,
+            first=WorkbenchScene(app, generate_orders(), ROUND1_ISSUES, on_first_repair_complete, guided=True, context=context),
+            build_second=build_consequence_and_maybe_revise,
+        )
+        return composite
 
     def first_attempt(advance):
         dataset = apply_round1(collected.get("round1_resolution", {}))
@@ -446,30 +580,69 @@ def build_lesson_seven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     # --- Missingness investigation ---
 
     def missingness_investigation(advance):
+        """Both real signals (scanner_type, hour_bucket) are genuinely
+        skippable - a student can pick both decoys (store, basket_size)
+        and never see either. The follow-up cut only appears in that
+        exact case, offering both real signals directly so the student
+        is guaranteed to see at least the one the diagnosis actually
+        needs - never a discovery the next dialogue simply asserts."""
         dataset = apply_round1(collected.get("round1_resolution", {}))
         requests = _build_investigation_requests(dataset)
 
         def on_complete(choices):
             _record_investigation_evidence(context, dataset, choices)
+            collected["investigation_choices"] = dict(choices)
             _sync_context_into_collected()
-            advance()
+            if _saw_a_real_signal(choices):
+                advance()
+            else:
+                sequence.advance_to_second()
 
-        return SegmentSlicerScene(
+        def build_followup():
+            followup_request = _build_followup_investigation_request(dataset)
+
+            def on_followup_complete(followup_choices):
+                _record_investigation_evidence(context, dataset, followup_choices)
+                collected["investigation_choices"] = {**collected.get("investigation_choices", {}), **followup_choices}
+                _sync_context_into_collected()
+                advance()
+
+            return SegmentSlicerScene(
+                app,
+                "lesson.l07.investigation_title",
+                (followup_request,),
+                on_followup_complete,
+                guided=True,
+                row_column_label_key="lesson.l07.investigation.row_column_label",
+                before_column_label_key="lesson.l07.investigation.before_column_label",
+                after_column_label_key="lesson.l07.investigation.after_column_label",
+                pick_hint_key="lesson.l07.investigation.pick_hint",
+                value_format=lambda segment, value: f"{value:.0%}",
+                flag_check=lambda before, after: after > before,
+            )
+
+        sequence = SequenceScene(
             app,
-            "lesson.l07.investigation_title",
-            requests,
-            on_complete,
-            guided=True,
-            row_column_label_key="lesson.l07.investigation.row_column_label",
-            before_column_label_key="lesson.l07.investigation.before_column_label",
-            after_column_label_key="lesson.l07.investigation.after_column_label",
-            pick_hint_key="lesson.l07.investigation.pick_hint",
-            value_format=lambda segment, value: f"{value:.0%}",
-            flag_check=lambda before, after: after > before,
+            first=SegmentSlicerScene(
+                app,
+                "lesson.l07.investigation_title",
+                requests,
+                on_complete,
+                guided=True,
+                row_column_label_key="lesson.l07.investigation.row_column_label",
+                before_column_label_key="lesson.l07.investigation.before_column_label",
+                after_column_label_key="lesson.l07.investigation.after_column_label",
+                pick_hint_key="lesson.l07.investigation.pick_hint",
+                value_format=lambda segment, value: f"{value:.0%}",
+                flag_check=lambda before, after: after > before,
+            ),
+            build_second=build_followup,
         )
+        return sequence
 
     def root_cause_pivot(advance):
-        return DialogueScene(app, ROOT_CAUSE_PIVOT_DIALOGUE, on_complete=advance)
+        dialogue = _root_cause_dialogue_for(collected.get("investigation_choices", {}))
+        return DialogueScene(app, dialogue, on_complete=advance)
 
     # --- Round 2: declare (now informed), then execute ---
 
@@ -497,29 +670,80 @@ def build_lesson_seven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         return WorkbenchScene(app, dataset, ROUND2_ISSUES, on_complete, guided=True, context=context)
 
     def sensitivity_reveal(advance):
-        dataset = apply_round2(collected.get("round1_resolution", {}), collected.get("round2_resolution", {}))
-        lower, upper = sla_bounds(dataset)
+        """Shows the sensitivity range for whatever pick_minutes treatment
+        is currently in effect, then offers a real, un-punished chance to
+        revise that treatment and see a real, recomputed range - never a
+        one-shot reveal a wrong first pick can't come back from. The
+        final scorer only ever sees the last real round2_resolution;
+        the very first pick is kept separately for trajectory feedback
+        only, never as a permanent penalty."""
+        collected["initial_pick_treatment"] = collected.get("round2_resolution", {}).get("pick_minutes", "")
 
-        def on_complete(interpretation):
-            collected["sensitivity_interpretation"] = interpretation
-            _sync_context_into_collected()
-            advance()
+        def build_reveal(on_done):
+            round2_resolution = collected.get("round2_resolution", {})
+            dataset = apply_round2(collected.get("round1_resolution", {}), round2_resolution)
+            lower, upper = sla_bounds(dataset)
+            collapsed = lower == upper
 
-        return ComparisonRevealScene(
-            app,
-            title_key="lesson.l07.sensitivity.title",
-            narrative_keys=("dialogue.l07_sensitivity.line1", "dialogue.l07_sensitivity.line2"),
-            comparisons=(
-                ComparisonValue("lesson.l07.sensitivity.lower_label", lower, python_code=sla_lower_bound_python_code()),
-                ComparisonValue("lesson.l07.sensitivity.upper_label", upper, python_code=sla_upper_bound_python_code()),
-                ComparisonValue("lesson.l07.sensitivity.target_label", SLA_TARGET),
-            ),
-            interpret_prompt_key="lesson.l07.sensitivity.interpret_prompt",
-            interpret_options=SENSITIVITY_INTERPRET_OPTIONS,
-            on_complete=on_complete,
-            context=context,
-            value_format=_format_rate,
+            def on_reveal_complete(interpretation):
+                collected["sensitivity_interpretation"] = interpretation
+                _sync_context_into_collected()
+                on_done()
+
+            narrative_keys = (
+                ("dialogue.l07_sensitivity_collapsed.line1", "dialogue.l07_sensitivity_collapsed.line2")
+                if collapsed
+                else ("dialogue.l07_sensitivity.line1", "dialogue.l07_sensitivity.line2")
+            )
+            return ComparisonRevealScene(
+                app,
+                title_key="lesson.l07.sensitivity.title",
+                narrative_keys=narrative_keys,
+                comparisons=(
+                    ComparisonValue("lesson.l07.sensitivity.lower_label", lower, python_code=sla_lower_bound_python_code()),
+                    ComparisonValue("lesson.l07.sensitivity.upper_label", upper, python_code=sla_upper_bound_python_code()),
+                    ComparisonValue("lesson.l07.sensitivity.target_label", SLA_TARGET),
+                ),
+                interpret_prompt_key="lesson.l07.sensitivity.interpret_prompt",
+                interpret_options=SENSITIVITY_INTERPRET_OPTIONS,
+                on_complete=on_reveal_complete,
+                context=context,
+                value_format=_format_rate,
+            )
+
+        def build_revision_offer():
+            def build_revision_task(on_task_complete):
+                def on_repair_complete(resolution):
+                    collected["round2_resolution"] = resolution
+                    _sync_context_into_collected()
+                    inner_sequence.advance_to_second()
+
+                dataset = apply_round1(collected.get("round1_resolution", {}))
+                inner_sequence = SequenceScene(
+                    app,
+                    first=WorkbenchScene(app, dataset, ROUND2_ISSUES, on_repair_complete, guided=True, context=context),
+                    build_second=lambda: build_reveal(on_done=lambda: on_task_complete(None)),
+                )
+                return inner_sequence
+
+            def on_offer_complete(engaged, _result):
+                collected["pick_minutes_revised"] = engaged
+                advance()
+
+            return OfferThenTaskScene(
+                app,
+                build_revision_task,
+                on_offer_complete,
+                title_key="lesson.l07.sensitivity.revision_offer.title",
+                line_keys=("lesson.l07.sensitivity.revision_offer.line1",),
+                engage_label_key="lesson.l07.sensitivity.revision_offer.engage",
+                skip_label_key="lesson.l07.sensitivity.revision_offer.skip",
+            )
+
+        composite = SequenceScene(
+            app, first=build_reveal(on_done=lambda: composite.advance_to_second()), build_second=build_revision_offer
         )
+        return composite
 
     # --- Evidence review ---
 
@@ -637,6 +861,10 @@ def build_lesson_seven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             critical_evidence_present=_critical_evidence_present(selected_evidence_ids),
             mastery_engaged=collected.get("mastery_engaged", False),
             mastery_selection=frozenset(collected.get("mastery_selection", ())),
+            initial_round1_resolution=collected.get("initial_round1_resolution", {}),
+            round1_revised=collected.get("round1_revised", False),
+            initial_pick_treatment=collected.get("initial_pick_treatment", ""),
+            pick_minutes_revised=collected.get("pick_minutes_revised", False),
         )
 
     def feedback(advance):

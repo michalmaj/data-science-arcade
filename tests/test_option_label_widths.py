@@ -87,6 +87,7 @@ from data_science_arcade.lessons.l06_schema_repair_shop.scenario import REVEAL1_
 from data_science_arcade.lessons.l06_schema_repair_shop.scenario import REVEAL2_INTERPRET_OPTIONS as L06_REVEAL2_INTERPRET_OPTIONS
 from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND1_ISSUES as L06_ROUND1_ISSUES
 from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND2_ISSUES as L06_ROUND2_ISSUES
+from data_science_arcade.lessons.l07_missing_data_clinic.scenario import CONSEQUENCE_INTERPRET_OPTIONS as L07_CONSEQUENCE_INTERPRET_OPTIONS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import DECISION_FIELDS as L07_DECISION_FIELDS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import FIRST_ATTEMPT_INTERPRET_OPTIONS as L07_FIRST_ATTEMPT_INTERPRET_OPTIONS
 from data_science_arcade.lessons.l07_missing_data_clinic.scenario import RAW_INSPECTION_PROMPT as L07_RAW_INSPECTION_PROMPT
@@ -150,6 +151,7 @@ from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.correlation_scene import OPTION_SIZE as CORRELATION_OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
 from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPTION_SIZE
+from data_science_arcade.ui.composite_scene import OFFER_BUTTON_SIZE
 from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
 from data_science_arcade.ui.cohort_matrix_scene import COMPARISON_OPTION_SIZE as COHORT_COMPARISON_OPTION_SIZE
 from data_science_arcade.ui.comparison_reveal_scene import OPTION_SIZE as COMPARISON_REVEAL_OPTION_SIZE
@@ -332,6 +334,20 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for key in ("checkpoint.stop_button", "checkpoint.continue_button"):
         checks.append((key, key, checkpoint_nav_button_width))
 
+    # OfferThenTaskScene's own engage/skip buttons are fixed chrome, not
+    # per-request content - the generic mastery.* pair every mastery-style
+    # offer defaults to, plus every lesson's own override (currently only
+    # L07's sensitivity revision offer, whose "reconsider a real Round 2
+    # pick" framing doesn't fit the generic "bonus question" wording).
+    offer_button_width = OFFER_BUTTON_SIZE[0] - BUTTON_PADDING
+    for key in (
+        "mastery.engage",
+        "mastery.skip",
+        "lesson.l07.sensitivity.revision_offer.engage",
+        "lesson.l07.sensitivity.revision_offer.skip",
+    ):
+        checks.append((key, key, offer_button_width))
+
     funnel_definition_button_width = FUNNEL_DEFINITION_OPTION_SIZE[0] - BUTTON_PADDING
     for request in L21_FUNNEL_REQUESTS:
         for definition in request.definitions:
@@ -406,6 +422,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L06_REVEAL2_INTERPRET_OPTIONS,
         L07_FIRST_ATTEMPT_INTERPRET_OPTIONS,
         L07_SENSITIVITY_INTERPRET_OPTIONS,
+        L07_CONSEQUENCE_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))

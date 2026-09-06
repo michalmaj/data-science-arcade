@@ -129,6 +129,107 @@ def _play_segment_slicer(scene: SegmentSlicerScene, choices: dict[str, str]) -> 
         scene.next_button.on_activate()
 
 
+def _leaf_scene(scene):
+    """Unwraps nested SequenceScene/OfferThenTaskScene composites down to
+    the real leaf scene currently on screen. Interaction itself doesn't
+    need this - attribute access already proxies through __getattr__ on
+    every wrapper - but isinstance checks do, since a wrapper's own type
+    never changes as its nested `_active` scene is swapped out."""
+    while isinstance(scene, (SequenceScene, OfferThenTaskScene)):
+        active = getattr(scene, "_active", None)
+        if active is None:
+            break
+        scene = active
+    return scene
+
+
+def _play_repair_round1(
+    app,
+    resolution_round1: dict[str, str],
+    *,
+    population_choice: str | None = None,
+    revised_resolution: dict[str, str] | None = None,
+) -> None:
+    """Drives the repair_round1 composite. A destructive resolution (one
+    that shrinks the 400-row population) shows a real population-
+    consequence reveal, with a real, un-punished chance to revise before
+    the central SLA investigation ever runs against a narrowed
+    population - population_choice/revised_resolution only matter on
+    that branch. Checked against real stage identity, not scene type
+    alone - the very next real stage (first_attempt) is itself a
+    ComparisonRevealScene too, and would otherwise be indistinguishable
+    from the in-stage consequence reveal by type."""
+    stage_scene = app.scenes.current.inner
+    assert isinstance(_leaf_scene(stage_scene), WorkbenchScene)
+    _repair_issues(stage_scene, resolution_round1)
+    app.scenes.current.continue_button.on_activate()
+
+    if app.scenes.current.inner is stage_scene:
+        assert population_choice is not None
+        assert isinstance(_leaf_scene(stage_scene), ComparisonRevealScene)
+        _play_comparison_reveal(stage_scene, population_choice)
+        if population_choice == "revise_the_treatment":
+            assert isinstance(_leaf_scene(stage_scene), WorkbenchScene)
+            assert revised_resolution is not None
+            _repair_issues(stage_scene, revised_resolution)
+            app.scenes.current.continue_button.on_activate()
+
+
+def _play_missingness_investigation(app, investigation: dict[str, str], *, followup: str | None = None) -> None:
+    """Drives the missingness_investigation composite. Picking both
+    decoys (store, basket_size) triggers a real follow-up cut offering
+    both real signals directly, guaranteeing the student sees at least
+    one real pattern before the root-cause dialogue ever names one."""
+    assert isinstance(_leaf_scene(app.scenes.current.inner), SegmentSlicerScene)
+    _play_segment_slicer(app.scenes.current.inner, investigation)
+
+    leaf = _leaf_scene(app.scenes.current.inner)
+    if isinstance(leaf, SegmentSlicerScene):
+        assert followup is not None
+        _play_segment_slicer(app.scenes.current.inner, {"followup_cut": followup})
+
+
+def _play_sensitivity_reveal(
+    app,
+    sensitivity_key: str,
+    *,
+    revise: bool = False,
+    revised_resolution: dict[str, str] | None = None,
+    revised_sensitivity_key: str | None = None,
+) -> None:
+    """Drives the sensitivity_reveal composite: the reveal shows first,
+    then a real, un-punished offer to revise pick_minutes' own treatment
+    and see the range genuinely recompute.
+
+    OfferThenTaskScene keeps its own real `.buttons` (Engage/Skip)
+    attribute alive even once engaged - real gameplay never notices
+    since its `handle_event` explicitly routes to the active task scene
+    first, but generic attribute proxying (`__getattr__`) finds that
+    still-live `.buttons` before ever falling through to the nested task
+    scene's own. So once engaged, every further interaction here targets
+    the unwrapped leaf scene directly rather than the composite/offer
+    wrapper, sidestepping that shadowing."""
+    assert isinstance(_leaf_scene(app.scenes.current.inner), ComparisonRevealScene)
+    _play_comparison_reveal(app.scenes.current.inner, sensitivity_key)
+
+    offer = _leaf_scene(app.scenes.current.inner)
+    assert isinstance(offer, OfferThenTaskScene)
+    if revise:
+        offer.buttons.buttons[0].on_activate()  # Engage
+        leaf = _leaf_scene(offer)
+        assert isinstance(leaf, WorkbenchScene)
+        assert revised_resolution is not None
+        _repair_issues(leaf, revised_resolution)
+        leaf.continue_button.on_activate()
+
+        leaf = _leaf_scene(offer)
+        assert isinstance(leaf, ComparisonRevealScene)
+        assert revised_sensitivity_key is not None
+        _play_comparison_reveal(leaf, revised_sensitivity_key)
+    else:
+        offer.buttons.buttons[1].on_activate()  # Skip
+
+
 def _play_decision_builder(scene: DecisionBuilderScene, *, decision_keys: dict[str, str]) -> None:
     for step in scene._steps:
         if step.key == "evidence":
@@ -146,11 +247,17 @@ def _play_lesson_to_feedback(
     inspection_option="missingness_needs_diagnosis",
     contract_round1=GOOD_CONTRACT_ROUND1,
     resolution_round1=GOOD_RESOLUTION_ROUND1,
+    round1_population_choice=None,
+    round1_revised_resolution=None,
     first_attempt_key="worth_checking",
     investigation=GOOD_INVESTIGATION,
+    investigation_followup=None,
     contract_round2=GOOD_CONTRACT_ROUND2,
     resolution_round2=GOOD_RESOLUTION_ROUND2,
     sensitivity_key="range_real_undecided",
+    sensitivity_revise: bool = False,
+    sensitivity_revised_resolution=None,
+    sensitivity_revised_key=None,
     decision=GOOD_DECISION,
     mastery_engage: bool = False,
     mastery_selection=("supplier_lead_days",),
@@ -166,15 +273,17 @@ def _play_lesson_to_feedback(
     _fill_single_select(scene, COLD_PACK_MEANING_FIELD, contract_round1["cold_pack_meaning"])
     _fill_single_select(app.scenes.current.inner, PROMO_MEANING_FIELD, contract_round1["promo_meaning"])
 
-    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair round 1
-    _repair_issues(app.scenes.current.inner, resolution_round1)
-    app.scenes.current.continue_button.on_activate()
+    _play_repair_round1(
+        app,
+        resolution_round1,
+        population_choice=round1_population_choice,
+        revised_resolution=round1_revised_resolution,
+    )
 
     assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # first attempt
     _play_comparison_reveal(app.scenes.current.inner, first_attempt_key)
 
-    assert isinstance(app.scenes.current.inner, SegmentSlicerScene)  # missingness investigation
-    _play_segment_slicer(app.scenes.current.inner, investigation)
+    _play_missingness_investigation(app, investigation, followup=investigation_followup)
 
     assert isinstance(app.scenes.current.inner, DialogueScene)  # root cause pivot
     _play_dialogue_to_the_end(app.scenes.current)
@@ -186,8 +295,13 @@ def _play_lesson_to_feedback(
     _repair_issues(app.scenes.current.inner, resolution_round2)
     app.scenes.current.continue_button.on_activate()
 
-    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # sensitivity reveal
-    _play_comparison_reveal(app.scenes.current.inner, sensitivity_key)
+    _play_sensitivity_reveal(
+        app,
+        sensitivity_key,
+        revise=sensitivity_revise,
+        revised_resolution=sensitivity_revised_resolution,
+        revised_sensitivity_key=sensitivity_revised_key,
+    )
 
     assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence review
     app.scenes.current.continue_button.on_activate()
@@ -256,14 +370,165 @@ def test_a_playthrough_that_skips_mastery_still_completes():
         pygame.quit()
 
 
-def test_picking_the_decoy_investigation_options_still_completes_with_real_flat_evidence():
+def test_picking_both_decoy_investigation_options_forces_a_real_followup_cut():
+    # Both decoys (store, basket_size) show a real, flat table each time -
+    # a real finding, not a wasted click - but neither is the pattern the
+    # root-cause dialogue is about to name, so a follow-up cut (offering
+    # only the two real signals) must appear before the lesson moves on.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_seven_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        feedback = _play_lesson_to_feedback(
+            app,
+            investigation={"primary_cut": "store", "secondary_cut": "basket_size"},
+            investigation_followup="scanner_type",
+        )
+        assert isinstance(feedback, LessonFeedbackScene)
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief
+
+        result = finished_results[0]
+        assert result.decision.get("missingness_diagnosis") == "legacy_peak_workflow"
+    finally:
+        pygame.quit()
+
+
+def test_skipping_the_followup_cut_is_not_possible_without_a_real_signal():
+    # A student who picks both decoys and then has NOTHING left to click
+    # on the follow-up screen (only two real options, both real) always
+    # ends up having actually seen a real signal - asserted here by
+    # driving the exact same path with the other real option, confirming
+    # either choice on the follow-up screen is enough to unblock the
+    # lesson.
     app = _init_app()
     try:
         runner, _ = build_lesson_seven_runner(app, on_finished=lambda result: None)
         runner.start()
         click_through_mission_briefing(app)
-        feedback = _play_lesson_to_feedback(app, investigation={"primary_cut": "store", "secondary_cut": "basket_size"})
+        feedback = _play_lesson_to_feedback(
+            app,
+            investigation={"primary_cut": "store", "secondary_cut": "basket_size"},
+            investigation_followup="hour_bucket",
+        )
         assert isinstance(feedback, LessonFeedbackScene)
+    finally:
+        pygame.quit()
+
+
+def test_a_destructive_round1_treatment_can_be_revised_to_recover_the_full_population():
+    # drop_missing_promo really does shrink 400 orders to 120 - shown as
+    # a real fact immediately, with a real chance to revise before the
+    # central SLA investigation ever runs against the narrowed
+    # population. A student who recovers here should be able to finish
+    # with a high core score, not carry a permanent penalty.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_seven_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        destructive_resolution = {"cold_pack_temp_c": "leave_as_missing", "promo_code": "drop_missing_promo"}
+        feedback = _play_lesson_to_feedback(
+            app,
+            resolution_round1=destructive_resolution,
+            round1_population_choice="revise_the_treatment",
+            round1_revised_resolution=GOOD_RESOLUTION_ROUND1,
+        )
+        assert isinstance(feedback, LessonFeedbackScene)
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief
+
+        result = finished_results[0]
+        assert result.round1_revised is True
+        assert result.initial_round1_resolution == destructive_resolution
+        assert result.round1_resolution == GOOD_RESOLUTION_ROUND1
+        assert result.final_row_count() == 400
+
+        assert any(
+            o.text_key == "lesson.l07.feedback.round1_population_recovered_via_revision"
+            for o in feedback.evaluation.observations
+        )
+        assert feedback.evaluation.dimension_scores[ScoreDimension.REASONING] == 92.0
+    finally:
+        pygame.quit()
+
+
+def test_keeping_a_destructive_round1_treatment_is_caught_by_scope_coherence():
+    # A student who sees the population shrink and still keeps the
+    # treatment is a legitimate final state, not a forced revision - but
+    # a Final Decision that still claims the untouched full population is
+    # incoherent with what they actually did, and REASONING must catch
+    # it generically rather than needing a dedicated branch.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_seven_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        destructive_resolution = {"cold_pack_temp_c": "drop_missing_cold_pack", "promo_code": "recode_no_promo"}
+        feedback = _play_lesson_to_feedback(
+            app,
+            resolution_round1=destructive_resolution,
+            round1_population_choice="keep_this_population",
+        )
+        assert isinstance(feedback, LessonFeedbackScene)
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief
+
+        result = finished_results[0]
+        assert result.round1_revised is False
+        assert result.round1_resolution == destructive_resolution
+        assert result.final_row_count() < 400
+        assert any(
+            o.text_key == "lesson.l07.feedback.target_scope_ignores_dropped_rows" for o in feedback.evaluation.observations
+        )
+    finally:
+        pygame.quit()
+
+
+def test_a_naive_fill_can_be_revised_to_preserve_and_recover_the_real_range():
+    # The target productive-failure chain: impute pick_minutes, see the
+    # sensitivity range collapse to a single point, recognize the
+    # uncertainty was hidden rather than resolved, revise to preserve
+    # and report, and recompute a real range for the final argument. A
+    # student who learned from the consequence should be able to finish
+    # with a high core score.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_seven_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        feedback = _play_lesson_to_feedback(
+            app,
+            resolution_round2={"pick_minutes": "fill_global_median"},
+            sensitivity_key="range_collapsed_erased",
+            sensitivity_revise=True,
+            sensitivity_revised_resolution=GOOD_RESOLUTION_ROUND2,
+            sensitivity_revised_key="range_real_undecided",
+        )
+        assert isinstance(feedback, LessonFeedbackScene)
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)  # debrief
+
+        result = finished_results[0]
+        assert result.pick_minutes_revised is True
+        assert result.initial_pick_treatment == "fill_global_median"
+        assert result.round2_resolution == GOOD_RESOLUTION_ROUND2
+        assert result.has_real_sensitivity_range() is True
+
+        assert any(
+            o.text_key == "lesson.l07.feedback.pick_minutes_recovered_via_revision" for o in feedback.evaluation.observations
+        )
+        scores = feedback.evaluation.dimension_scores
+        assert scores[ScoreDimension.DATA_QUALITY] == 100.0
+        assert scores[ScoreDimension.REPRODUCIBILITY] == 100.0
+        assert scores[ScoreDimension.REASONING] == 92.0
+        assert scores[ScoreDimension.UNCERTAINTY] == 90.0
+        assert scores[ScoreDimension.METHOD] == 94.0
     finally:
         pygame.quit()
 
@@ -280,7 +545,7 @@ def test_analytical_context_survives_a_checkpoint_new_app_and_resume():
         _fill_single_select(scene, COLD_PACK_MEANING_FIELD, "structural_not_applicable")
         _fill_single_select(app1.scenes.current.inner, PROMO_MEANING_FIELD, "explicit_category")
 
-        assert isinstance(app1.scenes.current.inner, WorkbenchScene)  # repair round 1
+        assert isinstance(_leaf_scene(app1.scenes.current.inner), WorkbenchScene)  # repair round 1
         _repair_issues(app1.scenes.current.inner, GOOD_RESOLUTION_ROUND1)
         app1.scenes.current.continue_button.on_activate()  # advances + checkpoints; quit right here
     finally:
@@ -448,6 +713,60 @@ def test_uncertainty_flags_claiming_the_exact_truth_is_knowable():
     assert any(o.text_key == "lesson.l07.feedback.claimed_the_exact_truth_is_knowable" for o in result.observations)
 
 
+def test_uncertainty_final_field_is_path_aware():
+    # A real range's own correct final claim is "bounds_are_real_assumptions";
+    # a collapsed range's is "fill_collapsed_the_calculation" - the same
+    # answer is never correct on both paths.
+    real_range_correct = score_lesson_seven(_result(), LESSON_07, hints_used=0)
+    real_range_wrong_claim = score_lesson_seven(
+        _result(decision=dict(GOOD_DECISION, sensitivity="fill_collapsed_the_calculation", evidence=("e1", "e2"))),
+        LESSON_07,
+        hints_used=0,
+    )
+    assert (
+        real_range_correct.dimension_scores[ScoreDimension.UNCERTAINTY]
+        > real_range_wrong_claim.dimension_scores[ScoreDimension.UNCERTAINTY]
+    )
+
+    collapsed_base = dict(
+        GOOD_DECISION, treatment="fill_global_median", kpi_result="complete_case_ship_it", evidence=("e1", "e2")
+    )
+    collapsed_correct = score_lesson_seven(
+        _result(
+            round2_resolution={"pick_minutes": "fill_global_median"},
+            sensitivity_interpretation="range_collapsed_erased",
+            decision=dict(collapsed_base, sensitivity="fill_collapsed_the_calculation"),
+        ),
+        LESSON_07,
+        hints_used=0,
+    )
+    collapsed_wrong_claim = score_lesson_seven(
+        _result(
+            round2_resolution={"pick_minutes": "fill_global_median"},
+            sensitivity_interpretation="range_collapsed_erased",
+            decision=dict(collapsed_base, sensitivity="bounds_are_real_assumptions"),
+        ),
+        LESSON_07,
+        hints_used=0,
+    )
+    assert (
+        collapsed_correct.dimension_scores[ScoreDimension.UNCERTAINTY]
+        > collapsed_wrong_claim.dimension_scores[ScoreDimension.UNCERTAINTY]
+    )
+
+
+def test_reasoning_catches_a_target_scope_that_ignores_dropped_rows():
+    result = score_lesson_seven(
+        _result(
+            round1_resolution={"cold_pack_temp_c": "drop_missing_cold_pack", "promo_code": "recode_no_promo"},
+            decision=dict(GOOD_DECISION, evidence=("e1", "e2")),
+        ),
+        LESSON_07,
+        hints_used=0,
+    )
+    assert any(o.text_key == "lesson.l07.feedback.target_scope_ignores_dropped_rows" for o in result.observations)
+
+
 def test_method_rewards_the_correct_treatment_and_the_systemic_fix():
     good = score_lesson_seven(_result(), LESSON_07, hints_used=0)
     weak = score_lesson_seven(
@@ -456,6 +775,16 @@ def test_method_rewards_the_correct_treatment_and_the_systemic_fix():
         hints_used=0,
     )
     assert good.dimension_scores[ScoreDimension.METHOD] > weak.dimension_scores[ScoreDimension.METHOD]
+
+
+def test_method_flags_wrong_structural_treatment_for_cold_pack():
+    good = score_lesson_seven(_result(), LESSON_07, hints_used=0)
+    wrong = score_lesson_seven(
+        _result(decision=dict(GOOD_DECISION, structural_treatment="impute_segment_average", evidence=("e1", "e2"))),
+        LESSON_07,
+        hints_used=0,
+    )
+    assert good.dimension_scores[ScoreDimension.METHOD] > wrong.dimension_scores[ScoreDimension.METHOD]
 
 
 def test_mastery_requires_the_exact_correct_set_not_a_superset_or_subset():

@@ -10,6 +10,7 @@ from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text
 
 CENTER_X = LOGICAL_SIZE[0] // 2
+OFFER_BUTTON_SIZE = (420, 46)
 
 
 class SequenceScene(Scene):
@@ -67,12 +68,16 @@ class OfferThenTaskScene(Scene):
         on_complete: Callable[[bool, dict | None], None],
         title_key: str,
         line_keys: tuple[str, ...] = (),
+        engage_label_key: str = "mastery.engage",
+        skip_label_key: str = "mastery.skip",
     ) -> None:
         super().__init__(app)
         self._build_task = build_task
         self._on_complete = on_complete
         self._title_key = title_key
         self._line_keys = line_keys
+        self._engage_label_key = engage_label_key
+        self._skip_label_key = skip_label_key
         self._active: Scene | None = None
         self._rebuild_offer_buttons()
 
@@ -83,14 +88,14 @@ class OfferThenTaskScene(Scene):
 
     def _rebuild_offer_buttons(self) -> None:
         loc = self.app.localization
-        engage_rect = pygame.Rect(0, 0, 420, 46)
+        engage_rect = pygame.Rect(0, 0, *OFFER_BUTTON_SIZE)
         engage_rect.center = (CENTER_X, 260)
-        skip_rect = pygame.Rect(0, 0, 420, 46)
+        skip_rect = pygame.Rect(0, 0, *OFFER_BUTTON_SIZE)
         skip_rect.center = (CENTER_X, 320)
         self.buttons = ButtonGroup(
             [
-                Button(engage_rect, loc.t("mastery.engage"), self._engage),
-                Button(skip_rect, loc.t("mastery.skip"), self._skip),
+                Button(engage_rect, loc.t(self._engage_label_key), self._engage),
+                Button(skip_rect, loc.t(self._skip_label_key), self._skip),
             ]
         )
 

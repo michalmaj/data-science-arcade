@@ -16,7 +16,7 @@ from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
 from data_science_arcade.lessons.l05_sampling_mission.scenario import _DesignThenAllocateScene as L05DesignThenAllocateScene
-from data_science_arcade.ui.composite_scene import OfferThenTaskScene
+from data_science_arcade.ui.composite_scene import OfferThenTaskScene, SequenceScene
 from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND1_ISSUES as L06_ROUND1_ISSUES
 from data_science_arcade.lessons.l06_schema_repair_shop.twist_data import ROUND2_ISSUES as L06_ROUND2_ISSUES
 from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import ROUND1_ISSUES as L07_ROUND1_ISSUES
@@ -1175,6 +1175,20 @@ def _pick_first_segment_option_for_every_request(scene: SegmentSlicerScene) -> N
         scene.next_button.on_activate()
 
 
+def _leaf_scene(scene):
+    """Unwraps a SequenceScene/OfferThenTaskScene composite down to the
+    real leaf scene currently on screen - some L07 stages (repair_round1,
+    missingness_investigation, sensitivity_reveal) now nest a real scene
+    inside one of these composites, whose own wrapper type never changes
+    as its nested `_active` scene gets swapped out."""
+    while isinstance(scene, (SequenceScene, OfferThenTaskScene)):
+        active = getattr(scene, "_active", None)
+        if active is None:
+            break
+        scene = active
+    return scene
+
+
 def test_finishing_lesson_seven_marks_it_complete_and_unlocks_lesson_eight():
     """Picks index-0/first-real-option everywhere this smoke test can -
     the exact correctness of each pick is its own separately-tested
@@ -1200,15 +1214,23 @@ def test_finishing_lesson_seven_marks_it_complete_and_unlocks_lesson_eight():
 
         _fill_out(app.scenes.current, range(2))  # contract_builder_round1
 
-        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair_round1
+        assert isinstance(_leaf_scene(app.scenes.current.inner), WorkbenchScene)  # repair_round1
         _repair_every_issue_correctly(app.scenes.current.inner, L07_ROUND1_ISSUES)
         app.scenes.current.continue_button.on_activate()
+        # Both correct treatments (leave_as_missing, recode_no_promo) are
+        # non-destructive, so repair_round1 advances straight through to
+        # first_attempt without ever showing its population-consequence
+        # reveal - see test_lesson07_scenario.py for that branch.
 
         assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # first_attempt
         _confirm_reveal(app.scenes.current.inner)
 
-        assert isinstance(app.scenes.current.inner, SegmentSlicerScene)  # missingness_investigation
+        assert isinstance(_leaf_scene(app.scenes.current.inner), SegmentSlicerScene)  # missingness_investigation
         _pick_first_segment_option_for_every_request(app.scenes.current.inner)
+        # Index-0 for both requests is scanner_type/hour_bucket - both
+        # real signals, so the real-signal-guaranteed follow-up cut never
+        # appears here either - see test_lesson07_scenario.py for that
+        # branch.
 
         _play_dialogue_to_the_end(app.scenes.current)  # root_cause_pivot
 
@@ -1218,8 +1240,12 @@ def test_finishing_lesson_seven_marks_it_complete_and_unlocks_lesson_eight():
         _repair_every_issue_correctly(app.scenes.current.inner, L07_ROUND2_ISSUES)
         app.scenes.current.continue_button.on_activate()
 
-        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # sensitivity_reveal
+        assert isinstance(_leaf_scene(app.scenes.current.inner), ComparisonRevealScene)  # sensitivity_reveal
         _confirm_reveal(app.scenes.current.inner)
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # real, un-punished revision offer - skipped
+        offer.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
         app.scenes.current.inner.continue_button.on_activate()
