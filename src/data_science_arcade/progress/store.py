@@ -1,4 +1,5 @@
 import json
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
@@ -7,7 +8,30 @@ from data_science_arcade.lessons.framework.evaluation import FeedbackObservation
 from data_science_arcade.progress.model import LessonCheckpoint, LessonState, Progress
 
 SAVE_VERSION = 2
-DEFAULT_SAVE_PATH = Path.home() / ".data_science_arcade" / "save.json"
+
+# The path App()'s own default ProgressStore resolves to when nothing is
+# explicitly injected - deliberately NOT the real user's save location.
+# A bare App() (every test, every ad-hoc debugging/screenshot script)
+# can never touch the real save, with or without pytest's own isolation
+# fixture (tests/conftest.py) active - that fixture now only exists to
+# let one test share a single file across multiple bare App() instances,
+# not to prevent real-save pollution, which this default already does
+# structurally. See real_user_save_path() for the one real location, and
+# its own docstring for who's allowed to call it.
+DEFAULT_SAVE_PATH: Path = Path(tempfile.gettempdir()) / "data_science_arcade_dev" / "save.json"
+
+
+def real_user_save_path() -> Path:
+    """The one real, persistent save location a shipped build actually
+    reads and writes. Call this ONLY from the real application entry
+    point (data_science_arcade.main, which passes it into an explicitly
+    constructed ProgressStore) - never from App's own default, a test, or
+    a debug/screenshot script. test_progress_store_safety.py statically
+    checks that this function has exactly one caller in the whole
+    codebase, so a future accidental second call site fails a test
+    rather than silently reintroducing the real-save-pollution class of
+    bug this whole module exists to close off."""
+    return Path.home() / ".data_science_arcade" / "save.json"
 
 
 def _json_safe(value):
@@ -111,8 +135,8 @@ class ProgressStore:
     way a single try/except around the whole payload would.
     """
 
-    def __init__(self, path: Path | None = None) -> None:
-        self.path = path if path is not None else DEFAULT_SAVE_PATH
+    def __init__(self, path: Path) -> None:
+        self.path = path
 
     def load(self) -> Progress:
         if not self.path.exists():
