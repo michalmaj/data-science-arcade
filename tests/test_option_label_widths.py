@@ -97,8 +97,17 @@ from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import ROUND
 from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import ROUND2_ISSUES as L07_ROUND2_ISSUES
 from data_science_arcade.lessons.l07_missing_data_clinic.twist_data import generate_orders as l07_generate_orders
 from data_science_arcade.lessons.l08_duplicate_detective.scenario import DECISION_FIELDS as L08_DECISION_FIELDS
-from data_science_arcade.lessons.l09_outlier_patrol.scenario import DECISION_FIELDS as L09_DECISION_FIELDS
-from data_science_arcade.lessons.l09_outlier_patrol.transactions import OUTLIER_CASES as L09_OUTLIER_CASES
+from data_science_arcade.lessons.l09_outlier_patrol.scenario import (
+    ANOMALY_DIAGNOSIS_FIELD as L09_ANOMALY_DIAGNOSIS_FIELD,
+    BULK_DIAGNOSIS_FIELD as L09_BULK_DIAGNOSIS_FIELD,
+    CONSEQUENCE_INTERPRET_OPTIONS as L09_CONSEQUENCE_INTERPRET_OPTIONS,
+    DECIMAL_DIAGNOSIS_FIELD as L09_DECIMAL_DIAGNOSIS_FIELD,
+    DECISION_FIELDS as L09_DECISION_FIELDS,
+    DETECTION_INTERPRET_OPTIONS as L09_DETECTION_INTERPRET_OPTIONS,
+    MASTERY_MUST_NOT_REMOVE_FIELD as L09_MASTERY_MUST_NOT_REMOVE_FIELD,
+    MASTERY_NEEDS_CORRECTION_FIELD as L09_MASTERY_NEEDS_CORRECTION_FIELD,
+    RAW_INSPECTION_PROMPT as L09_RAW_INSPECTION_PROMPT,
+)
 from data_science_arcade.lessons.l10_validation_gate.checks import VALIDATION_CHECKS as L10_VALIDATION_CHECKS
 from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
 from data_science_arcade.lessons.l11_distribution_observatory.lenses import build_distribution_lenses
@@ -227,6 +236,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         *L07_DECISION_FIELDS,
         *L08_DECISION_FIELDS,
         *L09_DECISION_FIELDS,
+        L09_DECIMAL_DIAGNOSIS_FIELD,
+        L09_BULK_DIAGNOSIS_FIELD,
+        L09_ANOMALY_DIAGNOSIS_FIELD,
+        L09_MASTERY_MUST_NOT_REMOVE_FIELD,
+        L09_MASTERY_NEEDS_CORRECTION_FIELD,
         *L10_DECISION_FIELDS,
         *L11_DECISION_FIELDS,
         *L12_DECISION_FIELDS,
@@ -261,9 +275,6 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         checks.append((f"source.{source.key}", source.name_key, wide_header_button_width))
 
     flow_option_button_width = FLOW_OPTION_SIZE[0] - BUTTON_PADDING
-    for case in L09_OUTLIER_CASES:
-        for option in case.options:
-            checks.append((f"{case.key}.{option.key}", option.label_key, flow_option_button_width))
     for check in L10_VALIDATION_CHECKS:
         for option in check.options:
             checks.append((f"{check.key}.{option.key}", option.label_key, flow_option_button_width))
@@ -320,6 +331,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for request in _l07_build_investigation_requests(l07_generate_orders()):
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
+    # L09's own by-zone segment request is built live inside its stage
+    # closure (its Segment rows depend on the real dataset), not exported
+    # as a module-level constant like L15/L16/L18's own requests - only
+    # its one static SliceOption label actually needs checking here.
+    checks.append(("l09_segment.by_zone", "lesson.l09.segment.option.by_zone", segment_option_button_width))
 
     # The three PredictionScene direction buttons (Lesson 17) are a fixed
     # shared response scale, not per-request content, so they're checked
@@ -405,6 +421,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         checks.append((f"l06_inspection.{option.key}", option.label_key, picker_option_button_width))
     for option in L07_RAW_INSPECTION_PROMPT.options:
         checks.append((f"l07_inspection.{option.key}", option.label_key, picker_option_button_width))
+    for option in L09_RAW_INSPECTION_PROMPT.options:
+        checks.append((f"l09_inspection.{option.key}", option.label_key, picker_option_button_width))
 
     comparison_reveal_option_button_width = COMPARISON_REVEAL_OPTION_SIZE[0] - BUTTON_PADDING
     for options in (
@@ -423,6 +441,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L07_FIRST_ATTEMPT_INTERPRET_OPTIONS,
         L07_SENSITIVITY_INTERPRET_OPTIONS,
         L07_CONSEQUENCE_INTERPRET_OPTIONS,
+        L09_DETECTION_INTERPRET_OPTIONS,
+        L09_CONSEQUENCE_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))

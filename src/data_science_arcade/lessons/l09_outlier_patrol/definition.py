@@ -10,6 +10,13 @@ LESSON_09 = LessonDefinition(
         "lesson.l09.objective2",
         "lesson.l09.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.REASONING, ScoreDimension.EVIDENCE),
-    estimated_minutes=15,
+    scoring_dimensions=(
+        ScoreDimension.DATA_QUALITY,
+        ScoreDimension.METHOD,
+        ScoreDimension.REASONING,
+        ScoreDimension.EVIDENCE,
+        ScoreDimension.REPRODUCIBILITY,
+    ),
+    estimated_minutes=26,
+    related_handbook_entry_id="outlier_is_a_flag_not_a_verdict",
 )
