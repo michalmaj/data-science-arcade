@@ -144,6 +144,7 @@ class ComparisonRevealScene(Scene):
         value_format: Callable[[float], str] = lambda value: f"{value:.0%}",
         guided: bool = True,
         interpret_hint_key: str | None = None,
+        comparisons_are_evidence: bool = True,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -156,6 +157,18 @@ class ComparisonRevealScene(Scene):
         self.value_format = value_format
         self.guided = guided
         self.interpret_hint_key = interpret_hint_key
+        self.comparisons_are_evidence = comparisons_are_evidence
+        """Every prior caller wants its own comparisons individually
+        citable as Evidence-step facts, and stays that way unchanged -
+        L09's own Pipeline Check reveal is the first real exception: its
+        own defensibility claims are checked by boolean logic against the
+        real resolutions directly, never by evidence citation, and its 3
+        comparisons would otherwise be the difference between a real
+        evidence pool the Decision Builder's own layout can still fit
+        (10 items, already close to its established floor) and one it
+        can't (13). The real pandas action is still recorded either way,
+        so the Python Mirror never loses this reveal's own real code -
+        only whether it also becomes a selectable Evidence-step item."""
         self._interpret_choice: str | None = None
         self._rebuild_buttons()
 
@@ -232,9 +245,10 @@ class ComparisonRevealScene(Scene):
             return
         for item in self.comparisons:
             action = self.context.record_action(label_key=item.label_key, python_code=item.python_code, key=item.label_key)
-            self.context.record_evidence(
-                label_key=item.label_key, source_action=action, key=item.label_key, detail=self._format_value(item)
-            )
+            if self.comparisons_are_evidence:
+                self.context.record_evidence(
+                    label_key=item.label_key, source_action=action, key=item.label_key, detail=self._format_value(item)
+                )
         chosen = next(o for o in self.interpret_options if o.key == self._interpret_choice)
         action = self.context.record_action(label_key=chosen.label_key)
         if chosen.evidence_key is not None:
