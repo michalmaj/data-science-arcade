@@ -101,6 +101,20 @@ DUPLICATES_NEED_AN_IDENTITY = HandbookEntry(
     related_entry_ids=("observation_unit_and_grain",),
 )
 
+OUTLIER_IS_A_FLAG_NOT_A_VERDICT = HandbookEntry(
+    id="outlier_is_a_flag_not_a_verdict",
+    title_key="handbook.article.outlier_is_a_flag_not_a_verdict.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.outlier_is_a_flag_not_a_verdict.body.1",
+        "handbook.article.outlier_is_a_flag_not_a_verdict.body.2",
+        "handbook.article.outlier_is_a_flag_not_a_verdict.body.3",
+        "handbook.article.outlier_is_a_flag_not_a_verdict.body.4",
+        "handbook.article.outlier_is_a_flag_not_a_verdict.body.5",
+    ),
+    related_entry_ids=("observation_unit_and_grain", "population"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -109,6 +123,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     SCHEMA_IS_A_CONTRACT,
     MISSINGNESS_HAS_A_MECHANISM,
     DUPLICATES_NEED_AN_IDENTITY,
+    OUTLIER_IS_A_FLAG_NOT_A_VERDICT,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
