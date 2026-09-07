@@ -7,15 +7,65 @@ import pygame
 import pytest
 
 from data_science_arcade.app.game import App
-from data_science_arcade.lessons.l09_outlier_patrol.scenario import DECISION_FIELDS, build_lesson_nine_runner
-from data_science_arcade.lessons.l09_outlier_patrol.scoring import LessonNineResult
-from data_science_arcade.lessons.l09_outlier_patrol.transactions import CORRECT_ACTION_BY_CASE, OUTLIER_CASES
+from data_science_arcade.lessons.framework.definition import ScoreDimension
+from data_science_arcade.lessons.l09_outlier_patrol.definition import LESSON_09
+from data_science_arcade.lessons.l09_outlier_patrol.scenario import (
+    BULK_POPULATION_BASIS_FIELD,
+    CONFIRMED_DATA_ERRORS_FIELD,
+    DECISION_FIELDS,
+    INCIDENT_TREATMENT_FIELD,
+    MASTERY_MUST_NOT_REMOVE_FIELD,
+    MASTERY_NEEDS_CORRECTION_FIELD,
+    PREVENTION_ACTION_FIELD,
+    SAFE_CLAIM_FIELD,
+    SEGMENT_TREATMENT_FIELD,
+    TOTAL_EXPOSURE_KPI_FIELD,
+    TYPICAL_COST_KPI_FIELD,
+    build_lesson_nine_runner,
+)
+from data_science_arcade.lessons.l09_outlier_patrol.scoring import LessonNineResult, score_lesson_nine
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
+from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
+from data_science_arcade.ui.composite_scene import OfferThenTaskScene, SequenceScene
+from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
-from data_science_arcade.ui.flow_builder_scene import FlowBuilderScene
-from data_science_arcade.ui.twist_reveal_scene import TwistRevealScene
+from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
+from data_science_arcade.ui.segment_slicer_scene import SegmentSlicerScene
+from data_science_arcade.ui.workbench_scene import WorkbenchScene
 
 from lesson_test_helpers import click_through_mission_briefing
+
+GOOD_ROUND1_RESOLUTION = {"fulfillment_cost": "no_blanket_action"}
+GOOD_ROUND2_RESOLUTION = {
+    "fulfillment_cost": "correct_via_invoice",
+    "order_type": "keep_as_is",
+    "incident_reference": "keep_and_flag_as_documented_incident",
+}
+GOOD_DIAGNOSIS = {
+    "decimal_row_diagnosis": "data_entry_error",
+    "bulk_row_diagnosis": "rare_but_legitimate",
+    "anomaly_row_diagnosis": "documented_anomaly",
+}
+GOOD_DECISION = {
+    "confirmed_data_errors": "decimal_row_only",
+    "bulk_order_population_basis": "order_type_metadata",
+    "incident_treatment": "keep_and_flag",
+    "segment_treatment": "segment_aware_thresholds",
+    "typical_standard_order_cost_kpi": "typical_correct",
+    "total_fulfillment_exposure_kpi": "total_correct",
+    "prevention_action": "entry_time_sanity_check",
+    "safe_claim": "both_numbers_scoped_honestly",
+}
+DECISION_FIELDS_IN_ORDER = (
+    CONFIRMED_DATA_ERRORS_FIELD,
+    BULK_POPULATION_BASIS_FIELD,
+    INCIDENT_TREATMENT_FIELD,
+    SEGMENT_TREATMENT_FIELD,
+    TYPICAL_COST_KPI_FIELD,
+    TOTAL_EXPOSURE_KPI_FIELD,
+    PREVENTION_ACTION_FIELD,
+    SAFE_CLAIM_FIELD,
+)
 
 
 def _init_app() -> App:
@@ -24,61 +74,176 @@ def _init_app() -> App:
     return app
 
 
+def _leaf_scene(scene):
+    while isinstance(scene, (SequenceScene, OfferThenTaskScene)):
+        active = getattr(scene, "_active", None)
+        if active is None:
+            break
+        scene = active
+    return scene
+
+
 def _play_dialogue_to_the_end(scene) -> None:
     while scene.app.scenes.current is scene:
         scene.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))
 
 
-def _decide_every_case_correctly(scene: FlowBuilderScene) -> None:
-    for _ in OUTLIER_CASES:
-        step = scene._current_step()
-        correct_key = CORRECT_ACTION_BY_CASE[step.key]
-        index = next(i for i, option in enumerate(step.options) if option.key == correct_key)
-        scene.buttons.buttons[index].on_activate()
+def _option_index(field_or_options, option_key: str) -> int:
+    options = field_or_options.options if hasattr(field_or_options, "options") else field_or_options
+    return next(i for i, option in enumerate(options) if option.key == option_key)
+
+
+def _answer_inspection(scene: WorkbenchScene, option_key: str) -> None:
+    scene.inspection_buttons[option_key].on_activate()
+    scene.continue_button.on_activate()
+
+
+def _fill_single_select(scene: BriefBuilderScene, field, option_key: str) -> None:
+    scene.buttons.buttons[_option_index(field, option_key)].on_activate()
+    scene.next_button.on_activate()
+
+
+def _fill_multi_select(scene, field, option_keys) -> None:
+    for key in option_keys:
+        scene.buttons.buttons[_option_index(field, key)].on_activate()
+    scene.next_button.on_activate()
+
+
+def _first_flagged_cell_button(scene: WorkbenchScene):
+    chrome_labels = {scene.app.localization.t(key) for key in ("workbench.data.view_table", "workbench.data.view_schema", "workbench.continue")}
+    tab_labels = {scene.app.localization.t(tab.value) for tab in type(scene.active_tab)}
+    for button in scene.buttons.buttons:
+        if button.label not in chrome_labels and button.label not in tab_labels:
+            return button
+    raise AssertionError("no flagged cell button found")
+
+
+def _repair_issues(scene: WorkbenchScene, resolution: dict[str, str]) -> None:
+    for _ in scene.issues:
+        cell_button = _first_flagged_cell_button(scene)
+        cell_button.on_activate()
+        assert scene.active_issue is not None
+        option_key = resolution[scene.active_issue.column]
+        scene.picker_buttons[option_key].on_activate()
+
+
+def _play_comparison_reveal(scene: ComparisonRevealScene, interpret_key: str) -> None:
+    index = _option_index(scene.interpret_options, interpret_key)
+    scene.buttons.buttons[index].on_activate()
+    scene.continue_button.on_activate()
+
+
+def _play_segment_slicer(scene: SegmentSlicerScene) -> None:
+    scene.buttons.buttons[0].on_activate()
+    scene.next_button.on_activate()
+
+
+def _play_diagnosis_builder(scene: BriefBuilderScene, diagnosis: dict[str, str]) -> None:
+    for step in scene.fields:
+        _fill_single_select(scene, step, diagnosis[step.key])
+
+
+def _play_decision_builder(scene: DecisionBuilderScene, *, decision_keys: dict) -> None:
+    for step in scene._steps:
+        if step.key == "evidence":
+            evidence_ids = list(scene._evidence_toggle_buttons.keys())[: scene.evidence_field.max_count]
+            for item_id in evidence_ids:
+                scene._evidence_toggle_buttons[item_id].on_activate()
+        elif hasattr(step, "min_count"):  # MultiChoiceField
+            for key in decision_keys[step.key]:
+                index = _option_index(step, key)
+                scene.buttons.buttons[index].on_activate()
+        else:
+            scene.buttons.buttons[_option_index(step, decision_keys[step.key])].on_activate()
         scene.next_button.on_activate()
 
 
-def _fill_out_brief(scene, fields) -> None:
-    for _ in fields:
-        scene.buttons.buttons[0].on_activate()
-        scene.next_button.on_activate()
+def _play_lesson_to_feedback(
+    app,
+    *,
+    inspection_option="needs_real_investigation",
+    detection_interpretation="candidates_not_a_verdict",
+    round1_resolution=GOOD_ROUND1_RESOLUTION,
+    consequence_interpretation="worth_checking_what_left",
+    revision_engage: bool = False,
+    revised_round1_resolution=None,
+    diagnosis=GOOD_DIAGNOSIS,
+    round2_resolution=GOOD_ROUND2_RESOLUTION,
+    decision=GOOD_DECISION,
+    mastery_engage: bool = False,
+    mastery_must_not_remove=("escalation_ticket",),
+    mastery_needs_correction=("error_ticket",),
+) -> LessonFeedbackScene:
+    assert isinstance(app.scenes.current.inner, DialogueScene)
+    _play_dialogue_to_the_end(app.scenes.current)  # briefing
+
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # raw inspection
+    _answer_inspection(app.scenes.current.inner, inspection_option)
+
+    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # detection reveal
+    _play_comparison_reveal(app.scenes.current.inner, detection_interpretation)
+
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair round 1
+    _repair_issues(app.scenes.current.inner, round1_resolution)
+    app.scenes.current.continue_button.on_activate()
+
+    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # consequence reveal
+    _play_comparison_reveal(app.scenes.current.inner, consequence_interpretation)
+
+    offer = _leaf_scene(app.scenes.current.inner)
+    assert isinstance(offer, OfferThenTaskScene)  # revision offer
+    if revision_engage:
+        offer.buttons.buttons[0].on_activate()  # Engage
+        leaf = _leaf_scene(offer)
+        assert isinstance(leaf, WorkbenchScene)
+        assert revised_round1_resolution is not None
+        _repair_issues(leaf, revised_round1_resolution)
+        leaf.continue_button.on_activate()
+    else:
+        offer.buttons.buttons[1].on_activate()  # Skip
+
+    assert isinstance(app.scenes.current.inner, SegmentSlicerScene)  # segment investigation
+    _play_segment_slicer(app.scenes.current.inner)
+
+    assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # diagnosis builder
+    _play_diagnosis_builder(app.scenes.current.inner, diagnosis)
+
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # case-by-case treatment
+    _repair_issues(app.scenes.current.inner, round2_resolution)
+    app.scenes.current.continue_button.on_activate()
+
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence review
+    app.scenes.current.continue_button.on_activate()
+
+    assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final decision
+    _play_decision_builder(app.scenes.current.inner, decision_keys=decision)
+
+    assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # optional mastery
+    mastery_offer = app.scenes.current.inner
+    if mastery_engage:
+        mastery_offer.buttons.buttons[0].on_activate()  # Engage
+        assert isinstance(mastery_offer._active, SequenceScene)
+        mastery_offer._active.continue_button.on_activate()  # inspect the mastery export
+        select_scene = mastery_offer._active._active
+        _fill_multi_select(select_scene, MASTERY_MUST_NOT_REMOVE_FIELD, mastery_must_not_remove)
+        _fill_multi_select(select_scene, MASTERY_NEEDS_CORRECTION_FIELD, mastery_needs_correction)
+    else:
+        mastery_offer.buttons.buttons[1].on_activate()  # Skip
+
+    assert isinstance(app.scenes.current.inner, LessonFeedbackScene)
+    return app.scenes.current.inner
 
 
-def test_the_full_lesson_plays_through_all_eight_stages_to_a_result():
+def test_the_full_lesson_plays_through_all_fourteen_stages_to_a_result():
     app = _init_app()
     try:
         finished_results = []
-        runner, collected = build_lesson_nine_runner(
-            app, on_finished=lambda result: finished_results.append(result)
-        )
+        runner, collected = build_lesson_nine_runner(app, on_finished=lambda result: finished_results.append(result))
         runner.start()
         click_through_mission_briefing(app)
 
-        # Every stage is wrapped in Pausable (Escape opens the pause menu);
-        # .inner is the actual stage scene the factory returned.
-
-        assert isinstance(app.scenes.current.inner, DialogueScene)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)
-
-        assert isinstance(app.scenes.current.inner, DialogueScene)  # investigation
-        _play_dialogue_to_the_end(app.scenes.current)
-
-        assert isinstance(app.scenes.current.inner, FlowBuilderScene)  # guided
-        assert app.scenes.current.guided is True
-        _decide_every_case_correctly(app.scenes.current)
-
-        assert isinstance(app.scenes.current.inner, DialogueScene)  # independent intro
-        _play_dialogue_to_the_end(app.scenes.current)
-
-        assert isinstance(app.scenes.current.inner, FlowBuilderScene)  # independent
-        assert app.scenes.current.guided is False
-        _decide_every_case_correctly(app.scenes.current)
-
-        assert isinstance(app.scenes.current.inner, TwistRevealScene)
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))
-
-        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # decision
-        _fill_out_brief(app.scenes.current, DECISION_FIELDS)
+        _play_lesson_to_feedback(app, mastery_engage=True)
+        app.scenes.current.on_complete()  # feedback -> debrief
 
         assert isinstance(app.scenes.current.inner, DialogueScene)  # debrief
         _play_dialogue_to_the_end(app.scenes.current)
@@ -87,14 +252,112 @@ def test_the_full_lesson_plays_through_all_eight_stages_to_a_result():
         result = finished_results[0]
         assert isinstance(result, LessonNineResult)
         assert result.completed_thoughtfully() is True
-        assert result.guided_actions == CORRECT_ACTION_BY_CASE
-        assert result.independent_actions == CORRECT_ACTION_BY_CASE
-        assert set(result.decision_brief) == {field.key for field in DECISION_FIELDS}
-        assert collected["result"] is result
+        assert result.round1_resolution == GOOD_ROUND1_RESOLUTION
+        assert result.round2_resolution == GOOD_ROUND2_RESOLUTION
+        assert set(result.decision) == {field.key for field in DECISION_FIELDS_IN_ORDER} | {"evidence"}
+        assert result.mastery_engaged is True
+        assert result.mastery_must_not_remove == frozenset({"escalation_ticket"})
+        assert result.mastery_needs_correction == frozenset({"error_ticket"})
+        assert collected is not None
     finally:
         pygame.quit()
 
 
-@pytest.mark.parametrize("field", list(DECISION_FIELDS))
-def test_every_decision_field_has_at_least_two_options(field):
+def test_a_playthrough_that_skips_mastery_still_completes():
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_nine_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_lesson_to_feedback(app, mastery_engage=False)
+        app.scenes.current.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.mastery_engaged is False
+        assert result.mastery_must_not_remove == frozenset()
+    finally:
+        pygame.quit()
+
+
+def test_a_naive_blanket_drop_can_be_revised_via_the_revision_offer():
+    # The central productive-failure chain: pick the naive blanket drop,
+    # see its own real consequence, revise via the real, un-punished
+    # offer, then correctly investigate every row case-by-case.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_nine_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        feedback = _play_lesson_to_feedback(
+            app,
+            round1_resolution={"fulfillment_cost": "drop_outside_fence"},
+            revision_engage=True,
+            revised_round1_resolution=GOOD_ROUND1_RESOLUTION,
+        )
+        assert isinstance(feedback, LessonFeedbackScene)
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.round1_revised is True
+        assert result.initial_round1_resolution == {"fulfillment_cost": "drop_outside_fence"}
+        assert result.round1_resolution == GOOD_ROUND1_RESOLUTION
+        n, median = result.final_typical_state()
+        assert (n, median) == (88, 47.0)
+
+        scores = feedback.evaluation.dimension_scores
+        assert scores[ScoreDimension.METHOD] == 94.0
+        assert any(o.text_key == "lesson.l09.feedback.round1_recovered_via_revision" for o in feedback.evaluation.observations)
+    finally:
+        pygame.quit()
+
+
+def test_declining_the_revision_offer_keeps_the_naive_blanket_drop():
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_nine_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        feedback = _play_lesson_to_feedback(
+            app,
+            round1_resolution={"fulfillment_cost": "drop_outside_fence"},
+            revision_engage=False,
+            decision=dict(
+                GOOD_DECISION,
+                typical_standard_order_cost_kpi="typical_naive_blanket_drop",
+                total_fulfillment_exposure_kpi="total_naive_blanket_drop",
+            ),
+        )
+        assert isinstance(feedback, LessonFeedbackScene)
+    finally:
+        pygame.quit()
+
+
+@pytest.mark.parametrize("field", [*DECISION_FIELDS_IN_ORDER, MASTERY_MUST_NOT_REMOVE_FIELD, MASTERY_NEEDS_CORRECTION_FIELD])
+def test_every_field_has_at_least_two_options(field):
     assert len(field.options) >= 2
+
+
+def test_score_lesson_nine_is_wired_as_the_lessons_own_scorer():
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_nine_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        feedback = _play_lesson_to_feedback(app)
+        expected = score_lesson_nine(
+            LessonNineResult(
+                round1_resolution=GOOD_ROUND1_RESOLUTION,
+                round2_resolution=GOOD_ROUND2_RESOLUTION,
+                diagnosis=GOOD_DIAGNOSIS,
+                decision=dict(GOOD_DECISION, evidence=()),
+            ),
+            LESSON_09,
+            hints_used=0,
+        )
+        assert set(feedback.evaluation.dimension_scores) == set(expected.dimension_scores)
+    finally:
+        pygame.quit()

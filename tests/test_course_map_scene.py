@@ -38,8 +38,14 @@ from data_science_arcade.lessons.l08_duplicate_detective.twist_data import ROUND
 from data_science_arcade.lessons.l08_duplicate_detective.twist_data import ROUND2_ISSUE as L08_ROUND2_ISSUE
 from data_science_arcade.ui.duplicate_group_scene import DuplicateGroupScene
 from data_science_arcade.lessons.l09_outlier_patrol.scenario import DECISION_FIELDS as L09_DECISION_FIELDS
-from data_science_arcade.lessons.l09_outlier_patrol.transactions import CORRECT_ACTION_BY_CASE as L09_CORRECT_ACTION_BY_CASE
-from data_science_arcade.lessons.l09_outlier_patrol.transactions import OUTLIER_CASES as L09_OUTLIER_CASES
+from data_science_arcade.lessons.l09_outlier_patrol.scenario import MASTERY_MUST_NOT_REMOVE_FIELD as L09_MASTERY_MUST_NOT_REMOVE_FIELD
+from data_science_arcade.lessons.l09_outlier_patrol.scenario import MASTERY_NEEDS_CORRECTION_FIELD as L09_MASTERY_NEEDS_CORRECTION_FIELD
+from data_science_arcade.lessons.l09_outlier_patrol.twist_data import CORRECT_ANOMALY_KEY as L09_CORRECT_ANOMALY_KEY
+from data_science_arcade.lessons.l09_outlier_patrol.twist_data import CORRECT_BULK_KEY as L09_CORRECT_BULK_KEY
+from data_science_arcade.lessons.l09_outlier_patrol.twist_data import CORRECT_DECIMAL_KEY as L09_CORRECT_DECIMAL_KEY
+from data_science_arcade.lessons.l09_outlier_patrol.twist_data import CORRECT_ROUND1_KEY as L09_CORRECT_ROUND1_KEY
+from data_science_arcade.lessons.l09_outlier_patrol.twist_data import ROUND1_ISSUE as L09_ROUND1_ISSUE
+from data_science_arcade.lessons.l09_outlier_patrol.twist_data import ROUND2_ISSUES as L09_ROUND2_ISSUES
 from data_science_arcade.lessons.l10_validation_gate.checks import CORRECT_RULE_BY_CHECK as L10_CORRECT_RULE_BY_CHECK
 from data_science_arcade.lessons.l10_validation_gate.checks import VALIDATION_CHECKS as L10_VALIDATION_CHECKS
 from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
@@ -1400,16 +1406,47 @@ def test_finishing_lesson_eight_marks_it_complete_and_unlocks_lesson_nine():
         pygame.quit()
 
 
-def _decide_every_l09_case_correctly(scene: FlowBuilderScene) -> None:
-    for _ in L09_OUTLIER_CASES:
-        step = scene._current_step()
-        correct_key = L09_CORRECT_ACTION_BY_CASE[step.key]
-        index = next(i for i, option in enumerate(step.options) if option.key == correct_key)
-        scene.buttons.buttons[index].on_activate()
-        scene.next_button.on_activate()
+def _l09_option_index(field_or_options, option_key: str) -> int:
+    options = field_or_options.options if hasattr(field_or_options, "options") else field_or_options
+    return next(i for i, option in enumerate(options) if option.key == option_key)
+
+
+def _l09_repair_round2_correctly(scene: WorkbenchScene) -> None:
+    correct_by_column = {
+        "fulfillment_cost": L09_CORRECT_DECIMAL_KEY,
+        "order_type": L09_CORRECT_BULK_KEY,
+        "incident_reference": L09_CORRECT_ANOMALY_KEY,
+    }
+    for _ in L09_ROUND2_ISSUES:
+        flagged_cell = _first_flagged_cell_button(scene)
+        flagged_cell.on_activate()
+        correct_key = correct_by_column[scene.active_issue.column]
+        scene.picker_buttons[correct_key].on_activate()
+
+
+# Matches the real step order in build_lesson_nine_runner's own
+# final_decision() steps tuple - evidence sits between the KPI steps and
+# prevention_action/safe_claim, not at the end.
+L09_GOOD_DECISION_BEFORE_EVIDENCE: tuple[tuple, ...] = (
+    ("confirmed_data_errors", "decimal_row_only"),
+    ("bulk_order_population_basis", "order_type_metadata"),
+    ("incident_treatment", "keep_and_flag"),
+    ("segment_treatment", "segment_aware_thresholds"),
+    ("typical_standard_order_cost_kpi", "typical_correct"),
+    ("total_fulfillment_exposure_kpi", "total_correct"),
+)
+L09_GOOD_DECISION_AFTER_EVIDENCE: tuple[tuple, ...] = (
+    ("prevention_action", "entry_time_sanity_check"),
+    ("safe_claim", "both_numbers_scoped_honestly"),
+)
+L09_DECISION_FIELDS_BY_KEY = {field.key: field for field in L09_DECISION_FIELDS}
 
 
 def test_finishing_lesson_nine_marks_it_complete_and_unlocks_lesson_ten():
+    """Picks the real correct option everywhere this smoke test can - the
+    exact correctness of each pick is its own separately-tested behavior
+    (see test_lesson09_scenario.py). This is a smoke test for the real
+    14-stage flow finishing and unlocking Lesson 10, not a scoring test."""
     app = App()
     app.init()
     try:
@@ -1420,12 +1457,71 @@ def test_finishing_lesson_nine_marks_it_complete_and_unlocks_lesson_ten():
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _decide_every_l09_case_correctly(app.scenes.current)  # guided cases
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _decide_every_l09_case_correctly(app.scenes.current)  # independent cases
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L09_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # raw_inspection
+        raw_inspection = app.scenes.current.inner
+        option_key = raw_inspection.inspection_prompt.options[0].key
+        raw_inspection.inspection_buttons[option_key].on_activate()
+        raw_inspection.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # detection_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # repair_round1
+        flagged_cell = _first_flagged_cell_button(app.scenes.current.inner)
+        flagged_cell.on_activate()
+        app.scenes.current.inner.picker_buttons[L09_CORRECT_ROUND1_KEY].on_activate()
+        app.scenes.current.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # consequence_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, SegmentSlicerScene)  # segment_investigation
+        _pick_first_segment_option_for_every_request(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # diagnosis_builder
+        diagnosis = app.scenes.current.inner
+        for field in diagnosis.fields:
+            correct_key = {
+                "decimal_row_diagnosis": "data_entry_error",
+                "bulk_row_diagnosis": "rare_but_legitimate",
+                "anomaly_row_diagnosis": "documented_anomaly",
+            }[field.key]
+            diagnosis.buttons.buttons[_l09_option_index(field, correct_key)].on_activate()
+            diagnosis.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # case_treatment
+        _l09_repair_round2_correctly(app.scenes.current.inner)
+        app.scenes.current.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for step_key, option_key in L09_GOOD_DECISION_BEFORE_EVIDENCE:
+            field = L09_DECISION_FIELDS_BY_KEY[step_key]
+            decision.buttons.buttons[_l09_option_index(field, option_key)].on_activate()
+            decision.next_button.on_activate()
+        evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.max_count]
+        for item_id in evidence_ids:
+            decision._evidence_toggle_buttons[item_id].on_activate()
+        decision.next_button.on_activate()
+        for step_key, option_key in L09_GOOD_DECISION_AFTER_EVIDENCE:
+            field = L09_DECISION_FIELDS_BY_KEY[step_key]
+            decision.buttons.buttons[_l09_option_index(field, option_key)].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
