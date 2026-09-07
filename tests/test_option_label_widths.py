@@ -106,6 +106,7 @@ from data_science_arcade.lessons.l09_outlier_patrol.scenario import (
     DETECTION_INTERPRET_OPTIONS as L09_DETECTION_INTERPRET_OPTIONS,
     MASTERY_MUST_NOT_REMOVE_FIELD as L09_MASTERY_MUST_NOT_REMOVE_FIELD,
     MASTERY_NEEDS_CORRECTION_FIELD as L09_MASTERY_NEEDS_CORRECTION_FIELD,
+    PIPELINE_CHECK_INTERPRET_OPTIONS as L09_PIPELINE_CHECK_INTERPRET_OPTIONS,
     RAW_INSPECTION_PROMPT as L09_RAW_INSPECTION_PROMPT,
 )
 from data_science_arcade.lessons.l10_validation_gate.checks import VALIDATION_CHECKS as L10_VALIDATION_CHECKS
@@ -443,6 +444,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L07_CONSEQUENCE_INTERPRET_OPTIONS,
         L09_DETECTION_INTERPRET_OPTIONS,
         L09_CONSEQUENCE_INTERPRET_OPTIONS,
+        L09_PIPELINE_CHECK_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
