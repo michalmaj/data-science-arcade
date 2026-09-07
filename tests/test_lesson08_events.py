@@ -1,8 +1,14 @@
+import pandas as pd
+
 from data_science_arcade.lessons.l08_duplicate_detective.twist_data import (
     ALL_ORDERS,
     CONFLICT_ORDER,
     CORRECT_CONFLICT_POLICY,
     CORRECT_DEDUPE_KEY,
+    HIGH_REPRODUCIBILITY_ROUND1_KEYS,
+    HIGH_REPRODUCIBILITY_ROUND2_KEYS,
+    MEDIUM_REPRODUCIBILITY_ROUND1_KEYS,
+    MEDIUM_REPRODUCIBILITY_ROUND2_KEYS,
     ROUND1_ISSUE,
     ROUND2_ISSUE,
     apply_round1,
@@ -12,6 +18,7 @@ from data_science_arcade.lessons.l08_duplicate_detective.twist_data import (
     build_lifecycle_group,
     build_replay_group,
     build_retry_group,
+    captured_state,
     captured_summary,
     duplicate_count_by,
     full_row_duplicate_count,
@@ -76,11 +83,26 @@ def test_removing_only_exact_repeats_leaves_the_conflict_visible():
     assert CORRECT_DEDUPE_KEY == "remove_exact_repeats_only"
 
 
-def test_correct_full_pipeline_gives_19_orders_950_dollars():
+def test_correct_full_pipeline_gives_20_orders_and_a_real_gmv_range():
+    # A conflict in one attribute (amount) doesn't erase every fact the
+    # two conflicting records actually agree on - O10's own captured
+    # status isn't in dispute, so it still counts as a paid order; only
+    # its exact amount is genuinely unresolved.
     dataset = apply_round2({"event_id": CORRECT_DEDUPE_KEY}, {"amount": CORRECT_CONFLICT_POLICY})
-    count, gmv = captured_summary(dataset)
-    assert count == 19
-    assert gmv == 950.0
+    count, low, high = captured_state(dataset)
+    assert count == 20
+    assert (low, high) == (995.0, 1000.0)
+
+
+def test_quarantined_row_keeps_every_agreed_fact_except_the_disputed_amount():
+    dataset = apply_round2({"event_id": CORRECT_DEDUPE_KEY}, {"amount": CORRECT_CONFLICT_POLICY})
+    frame = dataset.frame
+    quarantined = frame[(frame["order_id"] == CONFLICT_ORDER) & (frame["event_type"] == "captured")]
+    assert len(quarantined) == 1
+    row = quarantined.iloc[0]
+    assert row["event_type"] == "captured"
+    assert row["customer_id"] == f"C-{CONFLICT_ORDER[1:]}"
+    assert pd.isna(row["amount"])
 
 
 def test_keep_last_after_correct_round1_gives_the_wrong_995():
@@ -125,6 +147,19 @@ def test_round1_issue_and_round2_issue_have_the_expected_option_keys():
         "keep_last_by_event_id",
         "keep_higher_amount",
     }
+
+
+def test_every_round1_and_round2_option_has_a_reproducibility_tier():
+    # No option is a total zero on REPRODUCIBILITY - a methodologically
+    # wrong pipeline (dedupe_by_order_id) can still be a real, stated,
+    # deterministic rule; METHOD is the dimension that judges whether
+    # it's also the *right* rule.
+    round1_keys = {option.key for option in ROUND1_ISSUE.options}
+    round2_keys = {option.key for option in ROUND2_ISSUE.options}
+    assert round1_keys == HIGH_REPRODUCIBILITY_ROUND1_KEYS | MEDIUM_REPRODUCIBILITY_ROUND1_KEYS
+    assert round2_keys == HIGH_REPRODUCIBILITY_ROUND2_KEYS | MEDIUM_REPRODUCIBILITY_ROUND2_KEYS
+    assert HIGH_REPRODUCIBILITY_ROUND1_KEYS.isdisjoint(MEDIUM_REPRODUCIBILITY_ROUND1_KEYS)
+    assert HIGH_REPRODUCIBILITY_ROUND2_KEYS.isdisjoint(MEDIUM_REPRODUCIBILITY_ROUND2_KEYS)
 
 
 def test_replay_group_rows_are_identical_on_every_non_key_column():

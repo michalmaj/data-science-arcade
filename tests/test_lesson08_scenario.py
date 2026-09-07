@@ -10,10 +10,10 @@ from data_science_arcade.app.game import App
 from data_science_arcade.lessons.framework.definition import ScoreDimension
 from data_science_arcade.lessons.l08_duplicate_detective.definition import LESSON_08
 from data_science_arcade.lessons.l08_duplicate_detective.scenario import (
+    AUTOMATIC_REMOVAL_RULE_FIELD,
     CONFLICT_POLICY_FIELD,
     DECISION_FIELDS,
-    DEDUPE_KEY_FIELD,
-    DUPLICATE_DEFINITION_FIELD,
+    IDENTITY_KEY_FIELD,
     KPI_RESULT_FIELD,
     LEGITIMATE_REPEATS_FIELD,
     MASTERY_KEY_FIELD,
@@ -45,18 +45,18 @@ GOOD_ROUND2_RESOLUTION = {"amount": "quarantine_and_disclose"}
 GOOD_GROUP_VERDICTS = dict(CORRECT_VERDICT_BY_GROUP)
 GOOD_DECISION = {
     "observation_unit": "paid_orders_with_captured_payment",
-    "duplicate_definition": "shared_event_id",
-    "dedupe_key": "remove_exact_repeats_only",
+    "identity_key": "shared_event_id",
+    "automatic_removal_rule": "remove_exact_repeats_only",
     "legitimate_repeats": ("multiple_lifecycle_events", "multiple_payment_attempts", "repeat_purchases"),
     "conflict_policy": "quarantine_and_disclose",
-    "kpi_result": "nineteen_orders_950_one_excluded",
-    "safe_claim": "one_conflicting_payment_excluded_pending_reconciliation",
+    "kpi_result": "twenty_orders_range_995_to_1000",
+    "safe_claim": "twenty_confirmed_range_disclosed",
     "prevention_recommendation": "idempotent_ingestion_and_uniqueness_validation",
 }
 DECISION_FIELDS_IN_ORDER = (
     OBSERVATION_UNIT_FIELD,
-    DUPLICATE_DEFINITION_FIELD,
-    DEDUPE_KEY_FIELD,
+    IDENTITY_KEY_FIELD,
+    AUTOMATIC_REMOVAL_RULE_FIELD,
     LEGITIMATE_REPEATS_FIELD,
     CONFLICT_POLICY_FIELD,
     KPI_RESULT_FIELD,
@@ -314,8 +314,8 @@ def test_a_naive_round1_pick_can_be_revised_via_the_revision_offer():
         assert result.round1_revised is True
         assert result.initial_round1_resolution == {"event_id": "dedupe_by_event_id_keep_first"}
         assert result.round1_resolution == GOOD_ROUND1_RESOLUTION
-        count, gmv = result.final_captured_summary()
-        assert (count, gmv) == (19, 950.0)
+        count, low, high = result.final_captured_state()
+        assert (count, low, high) == (20, 995.0, 1000.0)
 
         scores = feedback.evaluation.dimension_scores
         assert scores[ScoreDimension.METHOD] == 94.0
@@ -338,7 +338,7 @@ def test_declining_the_revision_offer_keeps_the_naive_round1_pick():
             round1_resolution={"event_id": "dedupe_by_order_id"},
             revision_engage=False,
             round2_resolution={"amount": "quarantine_and_disclose"},
-            decision=dict(GOOD_DECISION, dedupe_key="dedupe_by_order_id", kpi_result="zero_orders_0"),
+            decision=dict(GOOD_DECISION, automatic_removal_rule="dedupe_by_order_id", kpi_result="zero_orders_0"),
         )
         assert isinstance(feedback, LessonFeedbackScene)
     finally:
@@ -363,6 +363,7 @@ def _result(**overrides) -> LessonEightResult:
             "lesson.l08.evidence.event_id_duplicate_count",
             "lesson.l08.group.retry.evidence",
             "lesson.l08.group.decoy.evidence",
+            "lesson.l08.group.conflict.evidence",
         ),
     )
     base.update(overrides)
@@ -383,6 +384,33 @@ def test_data_quality_flags_the_conflict_group_misjudged():
         _result(group_verdicts={**GOOD_GROUP_VERDICTS, "conflict_group": "safe_to_remove_duplicate"}), LESSON_08, hints_used=0
     )
     assert any(o.text_key == "lesson.l08.feedback.conflict_group_misjudged" for o in result.observations)
+
+
+def test_data_quality_requires_the_exact_legitimate_repeats_set():
+    # Two decorative-looking fields (identity_key, legitimate_repeats)
+    # must actually be wired into scoring - a student who over-includes
+    # the transport replay as "legitimate" must score worse, not the
+    # same, as one who names the exact correct set.
+    good = score_lesson_eight(_result(), LESSON_08, hints_used=0)
+    over_included = score_lesson_eight(
+        _result(
+            decision=dict(
+                GOOD_DECISION,
+                legitimate_repeats=(
+                    "multiple_lifecycle_events",
+                    "multiple_payment_attempts",
+                    "repeat_purchases",
+                    "transport_replay",
+                ),
+                evidence=("e1", "e2"),
+            )
+        ),
+        LESSON_08,
+        hints_used=0,
+    )
+    assert good.dimension_scores[ScoreDimension.DATA_QUALITY] == 100.0
+    assert over_included.dimension_scores[ScoreDimension.DATA_QUALITY] < 100.0
+    assert any(o.text_key == "lesson.l08.feedback.legitimate_repeats_incorrect" for o in over_included.observations)
 
 
 def test_method_rewards_the_correct_dedupe_key_conflict_policy_and_prevention():
@@ -408,9 +436,24 @@ def test_method_does_not_score_event_id_correct_just_because_it_solved_replay():
 
 def test_reasoning_catches_a_dedupe_key_claim_that_doesnt_match_execution():
     result = score_lesson_eight(
-        _result(decision=dict(GOOD_DECISION, dedupe_key="dedupe_by_order_id", evidence=("e1", "e2"))), LESSON_08, hints_used=0
+        _result(decision=dict(GOOD_DECISION, automatic_removal_rule="dedupe_by_order_id", evidence=("e1", "e2"))),
+        LESSON_08,
+        hints_used=0,
     )
     assert any(o.text_key == "lesson.l08.feedback.dedupe_key_claim_doesnt_match_execution" for o in result.observations)
+
+
+def test_reasoning_identity_key_requires_grounded_group_verdicts():
+    # Naming "shared event ID" only counts as a real, grounded claim if
+    # the replay and conflict groups actually got the correct verdict -
+    # getting the definition right while misjudging either isn't
+    # evidenced, just a lucky guess.
+    result = score_lesson_eight(
+        _result(group_verdicts={**GOOD_GROUP_VERDICTS, "replay_group": "keep_all_not_a_duplicate"}),
+        LESSON_08,
+        hints_used=0,
+    )
+    assert any(o.text_key == "lesson.l08.feedback.identity_key_not_grounded" for o in result.observations)
 
 
 def test_reasoning_catches_a_kpi_claim_that_contradicts_the_real_pipeline():
@@ -448,6 +491,46 @@ def test_evidence_rewards_citing_the_critical_facts():
     assert good.dimension_scores[ScoreDimension.EVIDENCE] > empty.dimension_scores[ScoreDimension.EVIDENCE]
 
 
+def test_evidence_requires_the_conflict_fact_specifically_not_any_three():
+    # Any 3-of-N used to be enough; now full credit requires the
+    # conflict fact plus at least one identity/legitimate-repeat fact -
+    # never an arbitrary combination that happens to skip the one fact
+    # the final argument (an unresolved amount) actually rests on.
+    no_conflict_fact = score_lesson_eight(
+        _result(
+            critical_evidence_present=(
+                "lesson.l08.evidence.event_id_duplicate_count",
+                "lesson.l08.group.retry.evidence",
+                "lesson.l08.group.decoy.evidence",
+            )
+        ),
+        LESSON_08,
+        hints_used=0,
+    )
+    assert any(o.text_key == "lesson.l08.feedback.evidence_missing_conflict_fact" for o in no_conflict_fact.observations)
+    assert no_conflict_fact.dimension_scores[ScoreDimension.EVIDENCE] < 95.0
+
+
+def test_evidence_late_correct_evidence_via_round2_still_counts():
+    # Productive failure: a student who misjudged the twist conflict
+    # group (no group.conflict.evidence recorded) but genuinely saw the
+    # conflict via Round 2's own unconditional issue.amount.evidence and
+    # picked the correct reconciliation policy has real, citable proof
+    # of the same fact - full Evidence credit, not a dead end.
+    result = score_lesson_eight(
+        _result(
+            group_verdicts={**GOOD_GROUP_VERDICTS, "conflict_group": "safe_to_remove_duplicate"},
+            critical_evidence_present=(
+                "lesson.l08.evidence.event_id_duplicate_count",
+                "lesson.l08.issue.amount.evidence",
+            ),
+        ),
+        LESSON_08,
+        hints_used=0,
+    )
+    assert result.dimension_scores[ScoreDimension.EVIDENCE] == 95.0
+
+
 def test_reproducibility_gives_equal_credit_to_any_real_stated_rule():
     # keep_higher_amount is a real, stated rule (unlike keep-first/keep-last's
     # bare tie-break), so it earns the SAME REPRODUCIBILITY credit as the
@@ -470,6 +553,23 @@ def test_reproducibility_gives_equal_credit_to_any_real_stated_rule():
     )
     assert (
         higher_amount_result.dimension_scores[ScoreDimension.METHOD] < quarantine_result.dimension_scores[ScoreDimension.METHOD]
+    )
+
+
+def test_round1_reproducibility_and_method_are_not_identical():
+    # dedupe_by_order_id is methodologically wrong (destroys legitimate
+    # retries) but still a real, fully deterministic rule - it should
+    # score low on METHOD while still scoring real, nonzero credit on
+    # REPRODUCIBILITY, never a flat zero just for being the wrong policy.
+    correct_result = score_lesson_eight(_result(), LESSON_08, hints_used=0)
+    order_id_result = score_lesson_eight(
+        _result(round1_resolution={"event_id": "dedupe_by_order_id"}), LESSON_08, hints_used=0
+    )
+    assert order_id_result.dimension_scores[ScoreDimension.METHOD] < correct_result.dimension_scores[ScoreDimension.METHOD]
+    assert order_id_result.dimension_scores[ScoreDimension.REPRODUCIBILITY] > 15.0
+    assert (
+        order_id_result.dimension_scores[ScoreDimension.REPRODUCIBILITY]
+        < correct_result.dimension_scores[ScoreDimension.REPRODUCIBILITY]
     )
 
 

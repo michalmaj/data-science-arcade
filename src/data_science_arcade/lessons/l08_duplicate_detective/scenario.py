@@ -111,20 +111,20 @@ OBSERVATION_UNIT_FIELD = BriefField(
     ),
 )
 
-DUPLICATE_DEFINITION_FIELD = BriefField(
-    key="duplicate_definition",
-    prompt_key="lesson.l08.decision.duplicate_definition.prompt",
+IDENTITY_KEY_FIELD = BriefField(
+    key="identity_key",
+    prompt_key="lesson.l08.decision.identity_key.prompt",
     options=(
-        BriefOption("full_row_identical", "lesson.l08.decision.duplicate_definition.option.full_row_identical"),
-        BriefOption("shared_event_id", "lesson.l08.decision.duplicate_definition.option.shared_event_id"),
-        BriefOption("shared_order_id", "lesson.l08.decision.duplicate_definition.option.shared_order_id"),
-        BriefOption("shared_customer_and_amount", "lesson.l08.decision.duplicate_definition.option.shared_customer_and_amount"),
+        BriefOption("full_row_identical", "lesson.l08.decision.identity_key.option.full_row_identical"),
+        BriefOption("shared_event_id", "lesson.l08.decision.identity_key.option.shared_event_id"),
+        BriefOption("shared_order_id", "lesson.l08.decision.identity_key.option.shared_order_id"),
+        BriefOption("shared_customer_and_amount", "lesson.l08.decision.identity_key.option.shared_customer_and_amount"),
     ),
 )
 
-DEDUPE_KEY_FIELD = BriefField(
-    key="dedupe_key",
-    prompt_key="lesson.l08.decision.dedupe_key.prompt",
+AUTOMATIC_REMOVAL_RULE_FIELD = BriefField(
+    key="automatic_removal_rule",
+    prompt_key="lesson.l08.decision.automatic_removal_rule.prompt",
     options=(
         BriefOption("dedupe_by_order_id", "lesson.l08.option.event_id.dedupe_by_order_id"),
         BriefOption("dedupe_by_event_id_keep_first", "lesson.l08.option.event_id.dedupe_by_event_id_keep_first"),
@@ -160,8 +160,9 @@ KPI_RESULT_FIELD = BriefField(
     key="kpi_result",
     prompt_key="lesson.l08.decision.kpi_result.prompt",
     options=(
-        BriefOption("twenty_orders_1000_no_caveats", "lesson.l08.decision.kpi_result.option.twenty_orders_1000_no_caveats"),
         BriefOption("nineteen_orders_950_one_excluded", "lesson.l08.decision.kpi_result.option.nineteen_orders_950_one_excluded"),
+        BriefOption("twenty_orders_range_995_to_1000", "lesson.l08.decision.kpi_result.option.twenty_orders_range_995_to_1000"),
+        BriefOption("twenty_orders_1000_no_caveats", "lesson.l08.decision.kpi_result.option.twenty_orders_1000_no_caveats"),
         BriefOption("twentyone_rows_1045", "lesson.l08.decision.kpi_result.option.twentyone_rows_1045"),
         BriefOption("zero_orders_0", "lesson.l08.decision.kpi_result.option.zero_orders_0"),
     ),
@@ -182,6 +183,10 @@ SAFE_CLAIM_FIELD = BriefField(
         BriefOption(
             "one_conflicting_payment_excluded_pending_reconciliation",
             "lesson.l08.decision.safe_claim.option.one_conflicting_payment_excluded_pending_reconciliation",
+        ),
+        BriefOption(
+            "twenty_confirmed_range_disclosed",
+            "lesson.l08.decision.safe_claim.option.twenty_confirmed_range_disclosed",
         ),
         BriefOption("all_duplicates_removed_data_perfect", "lesson.l08.decision.safe_claim.option.all_duplicates_removed_data_perfect"),
         BriefOption("whole_feed_unreliable", "lesson.l08.decision.safe_claim.option.whole_feed_unreliable"),
@@ -205,8 +210,8 @@ REQUIRED_PREVENTION_FIELD = BriefField(
 # same way without a separate import per field.
 DECISION_FIELDS: tuple[BriefField | MultiChoiceField, ...] = (
     OBSERVATION_UNIT_FIELD,
-    DUPLICATE_DEFINITION_FIELD,
-    DEDUPE_KEY_FIELD,
+    IDENTITY_KEY_FIELD,
+    AUTOMATIC_REMOVAL_RULE_FIELD,
     LEGITIMATE_REPEATS_FIELD,
     CONFLICT_POLICY_FIELD,
     KPI_RESULT_FIELD,
@@ -482,8 +487,8 @@ def build_lesson_eight_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             "lesson.l08.decision_title",
             steps=(
                 OBSERVATION_UNIT_FIELD,
-                DUPLICATE_DEFINITION_FIELD,
-                DEDUPE_KEY_FIELD,
+                IDENTITY_KEY_FIELD,
+                AUTOMATIC_REMOVAL_RULE_FIELD,
                 LEGITIMATE_REPEATS_FIELD,
                 CONFLICT_POLICY_FIELD,
                 KPI_RESULT_FIELD,

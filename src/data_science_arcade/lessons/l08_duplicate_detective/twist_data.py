@@ -193,9 +193,37 @@ def duplicate_count_by(dataset: Dataset, column: str) -> int:
 def captured_summary(dataset: Dataset) -> tuple[int, float]:
     """(captured row count, captured GMV) - computed live from whatever
     dataset is passed in, so a naive/correct/in-between pipeline all
-    produce their own real, honest numbers."""
+    produce their own real, honest numbers. Used only pre-conflict-
+    resolution (the Round 1 consequence reveal), where every captured
+    row's own amount is still a real, known value - see captured_state()
+    for the post-Round-2 case, where a quarantined row's own amount can
+    be genuinely unresolved (NaN, skipped by .sum() automatically)."""
     captured = dataset.frame[dataset.frame["event_type"] == "captured"]
     return int(len(captured)), float(captured["amount"].sum())
+
+
+def captured_state(dataset: Dataset) -> tuple[int, float, float]:
+    """(captured order count, confirmed-GMV low bound, confirmed-GMV high
+    bound) - low == high whenever every captured row's own amount is
+    fully resolved. A conflict in one attribute (amount) doesn't erase
+    every fact the two conflicting records actually agreed on (event_id,
+    event_type, payment_id, order_id, customer_id) - so the correct
+    quarantine policy keeps the row (a real captured order, still
+    counted) and only nulls its own disputed amount, rather than
+    dropping the row outright. `.sum()` skips NaN by default, which is
+    exactly the "confirmed GMV, excluding whatever's still disputed"
+    number this function needs - the disputed amount's own real range
+    (never a single hidden "true" value) is recovered by looking up the
+    raw feed's own two real observed values for that one event."""
+    captured = dataset.frame[dataset.frame["event_type"] == "captured"]
+    count = int(len(captured))
+    disputed = captured[captured["amount"].isna()]
+    confirmed_gmv = float(captured["amount"].sum())
+    if disputed.empty:
+        return count, confirmed_gmv, confirmed_gmv
+    raw_captured = generate_events().frame.pipe(lambda f: f[f["event_type"] == "captured"])
+    disputed_amounts = raw_captured[raw_captured["event_id"].isin(disputed["event_id"])]["amount"]
+    return count, confirmed_gmv + float(disputed_amounts.min()), confirmed_gmv + float(disputed_amounts.max())
 
 
 def unique_event_count_python_code() -> str:
@@ -266,13 +294,35 @@ CORRECT_DEDUPE_KEY = "remove_exact_repeats_only"
 intact and visible for Round 2 to actually handle - never silently
 resolving something that hasn't been investigated yet."""
 
+HIGH_REPRODUCIBILITY_ROUND1_KEYS = frozenset({"remove_exact_repeats_only"})
+"""Removes a row only when it's byte-for-byte identical to another one -
+which of the two identical copies physically survives never changes the
+real result, so this option's own outcome doesn't depend on row order
+at all, regardless of whether it's also the objectively correct pick
+(METHOD's own separate question)."""
+MEDIUM_REPRODUCIBILITY_ROUND1_KEYS = frozenset({"dedupe_by_order_id", "dedupe_by_event_id_keep_first"})
+"""Both are real, stated, deterministic rules - but which specific row
+survives when two rows genuinely disagree depends on physical row
+order, an implicit assumption about arrival order rather than an
+explicit, order-independent criterion."""
+
 
 # --- Round 2: what to do about the one conflicting duplicate ---------------
 
 
 def _quarantine_and_disclose(frame: pd.DataFrame) -> pd.DataFrame:
-    conflicted = frame.groupby("event_id")["amount"].transform("nunique") > 1
-    return frame[~conflicted].reset_index(drop=True)
+    """A conflict in one attribute (amount) doesn't erase every fact the
+    two conflicting records actually agree on (event_id, event_type,
+    payment_id, order_id, customer_id) - so this keeps the row (a real
+    captured order, still counted) and only nulls its own disputed
+    amount, instead of dropping the row outright. Once every conflicting
+    copy's own amount reads NaN, they're identical on every remaining
+    column, so keep='first' is no longer an arbitrary pick - there's
+    nothing left to arbitrate between."""
+    result = frame.copy()
+    conflicted = result.groupby("event_id")["amount"].transform("nunique") > 1
+    result.loc[conflicted, "amount"] = float("nan")
+    return result.drop_duplicates(subset=["event_id"], keep="first").reset_index(drop=True)
 
 
 def _keep_first_by_event_id(frame: pd.DataFrame) -> pd.DataFrame:
@@ -304,8 +354,10 @@ ROUND2_ISSUE = RepairIssue(
             _quarantine_and_disclose,
             python_code=(
                 "conflicted = events.groupby('event_id')['amount'].transform('nunique') > 1\n"
-                "events = events[~conflicted]"
+                "events.loc[conflicted, 'amount'] = float('nan')  # keep the row, drop only the disputed amount\n"
+                "events = events.drop_duplicates(subset=['event_id'], keep='first')"
             ),
+            result_nullable=True,
         ),
         RepairOption(
             "keep_last_by_event_id",
@@ -325,6 +377,19 @@ ROUND2_ISSUE = RepairIssue(
 )
 
 CORRECT_CONFLICT_POLICY = "quarantine_and_disclose"
+
+HIGH_REPRODUCIBILITY_ROUND2_KEYS = frozenset({"quarantine_and_disclose", "keep_higher_amount"})
+"""Both decide purely from the values themselves (a real computed
+conflict check; a real value comparison) - the result never depends on
+which physical row happened to arrive first, regardless of whether the
+rule itself is also the objectively correct one (METHOD's own separate
+question - keep_higher_amount is a real, stated rule and scores well
+here, even though it isn't the disclosed quarantine policy METHOD
+requires)."""
+MEDIUM_REPRODUCIBILITY_ROUND2_KEYS = frozenset({"keep_first_by_event_id", "keep_last_by_event_id"})
+"""Real, stated rules - but which row survives a genuine conflict
+depends on physical row order, an implicit assumption rather than an
+explicit, order-independent criterion."""
 
 
 def apply_round1(resolution: RepairResolution) -> Dataset:
