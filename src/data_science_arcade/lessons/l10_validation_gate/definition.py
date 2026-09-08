@@ -10,6 +10,14 @@ LESSON_10 = LessonDefinition(
         "lesson.l10.objective2",
         "lesson.l10.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.DATA_QUALITY, ScoreDimension.METHOD, ScoreDimension.OVERCONFIDENCE),
-    estimated_minutes=15,
+    scoring_dimensions=(
+        ScoreDimension.DATA_QUALITY,
+        ScoreDimension.METHOD,
+        ScoreDimension.REASONING,
+        ScoreDimension.EVIDENCE,
+        ScoreDimension.REPRODUCIBILITY,
+        ScoreDimension.OVERCONFIDENCE,
+    ),
+    estimated_minutes=29,
+    related_handbook_entry_id="schema_is_a_contract",
 )
