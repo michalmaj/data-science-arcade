@@ -13,15 +13,12 @@ from data_science_arcade.lessons.l10_validation_gate.scenario import (
     BASELINE_GATE_MEANING_FIELD,
     BATCH_SCOPE_DECISION_FIELD,
     DECISION_FIELDS,
+    GATE_FIELDS,
     INVARIANT_ACTION_FIELD,
-    INVARIANT_SEVERITY_FIELD,
-    INVARIANT_TOLERANCE_FIELD,
     MASTERY_MISSING_RULE_FIELD,
     MASTERY_PASS_MEANING_FIELD,
     MASTERY_SEVERITY_FIELD,
     MISSING_COVERAGE_FIELD,
-    OPTIONAL_FIELD_SEVERITY_FIELD,
-    OPTIONAL_FIELD_THRESHOLD_FIELD,
     PASS_MEANING_FIELD,
     PREVENTION_OWNERSHIP_FIELD,
     PUBLISHED_TOTAL_DEFENSIBILITY_FIELD,
@@ -61,12 +58,6 @@ GOOD_MASTERY_RESULT = {
     "mastery_severity": "block",
     "mastery_pass_meaning": "satisfies_written_checks_only",
 }
-GATE_FIELDS_IN_ORDER = (
-    OPTIONAL_FIELD_SEVERITY_FIELD,
-    OPTIONAL_FIELD_THRESHOLD_FIELD,
-    INVARIANT_TOLERANCE_FIELD,
-    INVARIANT_SEVERITY_FIELD,
-)
 DECISION_FIELDS_IN_ORDER = (
     BASELINE_GATE_MEANING_FIELD,
     MISSING_COVERAGE_FIELD,
@@ -160,12 +151,14 @@ def _play_lesson_to_feedback(
     round1_revision_engage: bool = False,
     revised_round1_resolution=None,
     gate_resolution=GOOD_GATE_RESOLUTION,
-    gate_rerun_interpretation="candidates_worth_investigating",
+    gate_rerun_interpretation="reflects_only_written_checks",
+    gate_revision_engage: bool = False,
+    revised_gate_resolution=None,
     concentration_interpretation="shared_process_failure",
     batch_action_resolution=GOOD_BATCH_ACTION_RESOLUTION,
     batch_action_revision_engage: bool = False,
     revised_batch_action_resolution=None,
-    gate_rerun_clean_interpretation="safe_to_publish",
+    gate_rerun_clean_interpretation=None,
     decision=GOOD_DECISION,
     mastery_engage: bool = False,
     mastery_result=GOOD_MASTERY_RESULT,
@@ -204,6 +197,19 @@ def _play_lesson_to_feedback(
     assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # gate rerun reveal
     _play_comparison_reveal(app.scenes.current.inner, gate_rerun_interpretation)
 
+    offer = _leaf_scene(app.scenes.current.inner)
+    assert isinstance(offer, OfferThenTaskScene)  # gate revision offer
+    final_gate_resolution = gate_resolution
+    if gate_revision_engage:
+        offer.buttons.buttons[0].on_activate()  # Engage
+        leaf = _leaf_scene(offer)
+        assert isinstance(leaf, BriefBuilderScene)
+        assert revised_gate_resolution is not None
+        _play_brief_builder(leaf, revised_gate_resolution)
+        final_gate_resolution = revised_gate_resolution
+    else:
+        offer.buttons.buttons[1].on_activate()  # Skip
+
     assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # concentration reveal
     _play_comparison_reveal(app.scenes.current.inner, concentration_interpretation)
 
@@ -213,6 +219,7 @@ def _play_lesson_to_feedback(
 
     offer = _leaf_scene(app.scenes.current.inner)
     assert isinstance(offer, OfferThenTaskScene)  # batch action revision offer
+    final_batch_action_resolution = batch_action_resolution
     if batch_action_revision_engage:
         offer.buttons.buttons[0].on_activate()  # Engage
         leaf = _leaf_scene(offer)
@@ -220,13 +227,18 @@ def _play_lesson_to_feedback(
         assert revised_batch_action_resolution is not None
         _repair_issues(leaf, revised_batch_action_resolution)
         leaf.continue_button.on_activate()
+        final_batch_action_resolution = revised_batch_action_resolution
     else:
         offer.buttons.buttons[1].on_activate()  # Skip
 
     assert isinstance(app.scenes.current.inner, DialogueScene)  # replay
     _play_dialogue_to_the_end(app.scenes.current)
 
-    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # gate rerun clean
+    replay_happened = final_batch_action_resolution.get("review_status") == CORRECT_BATCH_ACTION_KEY
+    if gate_rerun_clean_interpretation is None:
+        gate_rerun_clean_interpretation = "safe_to_publish" if replay_happened else "still_unresolved"
+
+    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # gate rerun clean / unresolved
     _play_comparison_reveal(app.scenes.current.inner, gate_rerun_clean_interpretation)
 
     assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence review
@@ -250,7 +262,7 @@ def _play_lesson_to_feedback(
     return app.scenes.current.inner
 
 
-def test_the_full_lesson_plays_through_all_eighteen_stages_to_a_result():
+def test_the_full_lesson_plays_through_all_nineteen_stages_to_a_result():
     app = _init_app()
     try:
         finished_results = []
@@ -300,7 +312,9 @@ def test_a_playthrough_that_skips_mastery_still_completes():
 def test_approving_for_publication_can_be_revised_via_the_revision_offer():
     # The central productive-failure chain: approve under the false-green
     # baseline gate, see its own real naive-total consequence, revise via
-    # the real, un-punished offer, then correctly block-and-replay.
+    # the real, un-punished offer, then correctly block-and-replay. This
+    # trajectory never drags core METHOD down (see scoring's own
+    # docstring) - only OVERCONFIDENCE carries that signal.
     app = _init_app()
     try:
         finished_results = []
@@ -325,6 +339,53 @@ def test_approving_for_publication_can_be_revised_via_the_revision_offer():
         scores = feedback.evaluation.dimension_scores
         assert scores[ScoreDimension.METHOD] == 94.0
         assert any(o.text_key == "lesson.l10.feedback.round1_recovered_via_revision" for o in feedback.evaluation.observations)
+    finally:
+        pygame.quit()
+
+
+def test_a_gate_that_never_authors_the_invariant_check_can_be_revised():
+    # P0 fix: the gate that actually runs reflects the student's own real
+    # config - picking no_invariant_check means nothing gets flagged,
+    # until a real revision authors the check for real.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_ten_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        weak_gate = dict(GOOD_GATE_RESOLUTION, invariant_tolerance="no_invariant_check")
+        feedback = _play_lesson_to_feedback(
+            app,
+            gate_resolution=weak_gate,
+            gate_revision_engage=True,
+            revised_gate_resolution=GOOD_GATE_RESOLUTION,
+        )
+        assert isinstance(feedback, LessonFeedbackScene)
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.gate_revised is True
+        assert result.initial_gate_resolution == weak_gate
+        assert result.gate_resolution == GOOD_GATE_RESOLUTION
+        assert any(o.text_key == "lesson.l10.feedback.gate_recovered_via_revision" for o in feedback.evaluation.observations)
+    finally:
+        pygame.quit()
+
+
+def test_a_gate_that_never_authors_the_invariant_check_flags_nothing():
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_ten_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        weak_gate = dict(GOOD_GATE_RESOLUTION, invariant_tolerance="no_invariant_check")
+        feedback = _play_lesson_to_feedback(
+            app,
+            gate_resolution=weak_gate,
+            decision=dict(GOOD_DECISION, missing_coverage="null_rate_check"),
+        )
+        assert isinstance(feedback, LessonFeedbackScene)
     finally:
         pygame.quit()
 
@@ -357,23 +418,36 @@ def test_a_wrong_batch_action_can_be_revised_via_its_own_revision_offer():
 
 
 def test_declining_the_batch_action_revision_offer_never_replays():
+    # P0 fix: the final rerun scene must be path-aware - no replay ever
+    # happened, so it must never claim a corrected total.
     app = _init_app()
     try:
-        runner, _ = build_lesson_ten_runner(app, on_finished=lambda result: None)
+        finished_results = []
+        runner, _ = build_lesson_ten_runner(app, on_finished=lambda result: finished_results.append(result))
         runner.start()
         click_through_mission_briefing(app)
         feedback = _play_lesson_to_feedback(
             app,
             batch_action_resolution={"review_status": "quarantine_and_report_rest"},
             batch_action_revision_engage=False,
-            decision=dict(GOOD_DECISION, batch_scope_decision="quarantine_and_report_rest", published_total_defensibility="report_provisional"),
+            decision=dict(
+                GOOD_DECISION,
+                batch_scope_decision="quarantine_and_report_rest",
+                published_total_defensibility="report_provisional",
+            ),
         )
         assert isinstance(feedback, LessonFeedbackScene)
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.replay_executed() is False
+        assert result.published_total_defensible() is False
     finally:
         pygame.quit()
 
 
-@pytest.mark.parametrize("field", [*GATE_FIELDS_IN_ORDER, *DECISION_FIELDS_IN_ORDER, *MASTERY_FIELDS_IN_ORDER])
+@pytest.mark.parametrize("field", [*GATE_FIELDS, *DECISION_FIELDS_IN_ORDER, *MASTERY_FIELDS_IN_ORDER])
 def test_every_field_has_at_least_two_options(field):
     assert len(field.options) >= 2
 

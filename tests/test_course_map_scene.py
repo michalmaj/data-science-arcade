@@ -1537,7 +1537,7 @@ def test_finishing_lesson_ten_marks_it_complete_and_unlocks_lesson_eleven():
     REPLAY_DIALOGUE branch, not its NO_REPLAY_DIALOGUE one) and index-0
     everywhere else - exact correctness of every other pick is its own
     separately-tested behavior (see test_lesson10_scenario.py). This is a
-    smoke test for the real 18-stage flow finishing and unlocking Lesson
+    smoke test for the real 19-stage flow finishing and unlocking Lesson
     11, not a scoring test."""
     app = App()
     app.init()
@@ -1573,6 +1573,10 @@ def test_finishing_lesson_ten_marks_it_complete_and_unlocks_lesson_eleven():
 
         assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # gate_rerun_reveal
         _confirm_reveal(app.scenes.current.inner)
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # gate_revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # concentration_reveal
         _confirm_reveal(app.scenes.current.inner)
