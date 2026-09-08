@@ -84,6 +84,14 @@ CONSEQUENCE_INTERPRET_OPTIONS = (
     InterpretOption("recompute_blindly", "lesson.l09.consequence.interpret.option.recompute_blindly"),
 )
 
+# --- Pipeline Check reveal ---------------------------------------------
+
+PIPELINE_CHECK_INTERPRET_OPTIONS = (
+    InterpretOption("looks_ready", "lesson.l09.pipeline_check.interpret.option.looks_ready"),
+    InterpretOption("worth_revising", "lesson.l09.pipeline_check.interpret.option.worth_revising"),
+    InterpretOption("recompute_blindly", "lesson.l09.pipeline_check.interpret.option.recompute_blindly"),
+)
+
 # --- Diagnosis Builder ---------------------------------------------------
 
 _DATA_ENTRY_ERROR_OPTION = BriefOption("data_entry_error", "lesson.l09.diagnosis.option.data_entry_error")
@@ -149,43 +157,46 @@ SEGMENT_TREATMENT_FIELD = BriefField(
     prompt_key="lesson.l09.decision.segment_treatment.prompt",
     options=(
         BriefOption("remote_proven_normal", "lesson.l09.decision.segment_treatment.option.remote_proven_normal"),
+        BriefOption(
+            "build_production_threshold_from_8_records",
+            "lesson.l09.decision.segment_treatment.option.build_production_threshold_from_8_records",
+        ),
+        BriefOption(
+            "interpret_in_context_no_auto_remove",
+            "lesson.l09.decision.segment_treatment.option.interpret_in_context_no_auto_remove",
+        ),
         BriefOption("one_global_threshold", "lesson.l09.decision.segment_treatment.option.one_global_threshold"),
-        BriefOption("segment_aware_thresholds", "lesson.l09.decision.segment_treatment.option.segment_aware_thresholds"),
-        BriefOption("drop_zone_info", "lesson.l09.decision.segment_treatment.option.drop_zone_info"),
     ),
 )
 
-TYPICAL_COST_KPI_FIELD = BriefField(
-    key="typical_standard_order_cost_kpi",
-    prompt_key="lesson.l09.decision.typical_standard_order_cost_kpi.prompt",
+# Shared option shape for both KPI-defensibility fields: given the real
+# number the Pipeline Check just showed, is it ready to report? This is
+# deliberately never a "guess the exact dollar figure" choice (which
+# would need enumerating every reachable pipeline state) - it's a
+# defensibility judgment, decoupled from whether the underlying pipeline
+# happens to be objectively correct (DATA_QUALITY/METHOD's own job).
+_REPORT_DEFENSIBLE_OPTION_KEY = "report_defensible"
+_REPORT_PROVISIONAL_OPTION_KEY = "report_provisional"
+
+TYPICAL_KPI_DEFENSIBILITY_FIELD = BriefField(
+    key="typical_kpi_defensibility",
+    prompt_key="lesson.l09.decision.typical_kpi_defensibility.prompt",
     options=(
-        BriefOption(
-            "typical_naive_blanket_drop",
-            "lesson.l09.decision.typical_standard_order_cost_kpi.option.typical_naive_blanket_drop",
-        ),
-        BriefOption("typical_correct", "lesson.l09.decision.typical_standard_order_cost_kpi.option.typical_correct"),
-        BriefOption(
-            "typical_decimal_uncorrected",
-            "lesson.l09.decision.typical_standard_order_cost_kpi.option.typical_decimal_uncorrected",
-        ),
+        BriefOption("report_different_number", "lesson.l09.decision.kpi_defensibility.option.report_different_number"),
+        BriefOption(_REPORT_DEFENSIBLE_OPTION_KEY, "lesson.l09.decision.kpi_defensibility.option.report_defensible"),
+        BriefOption(_REPORT_PROVISIONAL_OPTION_KEY, "lesson.l09.decision.kpi_defensibility.option.report_provisional"),
+        BriefOption("dont_report", "lesson.l09.decision.kpi_defensibility.option.dont_report"),
     ),
 )
 
-TOTAL_EXPOSURE_KPI_FIELD = BriefField(
-    key="total_fulfillment_exposure_kpi",
-    prompt_key="lesson.l09.decision.total_fulfillment_exposure_kpi.prompt",
+TOTAL_KPI_DEFENSIBILITY_FIELD = BriefField(
+    key="total_kpi_defensibility",
+    prompt_key="lesson.l09.decision.total_kpi_defensibility.prompt",
     options=(
-        BriefOption(
-            "total_decimal_uncorrected", "lesson.l09.decision.total_fulfillment_exposure_kpi.option.total_decimal_uncorrected"
-        ),
-        BriefOption(
-            "total_bulk_wrongly_excluded",
-            "lesson.l09.decision.total_fulfillment_exposure_kpi.option.total_bulk_wrongly_excluded",
-        ),
-        BriefOption("total_correct", "lesson.l09.decision.total_fulfillment_exposure_kpi.option.total_correct"),
-        BriefOption(
-            "total_naive_blanket_drop", "lesson.l09.decision.total_fulfillment_exposure_kpi.option.total_naive_blanket_drop"
-        ),
+        BriefOption("dont_report", "lesson.l09.decision.kpi_defensibility.option.dont_report"),
+        BriefOption(_REPORT_PROVISIONAL_OPTION_KEY, "lesson.l09.decision.kpi_defensibility.option.report_provisional"),
+        BriefOption("report_different_number", "lesson.l09.decision.kpi_defensibility.option.report_different_number"),
+        BriefOption(_REPORT_DEFENSIBLE_OPTION_KEY, "lesson.l09.decision.kpi_defensibility.option.report_defensible"),
     ),
 )
 
@@ -193,7 +204,7 @@ DECISION_EVIDENCE_FIELD = EvidenceField(
     key="evidence",
     prompt_key="lesson.l09.decision.evidence.prompt",
     min_count=2,
-    max_count=3,
+    max_count=4,
 )
 
 PREVENTION_ACTION_FIELD = BriefField(
@@ -223,8 +234,8 @@ DECISION_FIELDS: tuple[BriefField | MultiChoiceField, ...] = (
     BULK_POPULATION_BASIS_FIELD,
     INCIDENT_TREATMENT_FIELD,
     SEGMENT_TREATMENT_FIELD,
-    TYPICAL_COST_KPI_FIELD,
-    TOTAL_EXPOSURE_KPI_FIELD,
+    TYPICAL_KPI_DEFENSIBILITY_FIELD,
+    TOTAL_KPI_DEFENSIBILITY_FIELD,
     PREVENTION_ACTION_FIELD,
     SAFE_CLAIM_FIELD,
 )
@@ -486,6 +497,78 @@ def build_lesson_nine_runner(app, on_finished) -> tuple[LessonRunner, dict]:
 
         return WorkbenchScene(app, dataset, ROUND2_ISSUES, on_complete, guided=True, context=context)
 
+    # --- Pipeline Check reveal ---
+
+    def pipeline_check_reveal(advance):
+        """The real, live typical/total numbers this specific pipeline
+        actually produces - shown before any Final Decision claim about
+        them, and regardless of whether Round 1/Round 2 were picked
+        correctly. This is what lets the Final Decision's own KPI fields
+        stay a defensibility judgment instead of needing to enumerate
+        every reachable dollar figure as a separate pre-authored
+        option."""
+        dataset = apply_round2(collected.get("round1_resolution", {}), collected.get("round2_resolution", {}))
+        n, median = typical_standard_order_state(dataset)
+        total_n, total = total_exposure_state(dataset)
+
+        def on_complete(interpretation):
+            collected["pipeline_check_interpretation"] = interpretation
+            _sync_context_into_collected()
+            advance()
+
+        return ComparisonRevealScene(
+            app,
+            title_key="lesson.l09.pipeline_check.title",
+            narrative_keys=("dialogue.l09_pipeline_check.line1", "dialogue.l09_pipeline_check.line2"),
+            comparisons=(
+                ComparisonValue(
+                    "lesson.l09.pipeline_check.typical_label", median, python_code=median_python_code(), value_format=lambda v: f"${v:,.2f}"
+                ),
+                ComparisonValue(
+                    "lesson.l09.pipeline_check.total_label", total, python_code=sum_python_code(), value_format=lambda v: f"${v:,.2f}"
+                ),
+                ComparisonValue("lesson.l09.pipeline_check.orders_label", float(total_n), value_format=lambda v: f"{int(v)}"),
+            ),
+            interpret_prompt_key="lesson.l09.pipeline_check.interpret_prompt",
+            interpret_options=PIPELINE_CHECK_INTERPRET_OPTIONS,
+            on_complete=on_complete,
+            context=context,
+            comparisons_are_evidence=False,
+        )
+
+    # --- Round 2 revision offer ---
+
+    def round2_revision_offer(advance):
+        """A real, un-punished chance to revise the case-by-case
+        treatment after seeing the pipeline's own real result - always
+        offered, matching the Round 1 revision offer's own precedent
+        (never gated on whether the current picks were already
+        correct)."""
+        collected["initial_round2_resolution"] = dict(collected.get("round2_resolution", {}))
+
+        def build_revision_task(on_task_complete):
+            def on_repair_complete(resolution):
+                collected["round2_resolution"] = resolution
+                collected["round2_revised"] = True
+                _sync_context_into_collected()
+                on_task_complete(None)
+
+            dataset = apply_round1(collected.get("round1_resolution", {}))
+            return WorkbenchScene(app, dataset, ROUND2_ISSUES, on_repair_complete, guided=True, context=context)
+
+        def on_offer_complete(_engaged, _result):
+            advance()
+
+        return OfferThenTaskScene(
+            app,
+            build_revision_task,
+            on_offer_complete,
+            title_key="lesson.l09.round2_revision_offer.title",
+            line_keys=("lesson.l09.round2_revision_offer.line1",),
+            engage_label_key="lesson.l09.round2_revision_offer.engage",
+            skip_label_key="lesson.l09.round2_revision_offer.skip",
+        )
+
     # --- Evidence review ---
 
     def evidence_review(advance):
@@ -526,8 +609,8 @@ def build_lesson_nine_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 BULK_POPULATION_BASIS_FIELD,
                 INCIDENT_TREATMENT_FIELD,
                 SEGMENT_TREATMENT_FIELD,
-                TYPICAL_COST_KPI_FIELD,
-                TOTAL_EXPOSURE_KPI_FIELD,
+                TYPICAL_KPI_DEFENSIBILITY_FIELD,
+                TOTAL_KPI_DEFENSIBILITY_FIELD,
                 DECISION_EVIDENCE_FIELD,
                 PREVENTION_ACTION_FIELD,
                 SAFE_CLAIM_FIELD,
@@ -606,6 +689,8 @@ def build_lesson_nine_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             mastery_needs_correction=frozenset(collected.get("mastery_needs_correction", ())),
             initial_round1_resolution=collected.get("initial_round1_resolution", {}),
             round1_revised=collected.get("round1_revised", False),
+            initial_round2_resolution=collected.get("initial_round2_resolution", {}),
+            round2_revised=collected.get("round2_revised", False),
         )
 
     def feedback(advance):
@@ -632,6 +717,8 @@ def build_lesson_nine_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         segment_investigation,
         diagnosis_builder,
         case_treatment,
+        pipeline_check_reveal,
+        round2_revision_offer,
         evidence_review,
         final_decision,
         mastery_challenge,

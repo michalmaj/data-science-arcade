@@ -1431,9 +1431,9 @@ L09_GOOD_DECISION_BEFORE_EVIDENCE: tuple[tuple, ...] = (
     ("confirmed_data_errors", "decimal_row_only"),
     ("bulk_order_population_basis", "order_type_metadata"),
     ("incident_treatment", "keep_and_flag"),
-    ("segment_treatment", "segment_aware_thresholds"),
-    ("typical_standard_order_cost_kpi", "typical_correct"),
-    ("total_fulfillment_exposure_kpi", "total_correct"),
+    ("segment_treatment", "interpret_in_context_no_auto_remove"),
+    ("typical_kpi_defensibility", "report_defensible"),
+    ("total_kpi_defensibility", "report_defensible"),
 )
 L09_GOOD_DECISION_AFTER_EVIDENCE: tuple[tuple, ...] = (
     ("prevention_action", "entry_time_sanity_check"),
@@ -1446,7 +1446,7 @@ def test_finishing_lesson_nine_marks_it_complete_and_unlocks_lesson_ten():
     """Picks the real correct option everywhere this smoke test can - the
     exact correctness of each pick is its own separately-tested behavior
     (see test_lesson09_scenario.py). This is a smoke test for the real
-    14-stage flow finishing and unlocking Lesson 10, not a scoring test."""
+    16-stage flow finishing and unlocking Lesson 10, not a scoring test."""
     app = App()
     app.init()
     try:
@@ -1497,6 +1497,13 @@ def test_finishing_lesson_nine_marks_it_complete_and_unlocks_lesson_ten():
         assert isinstance(app.scenes.current.inner, WorkbenchScene)  # case_treatment
         _l09_repair_round2_correctly(app.scenes.current.inner)
         app.scenes.current.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # pipeline_check_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        round2_offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(round2_offer, OfferThenTaskScene)  # round2_revision_offer - skipped
+        round2_offer.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
         app.scenes.current.inner.continue_button.on_activate()

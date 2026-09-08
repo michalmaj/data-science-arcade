@@ -19,11 +19,11 @@ from data_science_arcade.lessons.l09_outlier_patrol.scenario import (
     PREVENTION_ACTION_FIELD,
     SAFE_CLAIM_FIELD,
     SEGMENT_TREATMENT_FIELD,
-    TOTAL_EXPOSURE_KPI_FIELD,
-    TYPICAL_COST_KPI_FIELD,
+    TOTAL_KPI_DEFENSIBILITY_FIELD,
+    TYPICAL_KPI_DEFENSIBILITY_FIELD,
     build_lesson_nine_runner,
 )
-from data_science_arcade.lessons.l09_outlier_patrol.scoring import LessonNineResult, score_lesson_nine
+from data_science_arcade.lessons.l09_outlier_patrol.scoring import CRITICAL_EVIDENCE_KEYS, LessonNineResult, score_lesson_nine
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
 from data_science_arcade.ui.composite_scene import OfferThenTaskScene, SequenceScene
@@ -50,9 +50,9 @@ GOOD_DECISION = {
     "confirmed_data_errors": "decimal_row_only",
     "bulk_order_population_basis": "order_type_metadata",
     "incident_treatment": "keep_and_flag",
-    "segment_treatment": "segment_aware_thresholds",
-    "typical_standard_order_cost_kpi": "typical_correct",
-    "total_fulfillment_exposure_kpi": "total_correct",
+    "segment_treatment": "interpret_in_context_no_auto_remove",
+    "typical_kpi_defensibility": "report_defensible",
+    "total_kpi_defensibility": "report_defensible",
     "prevention_action": "entry_time_sanity_check",
     "safe_claim": "both_numbers_scoped_honestly",
 }
@@ -61,8 +61,8 @@ DECISION_FIELDS_IN_ORDER = (
     BULK_POPULATION_BASIS_FIELD,
     INCIDENT_TREATMENT_FIELD,
     SEGMENT_TREATMENT_FIELD,
-    TYPICAL_COST_KPI_FIELD,
-    TOTAL_EXPOSURE_KPI_FIELD,
+    TYPICAL_KPI_DEFENSIBILITY_FIELD,
+    TOTAL_KPI_DEFENSIBILITY_FIELD,
     PREVENTION_ACTION_FIELD,
     SAFE_CLAIM_FIELD,
 )
@@ -143,10 +143,25 @@ def _play_diagnosis_builder(scene: BriefBuilderScene, diagnosis: dict[str, str])
         _fill_single_select(scene, step, diagnosis[step.key])
 
 
+def _select_critical_evidence_ids(scene: DecisionBuilderScene) -> list[str]:
+    """Every ComparisonRevealScene reveal (detection, consequence, the
+    pipeline check) auto-records its own values as evidence too - a
+    real, non-critical majority alongside the 4 critical role facts.
+    Playthrough tests need the 4 critical ones specifically, not
+    whichever items happen to sit first in context.evidence."""
+    critical_ids = [
+        item.id
+        for item in scene.context.evidence
+        if item.id in scene._evidence_toggle_buttons and any(critical_key in item.label_key for critical_key in CRITICAL_EVIDENCE_KEYS)
+    ]
+    other_ids = [item_id for item_id in scene._evidence_toggle_buttons if item_id not in critical_ids]
+    return (critical_ids + other_ids)[: scene.evidence_field.max_count]
+
+
 def _play_decision_builder(scene: DecisionBuilderScene, *, decision_keys: dict) -> None:
     for step in scene._steps:
         if step.key == "evidence":
-            evidence_ids = list(scene._evidence_toggle_buttons.keys())[: scene.evidence_field.max_count]
+            evidence_ids = _select_critical_evidence_ids(scene)
             for item_id in evidence_ids:
                 scene._evidence_toggle_buttons[item_id].on_activate()
         elif hasattr(step, "min_count"):  # MultiChoiceField
@@ -169,6 +184,9 @@ def _play_lesson_to_feedback(
     revised_round1_resolution=None,
     diagnosis=GOOD_DIAGNOSIS,
     round2_resolution=GOOD_ROUND2_RESOLUTION,
+    pipeline_check_interpretation="looks_ready",
+    round2_revision_engage: bool = False,
+    revised_round2_resolution=None,
     decision=GOOD_DECISION,
     mastery_engage: bool = False,
     mastery_must_not_remove=("escalation_ticket",),
@@ -191,7 +209,7 @@ def _play_lesson_to_feedback(
     _play_comparison_reveal(app.scenes.current.inner, consequence_interpretation)
 
     offer = _leaf_scene(app.scenes.current.inner)
-    assert isinstance(offer, OfferThenTaskScene)  # revision offer
+    assert isinstance(offer, OfferThenTaskScene)  # round 1 revision offer
     if revision_engage:
         offer.buttons.buttons[0].on_activate()  # Engage
         leaf = _leaf_scene(offer)
@@ -211,6 +229,21 @@ def _play_lesson_to_feedback(
     assert isinstance(app.scenes.current.inner, WorkbenchScene)  # case-by-case treatment
     _repair_issues(app.scenes.current.inner, round2_resolution)
     app.scenes.current.continue_button.on_activate()
+
+    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # pipeline check reveal
+    _play_comparison_reveal(app.scenes.current.inner, pipeline_check_interpretation)
+
+    round2_offer = _leaf_scene(app.scenes.current.inner)
+    assert isinstance(round2_offer, OfferThenTaskScene)  # round 2 revision offer
+    if round2_revision_engage:
+        round2_offer.buttons.buttons[0].on_activate()  # Engage
+        leaf = _leaf_scene(round2_offer)
+        assert isinstance(leaf, WorkbenchScene)
+        assert revised_round2_resolution is not None
+        _repair_issues(leaf, revised_round2_resolution)
+        leaf.continue_button.on_activate()
+    else:
+        round2_offer.buttons.buttons[1].on_activate()  # Skip
 
     assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence review
     app.scenes.current.continue_button.on_activate()
@@ -234,7 +267,7 @@ def _play_lesson_to_feedback(
     return app.scenes.current.inner
 
 
-def test_the_full_lesson_plays_through_all_fourteen_stages_to_a_result():
+def test_the_full_lesson_plays_through_all_sixteen_stages_to_a_result():
     app = _init_app()
     try:
         finished_results = []
@@ -315,6 +348,39 @@ def test_a_naive_blanket_drop_can_be_revised_via_the_revision_offer():
         pygame.quit()
 
 
+def test_a_wrong_case_treatment_can_be_revised_via_the_round2_revision_offer():
+    # The same productive-failure chain, one round later: mistreat every
+    # flagged row in Round 2, see the real Pipeline Check result, revise
+    # via the real, un-punished offer, then correctly treat every row.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_nine_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        bad_round2 = {"fulfillment_cost": "keep_as_is", "order_type": "drop_row", "incident_reference": "drop_row"}
+        feedback = _play_lesson_to_feedback(
+            app,
+            round2_resolution=bad_round2,
+            round2_revision_engage=True,
+            revised_round2_resolution=GOOD_ROUND2_RESOLUTION,
+        )
+        assert isinstance(feedback, LessonFeedbackScene)
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.round2_revised is True
+        assert result.initial_round2_resolution == bad_round2
+        assert result.round2_resolution == GOOD_ROUND2_RESOLUTION
+
+        scores = feedback.evaluation.dimension_scores
+        assert scores[ScoreDimension.DATA_QUALITY] == 100.0
+        assert any(o.text_key == "lesson.l09.feedback.round2_recovered_via_revision" for o in feedback.evaluation.observations)
+    finally:
+        pygame.quit()
+
+
 def test_declining_the_revision_offer_keeps_the_naive_blanket_drop():
     app = _init_app()
     try:
@@ -327,8 +393,8 @@ def test_declining_the_revision_offer_keeps_the_naive_blanket_drop():
             revision_engage=False,
             decision=dict(
                 GOOD_DECISION,
-                typical_standard_order_cost_kpi="typical_naive_blanket_drop",
-                total_fulfillment_exposure_kpi="total_naive_blanket_drop",
+                typical_kpi_defensibility="report_provisional",
+                total_kpi_defensibility="report_provisional",
             ),
         )
         assert isinstance(feedback, LessonFeedbackScene)

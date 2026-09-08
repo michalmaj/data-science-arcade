@@ -162,9 +162,10 @@ class ComparisonRevealScene(Scene):
         own EvidenceItem (the historical default) - set False when a
         lesson has enough reveals that every comparison becoming evidence
         would flood DecisionBuilderScene's own real evidence-pool layout
-        ceiling (confirmed in practice around ~10 items). record_action
-        still fires either way, preserving the Python Mirror contribution;
-        only record_evidence is skipped."""
+        ceiling (confirmed in practice around ~10 items, first hit by
+        L09's own Pipeline Check reveal, then again by L10's 5-reveal
+        design). record_action still fires either way, preserving the
+        Python Mirror contribution; only record_evidence is skipped."""
         self._interpret_choice: str | None = None
         self._rebuild_buttons()
 

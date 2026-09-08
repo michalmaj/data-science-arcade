@@ -21,45 +21,21 @@ from data_science_arcade.lessons.l09_outlier_patrol.twist_data import (
 )
 
 _CORRECT_PREVENTION = "entry_time_sanity_check"
-_CORRECT_SEGMENT_TREATMENT = "segment_aware_thresholds"
+_CORRECT_SEGMENT_TREATMENT = "interpret_in_context_no_auto_remove"
 _CORRECT_SAFE_CLAIM = "both_numbers_scoped_honestly"
 _CORRECT_CONFIRMED_DATA_ERRORS = "decimal_row_only"
 _CORRECT_BULK_BASIS = "order_type_metadata"
 _CORRECT_INCIDENT_TREATMENT = "keep_and_flag"
 
-# Real (n, median, decimal_corrected) states this lesson's own real
-# pipelines can land on for the typical-standard-order metric, mapped to
-# the one Final Decision option that honestly describes that state - an
-# explicit mapping, never a boolean equivalence. The median is robust
-# enough that "decimal corrected" and "decimal left at $4,600" land on
-# the exact same (88, $47.00) number - a real, deliberate fact (the
-# median doesn't visibly "notice" the one bad row), which is exactly why
-# decimal_corrected has to be its own separate check, not folded into
-# the displayed number.
-_TYPICAL_OPTION_BY_STATE: dict[tuple[int, float, bool], str] = {
-    (88, 47.0, True): "typical_correct",
-    (88, 47.0, False): "typical_decimal_uncorrected",
-    (78, 46.0, True): "typical_naive_blanket_drop",
-    (78, 46.0, False): "typical_naive_blanket_drop",
-}
-
-# Real (n, sum) states for total fulfillment exposure - sum, unlike
-# median, is not robust to the decimal error, so a plain 2-tuple mapping
-# is enough here.
-_TOTAL_OPTION_BY_STATE: dict[tuple[int, float], str] = {
-    (89, 5610.0): "total_correct",
-    (78, 3588.0): "total_naive_blanket_drop",
-    (89, 10164.0): "total_decimal_uncorrected",
-    (88, 4660.0): "total_bulk_wrongly_excluded",
-}
+_REPORT_DEFENSIBLE = "report_defensible"
+_REPORT_PROVISIONAL = "report_provisional"
 
 # Evidence, split by the real role each fact plays in the final argument -
-# not "any N of M." Full Evidence credit requires the segment fact (the
-# one that generalizes past a single row) plus at least one of the two
-# row-specific grounding facts - and see _score_reasoning below for the
-# harder requirement: the bulk-exclusion claim specifically cannot be
-# coherent without the bulk evidence actually cited, regardless of the
-# EVIDENCE dimension's own separate score.
+# not "any N of M." See _score_reasoning/_score_method below for the
+# harder requirement: each of the 4 central claims below (errors, bulk,
+# incident, segment) cannot be coherent without *its own* real evidence
+# actually being cited, regardless of the EVIDENCE dimension's own
+# separate score.
 SEGMENT_EVIDENCE_KEYS: tuple[str, ...] = ("lesson.l09.evidence.segment_threshold_contrast",)
 ERROR_PROVENANCE_EVIDENCE_KEYS: tuple[str, ...] = ("lesson.l09.issue.fulfillment_cost.evidence",)
 BULK_EVIDENCE_KEYS: tuple[str, ...] = ("lesson.l09.issue.order_type.evidence",)
@@ -86,6 +62,8 @@ class LessonNineResult:
     mastery_needs_correction: frozenset[str] = frozenset()
     initial_round1_resolution: RepairResolution = field(default_factory=dict)
     round1_revised: bool = False
+    initial_round2_resolution: RepairResolution = field(default_factory=dict)
+    round2_revised: bool = False
 
     def completed_thoughtfully(self) -> bool:
         return bool(self.round1_resolution) and bool(self.round2_resolution) and len(self.decision) > 0
@@ -100,6 +78,31 @@ class LessonNineResult:
 
     def decimal_corrected(self) -> bool:
         return self.round2_resolution.get("fulfillment_cost") == CORRECT_DECIMAL_KEY
+
+    def _round1_correct(self) -> bool:
+        return self.round1_resolution.get("fulfillment_cost") == CORRECT_ROUND1_KEY
+
+    def _incident_dropped(self) -> bool:
+        return self.round2_resolution.get("incident_reference") == "drop_row"
+
+    def _bulk_dropped(self) -> bool:
+        return self.round2_resolution.get("order_type") == "drop_row"
+
+    def typical_kpi_defensible(self) -> bool:
+        """The typical-standard-order-cost metric's own real population
+        (order_type == "standard") includes the decimal-error row and
+        the documented-incident row, but never the bulk order (its own
+        order_type keeps it out regardless of which Round 2 option was
+        picked for it) - so this metric's defensibility depends on
+        Round 1, the decimal correction, and the incident row surviving,
+        but never on the bulk row's own treatment."""
+        return self._round1_correct() and self.decimal_corrected() and not self._incident_dropped()
+
+    def total_kpi_defensible(self) -> bool:
+        """Total exposure needs every real order present and the decimal
+        corrected - the bulk row's own treatment matters here, unlike
+        for the typical metric, since total exposure has to include it."""
+        return self.typical_kpi_defensible() and not self._bulk_dropped()
 
 
 def _score_data_quality(result: LessonNineResult) -> tuple[float, FeedbackObservation | None]:
@@ -125,9 +128,19 @@ def _score_data_quality(result: LessonNineResult) -> tuple[float, FeedbackObserv
     return score, FeedbackObservation("lesson.l09.feedback.every_row_correctly_treated", ScoreDimension.DATA_QUALITY)
 
 
+def _segment_treatment_coherent(result: LessonNineResult, selected_evidence: set[str]) -> bool:
+    """The segment-scope claim is only real and grounded if the segment
+    contrast evidence was actually cited - naming the right conclusion
+    without the fact that demonstrates it is a guess, not an argument."""
+    if result.decision.get("segment_treatment") != _CORRECT_SEGMENT_TREATMENT:
+        return False
+    return bool(selected_evidence & set(SEGMENT_EVIDENCE_KEYS))
+
+
 def _score_method(result: LessonNineResult) -> tuple[float, FeedbackObservation | None]:
+    selected_evidence = set(result.critical_evidence_present)
     round1_correct = result.round1_resolution.get("fulfillment_cost") == CORRECT_ROUND1_KEY
-    segment_correct = result.decision.get("segment_treatment") == _CORRECT_SEGMENT_TREATMENT
+    segment_correct = _segment_treatment_coherent(result, selected_evidence)
     prevention_correct = result.decision.get("prevention_action") == _CORRECT_PREVENTION
     hits = int(round1_correct) + int(segment_correct) + int(prevention_correct)
     score = {3: 94.0, 2: 68.0, 1: 40.0, 0: 15.0}[hits]
@@ -189,36 +202,58 @@ def _bulk_basis_coherent(result: LessonNineResult, selected_evidence: set[str]) 
     return result.round2_resolution.get("order_type") == CORRECT_BULK_KEY
 
 
+def _errors_coherent(result: LessonNineResult, selected_evidence: set[str]) -> bool:
+    """Confirming the decimal row as the one real data error is only
+    grounded if its own invoice-reference provenance was actually
+    cited - not just because the correct option text was clicked."""
+    if result.decision.get("confirmed_data_errors") != _CORRECT_CONFIRMED_DATA_ERRORS:
+        return False
+    if not (selected_evidence & set(ERROR_PROVENANCE_EVIDENCE_KEYS)):
+        return False
+    return result.round2_resolution.get("fulfillment_cost") == CORRECT_DECIMAL_KEY
+
+
+def _incident_coherent(result: LessonNineResult, selected_evidence: set[str]) -> bool:
+    """Claiming the anomaly row should be kept and flagged as a
+    documented incident is only grounded if its own incident-reference
+    evidence was actually cited."""
+    if result.decision.get("incident_treatment") != _CORRECT_INCIDENT_TREATMENT:
+        return False
+    if not (selected_evidence & set(INCIDENT_EVIDENCE_KEYS)):
+        return False
+    return result.round2_resolution.get("incident_reference") == CORRECT_ANOMALY_KEY
+
+
+def _kpi_defensibility_coherent(claimed_option: str | None, defensible: bool) -> bool:
+    """A student who never fixed a real, nameable defect in their own
+    pipeline can still be fully coherent here by correctly calling the
+    result provisional - REASONING checks whether the claim matches
+    reality, never whether the pipeline itself was good (DATA_QUALITY/
+    METHOD's own job)."""
+    expected = _REPORT_DEFENSIBLE if defensible else _REPORT_PROVISIONAL
+    return claimed_option == expected
+
+
 def _score_reasoning(result: LessonNineResult) -> tuple[float, FeedbackObservation | None]:
     """Coherence only - every check compares one part of the student's
     own final argument against another real fact about what they
     actually did or saw, decoupled from whether the underlying pick was
-    itself correct (DATA_QUALITY's/METHOD's own job)."""
+    itself correct (DATA_QUALITY's/METHOD's own job). Every reachable
+    real pipeline state has an honest path here: the KPI claims are a
+    defensible-vs-provisional judgment, never a guess at an exact dollar
+    figure, so a student who never fixed a real defect can still be
+    fully coherent by correctly calling their own result provisional."""
     selected_evidence = set(result.critical_evidence_present)
 
-    errors_coherent = (
-        result.decision.get("confirmed_data_errors") == _CORRECT_CONFIRMED_DATA_ERRORS
-        and result.round2_resolution.get("fulfillment_cost") == CORRECT_DECIMAL_KEY
-    )
+    errors_coherent = _errors_coherent(result, selected_evidence)
     bulk_coherent = _bulk_basis_coherent(result, selected_evidence)
-    incident_coherent = (
-        result.decision.get("incident_treatment") == _CORRECT_INCIDENT_TREATMENT
-        and result.round2_resolution.get("incident_reference") == CORRECT_ANOMALY_KEY
-    )
+    incident_coherent = _incident_coherent(result, selected_evidence)
 
-    n, median = result.final_typical_state()
-    typical_key = (n, round(median, 2), result.decimal_corrected())
-    expected_typical_option = _TYPICAL_OPTION_BY_STATE.get(typical_key)
-    typical_kpi_coherent = (
-        expected_typical_option is not None
-        and result.decision.get("typical_standard_order_cost_kpi") == expected_typical_option
-        and bulk_coherent
+    typical_kpi_coherent = _kpi_defensibility_coherent(
+        result.decision.get("typical_kpi_defensibility"), result.typical_kpi_defensible()
     )
-
-    total_n, total = result.final_total_state()
-    expected_total_option = _TOTAL_OPTION_BY_STATE.get((total_n, round(total, 2)))
-    total_kpi_coherent = (
-        expected_total_option is not None and result.decision.get("total_fulfillment_exposure_kpi") == expected_total_option
+    total_kpi_coherent = _kpi_defensibility_coherent(
+        result.decision.get("total_kpi_defensibility"), result.total_kpi_defensible()
     )
 
     safe_claim_coherent = (
@@ -250,25 +285,23 @@ def _score_reasoning(result: LessonNineResult) -> tuple[float, FeedbackObservati
 
 
 def _score_evidence(result: LessonNineResult) -> tuple[float, FeedbackObservation | None]:
-    """Role-based, not "any N of M": full credit requires the segment
-    fact (the one fact that generalizes past a single row) plus at
-    least one of the two row-specific grounding facts - never an
-    arbitrary combination."""
+    """Role-based, not "any N of M": scored from how many of the 4 real
+    roles (segment, error provenance, bulk metadata, incident reference)
+    are actually represented, not from a raw item count - citing two
+    unrelated row facts instead of covering real breadth doesn't reach
+    the top band."""
     present = set(result.critical_evidence_present)
-    has_segment = bool(present & set(SEGMENT_EVIDENCE_KEYS))
-    has_row_fact = bool(
-        present & (set(ERROR_PROVENANCE_EVIDENCE_KEYS) | set(BULK_EVIDENCE_KEYS) | set(INCIDENT_EVIDENCE_KEYS))
+    roles_present = sum(
+        (
+            bool(present & set(SEGMENT_EVIDENCE_KEYS)),
+            bool(present & set(ERROR_PROVENANCE_EVIDENCE_KEYS)),
+            bool(present & set(BULK_EVIDENCE_KEYS)),
+            bool(present & set(INCIDENT_EVIDENCE_KEYS)),
+        )
     )
-    if has_segment and has_row_fact:
-        score = 95.0
-    elif has_segment or has_row_fact:
-        score = 55.0
-    else:
-        score = 15.0
-    if not has_segment:
-        return score, FeedbackObservation("lesson.l09.feedback.evidence_missing_segment_fact", ScoreDimension.EVIDENCE)
-    if not has_row_fact:
-        return score, FeedbackObservation("lesson.l09.feedback.evidence_missing_row_fact", ScoreDimension.EVIDENCE)
+    score = {4: 97.0, 3: 80.0, 2: 55.0, 1: 30.0, 0: 15.0}[roles_present]
+    if roles_present < 4:
+        return score, FeedbackObservation("lesson.l09.feedback.evidence_missing_a_real_role", ScoreDimension.EVIDENCE)
     return score, None
 
 
@@ -305,6 +338,14 @@ def _trajectory_observations(result: LessonNineResult) -> list[FeedbackObservati
         and result.round1_resolution.get("fulfillment_cost") == CORRECT_ROUND1_KEY
     ):
         observations.append(FeedbackObservation("lesson.l09.feedback.round1_recovered_via_revision"))
+    if (
+        result.round2_revised
+        and result.initial_round2_resolution != result.round2_resolution
+        and result.round2_resolution.get("fulfillment_cost") == CORRECT_DECIMAL_KEY
+        and result.round2_resolution.get("order_type") == CORRECT_BULK_KEY
+        and result.round2_resolution.get("incident_reference") == CORRECT_ANOMALY_KEY
+    ):
+        observations.append(FeedbackObservation("lesson.l09.feedback.round2_recovered_via_revision"))
     observations.extend(_diagnosis_recovered_observations(result))
     return observations
 
