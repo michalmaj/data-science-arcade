@@ -158,17 +158,14 @@ class ComparisonRevealScene(Scene):
         self.guided = guided
         self.interpret_hint_key = interpret_hint_key
         self.comparisons_are_evidence = comparisons_are_evidence
-        """Every prior caller wants its own comparisons individually
-        citable as Evidence-step facts, and stays that way unchanged -
-        L09's own Pipeline Check reveal is the first real exception: its
-        own defensibility claims are checked by boolean logic against the
-        real resolutions directly, never by evidence citation, and its 3
-        comparisons would otherwise be the difference between a real
-        evidence pool the Decision Builder's own layout can still fit
-        (10 items, already close to its established floor) and one it
-        can't (13). The real pandas action is still recorded either way,
-        so the Python Mirror never loses this reveal's own real code -
-        only whether it also becomes a selectable Evidence-step item."""
+        """Whether _continue() records each real comparison value as its
+        own EvidenceItem (the historical default) - set False when a
+        lesson has enough reveals that every comparison becoming evidence
+        would flood DecisionBuilderScene's own real evidence-pool layout
+        ceiling (confirmed in practice around ~10 items, first hit by
+        L09's own Pipeline Check reveal, then again by L10's 5-reveal
+        design). record_action still fires either way, preserving the
+        Python Mirror contribution; only record_evidence is skipped."""
         self._interpret_choice: str | None = None
         self._rebuild_buttons()
 
