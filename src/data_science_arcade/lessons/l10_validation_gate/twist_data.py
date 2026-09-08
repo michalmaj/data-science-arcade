@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 
@@ -215,25 +217,25 @@ def total_python_code() -> str:
 
 # --- The cross-field invariant and the optional-field WARN signal ---------
 
-CORRECT_ATOL = 1.0
-"""The canonical, correct tolerance - real financial floats deserve a
-small tolerance, not bit-exact equality. The reveal always runs the
-checks with this canonical calibration (mirrors L09's own IQR detection
-reveal, which is never itself a student-executed pick): what's graded is
-the student's own Gate Builder *declaration* (DATA_QUALITY/
-REPRODUCIBILITY), not whether a miscalibrated check changes what the
-game shows them - the real business risk exists whether or not the
-student personally chose to look for it."""
-
-CORRECT_WARN_THRESHOLD = 0.02
+CANONICAL_ATOL = 1.0
+"""Used only by the decoupled concentration investigation below (a
+manual, mentor-led "let's look at where this really concentrates,
+independent of whatever your own gate found" beat) - never by gate
+execution itself. Gate outcomes (evaluate_gate below) are driven entirely
+by the student's own real Gate Builder configuration; a check the
+student never authored can never flag anything, regardless of what this
+canonical calibration would have found. Real financial floats deserve an
+explicit small tolerance, not bit-exact equality relying on np.isclose's
+own undocumented default rtol - every real comparison in this module
+passes rtol explicitly (see invariant_mismatch_mask)."""
 
 
 def expected_amount(frame: pd.DataFrame) -> pd.Series:
     return frame["subtotal_usd"] + frame["tax_usd"] + frame["shipping_usd"] - frame["discount_usd"]
 
 
-def invariant_mismatch_mask(frame: pd.DataFrame, atol: float = CORRECT_ATOL) -> pd.Series:
-    return ~np.isclose(frame["recorded_amount_usd"], expected_amount(frame), atol=atol)
+def invariant_mismatch_mask(frame: pd.DataFrame, atol: float = CANONICAL_ATOL, rtol: float = 0.0) -> pd.Series:
+    return ~np.isclose(frame["recorded_amount_usd"], expected_amount(frame), atol=atol, rtol=rtol)
 
 
 def invariant_fail_count(dataset: Dataset) -> int:
@@ -246,16 +248,136 @@ def invariant_fail_rate_by_source(dataset: Dataset) -> dict[str, float]:
     return frame.groupby("source_system")["_mismatch"].mean().to_dict()
 
 
-def invariant_python_code() -> str:
+def invariant_python_code(atol: float = CANONICAL_ATOL, rtol: float = 0.0) -> str:
     return (
         "expected = orders['subtotal_usd'] + orders['tax_usd'] + orders['shipping_usd'] - orders['discount_usd']\n"
-        "mismatch = ~np.isclose(orders['recorded_amount_usd'], expected, atol=1.0)\n"
+        f"mismatch = ~np.isclose(orders['recorded_amount_usd'], expected, atol={atol}, rtol={rtol})\n"
         "mismatch.sum()"
     )
 
 
 def concentration_python_code() -> str:
     return "orders.assign(mismatch=mismatch).groupby('source_system')['mismatch'].mean()"
+
+
+# --- Gate execution - the authored config is what actually runs -----------
+#
+# Contract: authored rule -> real execution -> real PASS/WARN/BLOCK result.
+# A check the student never authored (an "opt out" pick - no_check,
+# no_invariant_check) simply doesn't exist: it never flags anything,
+# regardless of what the canonical calibration above would have found.
+# This is what makes the Gate Builder actually control the gate that
+# runs next, rather than the gate silently re-running a fixed reference
+# check underneath whatever the student picked.
+
+_OPTIONAL_SEVERITY_BY_KEY: dict[str, str] = {
+    "info_only": "info",
+    "warn_at_threshold": "warn",
+    "block": "block",
+}
+_OPTIONAL_THRESHOLD_BY_KEY: dict[str, float] = {
+    "zero_tolerance": 0.0,
+    "flag_over_2pct": 0.02,
+    "flag_over_10pct": 0.10,
+}
+_INVARIANT_SEVERITY_BY_KEY: dict[str, str] = {
+    "no_action": "none",
+    "info_only": "info",
+    "warn_only": "warn",
+    "block": "block",
+}
+_INVARIANT_ATOL_BY_KEY: dict[str, float] = {
+    "exact_match_atol_0": 0.0,
+    "small_tolerance_atol_1": 1.0,
+}
+
+
+@dataclass(frozen=True)
+class CheckOutcome:
+    """One authored (or never-authored) check's own real, executed
+    result - three separate facts, deliberately never collapsed into
+    one: whether the check was authored at all (`exists`), whether the
+    real assertion it runs actually held (`assertion_passed`), and the
+    severity the student themselves assigned it (`severity`). A
+    WARN-level check whose assertion fails is a real, triggered warning
+    - never a "passed check," and never a BLOCK either."""
+
+    key: str
+    exists: bool
+    assertion_passed: bool | None
+    severity: str | None
+    """"info" | "warn" | "block" | "none" (authored with no real action) |
+    None (never authored)."""
+    affected_count: int
+    affected_total: int
+
+    def triggered(self) -> bool:
+        """A real, existing check whose own assertion failed."""
+        return self.exists and self.assertion_passed is False
+
+
+def evaluate_optional_check(dataset: Dataset, gate_resolution: dict) -> CheckOutcome:
+    severity_key = gate_resolution.get("optional_field_severity")
+    total = len(dataset.frame)
+    if severity_key not in _OPTIONAL_SEVERITY_BY_KEY:
+        return CheckOutcome("optional_field", False, None, None, 0, total)
+    threshold = _OPTIONAL_THRESHOLD_BY_KEY.get(gate_resolution.get("optional_field_threshold"), 0.0)
+    count, rate = referral_null_count_and_rate(dataset)
+    return CheckOutcome("optional_field", True, rate <= threshold, _OPTIONAL_SEVERITY_BY_KEY[severity_key], count, total)
+
+
+def evaluate_invariant_check(dataset: Dataset, gate_resolution: dict) -> CheckOutcome:
+    tolerance_key = gate_resolution.get("invariant_tolerance")
+    total = len(dataset.frame)
+    if tolerance_key not in _INVARIANT_ATOL_BY_KEY:
+        return CheckOutcome("invariant", False, None, None, 0, total)
+    atol = _INVARIANT_ATOL_BY_KEY[tolerance_key]
+    count = int(invariant_mismatch_mask(dataset.frame, atol=atol, rtol=0.0).sum())
+    severity = _INVARIANT_SEVERITY_BY_KEY.get(gate_resolution.get("invariant_severity"), "info")
+    return CheckOutcome("invariant", True, count == 0, severity, count, total)
+
+
+@dataclass(frozen=True)
+class GateOutcome:
+    baseline_passed: int
+    baseline_total: int
+    optional_check: CheckOutcome
+    invariant_check: CheckOutcome
+
+    def _authored_checks(self) -> tuple[CheckOutcome, ...]:
+        return (self.optional_check, self.invariant_check)
+
+    def assertions_run(self) -> int:
+        return self.baseline_total + sum(1 for c in self._authored_checks() if c.exists)
+
+    def assertions_passed(self) -> int:
+        return self.baseline_passed + sum(1 for c in self._authored_checks() if c.exists and c.assertion_passed)
+
+    def warn_triggered(self) -> tuple[CheckOutcome, ...]:
+        return tuple(c for c in self._authored_checks() if c.triggered() and c.severity == "warn")
+
+    def block_triggered(self) -> tuple[CheckOutcome, ...]:
+        return tuple(c for c in self._authored_checks() if c.triggered() and c.severity == "block")
+
+    def outcome(self) -> str:
+        """"blocked" | "pass_with_warning" | "pass" - the real, aggregate
+        gate verdict, derived only from checks the student actually
+        authored and only from severities that actually act (a triggered
+        "info"/"none"-severity check changes neither)."""
+        if self.block_triggered():
+            return "blocked"
+        if self.warn_triggered():
+            return "pass_with_warning"
+        return "pass"
+
+
+def evaluate_gate(dataset: Dataset, gate_resolution: dict) -> GateOutcome:
+    return GateOutcome(
+        baseline_passed=baseline_checks_passed(dataset),
+        baseline_total=6,
+        optional_check=evaluate_optional_check(dataset, gate_resolution),
+        invariant_check=evaluate_invariant_check(dataset, gate_resolution),
+    )
 
 
 def referral_null_count_and_rate(dataset: Dataset) -> tuple[int, float]:
