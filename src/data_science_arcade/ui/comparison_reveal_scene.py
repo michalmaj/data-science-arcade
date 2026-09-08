@@ -144,6 +144,7 @@ class ComparisonRevealScene(Scene):
         value_format: Callable[[float], str] = lambda value: f"{value:.0%}",
         guided: bool = True,
         interpret_hint_key: str | None = None,
+        comparisons_are_evidence: bool = True,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -156,6 +157,14 @@ class ComparisonRevealScene(Scene):
         self.value_format = value_format
         self.guided = guided
         self.interpret_hint_key = interpret_hint_key
+        self.comparisons_are_evidence = comparisons_are_evidence
+        """Whether _continue() records each real comparison value as its
+        own EvidenceItem (the historical default) - set False when a
+        lesson has enough reveals that every comparison becoming evidence
+        would flood DecisionBuilderScene's own real evidence-pool layout
+        ceiling (confirmed in practice around ~10 items). record_action
+        still fires either way, preserving the Python Mirror contribution;
+        only record_evidence is skipped."""
         self._interpret_choice: str | None = None
         self._rebuild_buttons()
 
@@ -232,9 +241,10 @@ class ComparisonRevealScene(Scene):
             return
         for item in self.comparisons:
             action = self.context.record_action(label_key=item.label_key, python_code=item.python_code, key=item.label_key)
-            self.context.record_evidence(
-                label_key=item.label_key, source_action=action, key=item.label_key, detail=self._format_value(item)
-            )
+            if self.comparisons_are_evidence:
+                self.context.record_evidence(
+                    label_key=item.label_key, source_action=action, key=item.label_key, detail=self._format_value(item)
+                )
         chosen = next(o for o in self.interpret_options if o.key == self._interpret_choice)
         action = self.context.record_action(label_key=chosen.label_key)
         if chosen.evidence_key is not None:
