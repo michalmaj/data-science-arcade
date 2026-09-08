@@ -9,12 +9,16 @@ from data_science_arcade.lessons.l10_validation_gate.twist_data import (
     apply_replay,
     apply_round1,
     baseline_checks_passed,
+    evaluate_gate,
+    evaluate_invariant_check,
+    evaluate_optional_check,
     final_dataset,
     freshness_within_window_rate,
     generate_inventory_feed,
     generate_orders,
     invariant_fail_count,
     invariant_fail_rate_by_source,
+    invariant_mismatch_mask,
     naive_total,
     null_rate_required_fields,
     quarantine_trap_total,
@@ -23,6 +27,13 @@ from data_science_arcade.lessons.l10_validation_gate.twist_data import (
     valid_customer_rate,
     valid_status_rate,
 )
+
+GOOD_GATE_RESOLUTION = {
+    "optional_field_severity": "warn_at_threshold",
+    "optional_field_threshold": "flag_over_2pct",
+    "invariant_tolerance": "small_tolerance_atol_1",
+    "invariant_severity": "block",
+}
 
 
 def test_two_hundred_orders_total():
@@ -126,3 +137,108 @@ def test_inventory_mastery_feed_has_one_real_cross_field_violation():
     assert set(violating["source_batch"]) == {"legacy_wms_sync"}
     clean = frame[frame["source_batch"] != "legacy_wms_sync"]
     assert (clean["available_to_promise"] <= clean["stock_on_hand"]).all()
+
+
+# --- Gate execution model: the authored config is what actually runs ------
+
+
+def test_optional_check_does_not_exist_when_never_authored():
+    dataset = generate_orders()
+    outcome = evaluate_optional_check(dataset, {"optional_field_severity": "no_check"})
+    assert outcome.exists is False
+    assert outcome.assertion_passed is None
+    assert outcome.severity is None
+
+
+def test_optional_check_triggers_a_real_warning_at_the_correct_threshold():
+    # The user's own reported P0 #2 example: ~6% null rate, 2% threshold,
+    # WARN severity - the assertion must FAIL and the severity must be
+    # "warn," never silently counted as a passed check.
+    dataset = generate_orders()
+    outcome = evaluate_optional_check(dataset, GOOD_GATE_RESOLUTION)
+    assert outcome.exists is True
+    assert outcome.assertion_passed is False
+    assert outcome.severity == "warn"
+    assert outcome.affected_count == 12
+    assert outcome.affected_total == 200
+
+
+def test_optional_check_passes_at_a_lenient_enough_threshold():
+    dataset = generate_orders()
+    outcome = evaluate_optional_check(dataset, dict(GOOD_GATE_RESOLUTION, optional_field_threshold="flag_over_10pct"))
+    assert outcome.assertion_passed is True
+
+
+def test_invariant_check_does_not_exist_when_never_authored():
+    dataset = generate_orders()
+    outcome = evaluate_invariant_check(dataset, {"invariant_tolerance": "no_invariant_check"})
+    assert outcome.exists is False
+    assert outcome.assertion_passed is None
+    assert outcome.affected_count == 0
+
+
+def test_invariant_check_flags_the_real_systemic_block_when_authored():
+    dataset = generate_orders()
+    outcome = evaluate_invariant_check(dataset, GOOD_GATE_RESOLUTION)
+    assert outcome.exists is True
+    assert outcome.assertion_passed is False
+    assert outcome.severity == "block"
+    assert outcome.affected_count == 50
+
+
+def test_gate_never_flags_anything_when_the_invariant_check_was_never_authored():
+    # The user's own reported P0 #1 example: picking no_invariant_check
+    # must mean the gate genuinely never catches the systemic failure.
+    dataset = generate_orders()
+    outcome = evaluate_gate(dataset, {"optional_field_severity": "no_check", "invariant_tolerance": "no_invariant_check"})
+    assert outcome.assertions_run() == 6
+    assert outcome.assertions_passed() == 6
+    assert outcome.block_triggered() == ()
+    assert outcome.warn_triggered() == ()
+    assert outcome.outcome() == "pass"
+
+
+def test_gate_outcome_is_blocked_when_invariant_block_severity_triggers():
+    dataset = generate_orders()
+    outcome = evaluate_gate(dataset, GOOD_GATE_RESOLUTION)
+    assert outcome.outcome() == "blocked"
+    assert outcome.assertions_run() == 8
+    assert outcome.assertions_passed() == 6
+
+
+def test_gate_outcome_is_pass_with_warning_once_the_invariant_is_corrected():
+    # The user's own worked example: after a real source replay, the
+    # invariant check clears but the optional-field WARN can still be
+    # real and triggered - 7/8 assertions passed, 1 WARN, 0 BLOCK.
+    dataset = apply_replay(generate_orders())
+    outcome = evaluate_gate(dataset, GOOD_GATE_RESOLUTION)
+    assert outcome.assertions_run() == 8
+    assert outcome.assertions_passed() == 7
+    assert len(outcome.warn_triggered()) == 1
+    assert outcome.block_triggered() == ()
+    assert outcome.outcome() == "pass_with_warning"
+
+
+def test_invariant_tolerance_is_explicit_about_rtol():
+    # Both a real, explicit exact match and a real, explicit small
+    # tolerance must use rtol=0.0, never np.isclose's own undocumented
+    # default relative tolerance.
+    dataset = generate_orders()
+    exact = invariant_mismatch_mask(dataset.frame, atol=0.0, rtol=0.0)
+    small = invariant_mismatch_mask(dataset.frame, atol=1.0, rtol=0.0)
+    assert int(exact.sum()) == int(small.sum()) == 50
+
+
+def test_quarantining_the_bad_rows_silently_clears_the_gate_even_though_the_kpi_stays_wrong():
+    # A real, deliberately uncomfortable consequence: dropping the
+    # bad-source rows removes them from the frame entirely, so the
+    # invariant check has nothing left to flag - the gate can genuinely
+    # read PASS even though the reported total ($22,500) is still wrong.
+    # This is exactly what lets the batch-scope Final Decision field (not
+    # the gate reveal) carry the real defensibility judgment.
+    round1_resolution = {"review_status": CORRECT_ROUND1_KEY}
+    quarantined = final_dataset(round1_resolution, {"review_status": "quarantine_and_report_rest"})
+    outcome = evaluate_gate(quarantined, GOOD_GATE_RESOLUTION)
+    assert outcome.invariant_check.assertion_passed is True
+    assert outcome.outcome() in ("pass", "pass_with_warning")
+    assert naive_total(quarantined) == 22_500.0

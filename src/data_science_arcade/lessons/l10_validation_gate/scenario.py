@@ -5,20 +5,20 @@ from data_science_arcade.lessons.l10_validation_gate.scoring import CRITICAL_EVI
 from data_science_arcade.lessons.l10_validation_gate.twist_data import (
     BATCH_ACTION_ISSUE,
     CORRECT_BATCH_ACTION_KEY,
+    CheckOutcome,
+    GateOutcome,
     ROUND1_ISSUE,
-    apply_batch_action,
     apply_round1,
     baseline_checks_passed,
     baseline_checks_python_code,
     concentration_python_code,
+    evaluate_gate,
     final_dataset,
     generate_inventory_feed,
     generate_orders,
-    invariant_fail_count,
     invariant_fail_rate_by_source,
     invariant_python_code,
     naive_total,
-    referral_null_count_and_rate,
     referral_null_python_code,
     total_python_code,
 )
@@ -33,6 +33,13 @@ from data_science_arcade.ui.workbench_scene import WorkbenchScene, WorkbenchTab
 from data_science_arcade.workbench.context import DecisionState, LessonContext
 
 # --- The Ask -----------------------------------------------------------
+#
+# Deliberately no literal statement of the lesson's own central reflex
+# here or in Round 1's hint - the false-green temptation has to be a real
+# one, not a test of whether the student remembers a sentence spoken 30
+# seconds earlier. The reflex itself is only ever spoken out loud AFTER
+# the student has lived through a real consequence (coverage_investigation,
+# debrief) - see the L10 corrective-pass notes in decisions/IMPLEMENTATION_STATE.md.
 
 BRIEFING_DIALOGUE = Dialogue(
     lines=(
@@ -100,6 +107,17 @@ CONSEQUENCE_INTERPRET_OPTIONS = (
 )
 
 # --- Gate Builder ---------------------------------------------------------
+#
+# optional_field_threshold's own correct pick (flag_over_2pct) has a real
+# principled anchor, not an arbitrary number: referral_source has a real
+# historical baseline null rate (~1%, see the field's own hint text) - a
+# rate meaningfully above that is worth a warning, without crying wolf on
+# ordinary noise or waiting until drift is severe. invariant_tolerance
+# accepts BOTH real, explicit tolerance configurations as defensible
+# (exact-match with an explicit rtol=0.0, or a small explicit absolute
+# tolerance) - on this specific dataset both behave identically since
+# there's no legitimate rounding noise to distinguish them; what's wrong
+# is never declaring a tolerance at all (no_invariant_check).
 
 OPTIONAL_FIELD_SEVERITY_FIELD = BriefField(
     key="optional_field_severity",
@@ -143,17 +161,23 @@ INVARIANT_SEVERITY_FIELD = BriefField(
         BriefOption("block", "lesson.l10.gate.option.invariant_severity.block"),
     ),
 )
+GATE_FIELDS: tuple[BriefField, ...] = (
+    OPTIONAL_FIELD_SEVERITY_FIELD,
+    OPTIONAL_FIELD_THRESHOLD_FIELD,
+    INVARIANT_TOLERANCE_FIELD,
+    INVARIANT_SEVERITY_FIELD,
+)
 
 # --- Gate rerun / concentration reveals -----------------------------------
 
 GATE_RERUN_INTERPRET_OPTIONS = (
     InterpretOption(
-        "candidates_worth_investigating",
-        "lesson.l10.gate_rerun.interpret.option.candidates_worth_investigating",
-        evidence_key="lesson.l10.evidence.invariant_failure_rate",
+        "reflects_only_written_checks",
+        "lesson.l10.gate_rerun.interpret.option.reflects_only_written_checks",
+        evidence_key="lesson.l10.evidence.gate_reflects_only_written_checks",
     ),
-    InterpretOption("nothing_changed", "lesson.l10.gate_rerun.interpret.option.nothing_changed"),
-    InterpretOption("definitely_errors_delete_them", "lesson.l10.gate_rerun.interpret.option.definitely_errors_delete_them"),
+    InterpretOption("guarantees_data_is_fine", "lesson.l10.gate_rerun.interpret.option.guarantees_data_is_fine"),
+    InterpretOption("result_is_meaningless", "lesson.l10.gate_rerun.interpret.option.result_is_meaningless"),
 )
 
 CONCENTRATION_INTERPRET_OPTIONS = (
@@ -177,6 +201,43 @@ GATE_RERUN_CLEAN_INTERPRET_OPTIONS = (
         "could_have_published_earlier_number", "lesson.l10.gate_rerun_clean.interpret.option.could_have_published_earlier_number"
     ),
 )
+
+GATE_RERUN_UNRESOLVED_INTERPRET_OPTIONS = (
+    InterpretOption(
+        "still_unresolved",
+        "lesson.l10.gate_rerun_unresolved.interpret.option.still_unresolved",
+        evidence_key="lesson.l10.evidence.final_state_unresolved",
+    ),
+    InterpretOption(
+        "safe_because_gate_didnt_block", "lesson.l10.gate_rerun_unresolved.interpret.option.safe_because_gate_didnt_block"
+    ),
+    InterpretOption("irrelevant_now", "lesson.l10.gate_rerun_unresolved.interpret.option.irrelevant_now"),
+)
+
+_STATUS_KEY_BY_SEVERITY: dict[str, str] = {
+    "block": "lesson.l10.gate_rerun.status.blocked",
+    "warn": "lesson.l10.gate_rerun.status.warn_triggered",
+}
+_OUTCOME_KEY_BY_VALUE: dict[str, str] = {
+    "blocked": "lesson.l10.gate_rerun.outcome.blocked",
+    "pass_with_warning": "lesson.l10.gate_rerun.outcome.pass_with_warning",
+    "pass": "lesson.l10.gate_rerun.outcome.pass",
+}
+
+
+def _check_status_text(loc, outcome: CheckOutcome, affected_noun_key: str) -> str:
+    if not outcome.exists:
+        return loc.t("lesson.l10.gate_rerun.status.not_authored")
+    base = f"{outcome.affected_count} / {outcome.affected_total} {loc.t(affected_noun_key)}"
+    if outcome.assertion_passed:
+        return f"{base} - {loc.t('lesson.l10.gate_rerun.status.clear')}"
+    status_key = _STATUS_KEY_BY_SEVERITY.get(outcome.severity, "lesson.l10.gate_rerun.status.flagged_info_only")
+    return f"{base} - {loc.t(status_key)}"
+
+
+def _gate_outcome_text(loc, outcome: GateOutcome) -> str:
+    return loc.t(_OUTCOME_KEY_BY_VALUE[outcome.outcome()])
+
 
 # --- Final Decision --------------------------------------------------------
 
@@ -311,14 +372,25 @@ def build_lesson_ten_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     that only a cross-field invariant check can catch. LessonContext is
     threaded through every analytical stage exactly like L06-L09.
 
-    The two authored checks (Gate Builder) are scored on their own real
-    declaration (DATA_QUALITY/REPRODUCIBILITY) - the gate-rerun/
-    concentration reveals always run the canonical, correct check
-    regardless of what was authored, mirroring L09's own detection reveal
-    (never itself a student-executed pick): the real business risk exists
-    whether or not the student personally chose to look for it."""
+    Contract (corrective pass): authored rule -> real execution -> real
+    PASS/WARN/BLOCK result -> revision opportunity. Unlike L09's IQR
+    detector (deliberately GIVEN, never a student pick, since L09's own
+    objective was never "design a check"), L10's own objective IS "design
+    a cross-field check" - so gate_rerun_reveal and gate_rerun_clean both
+    run evaluate_gate() against the student's own real gate_resolution,
+    never a canonical reference calibration. A check the student never
+    authored (an "opt out" pick) can never flag anything, however real
+    the underlying problem is - the real business risk exists whether or
+    not the student's own gate was built to catch it, but the gate
+    itself only ever reports what it was actually told to check.
+    concentration_reveal stays deliberately decoupled from the student's
+    own gate_resolution (a manual, mentor-led "let's look at where this
+    really concentrates, independent of what your gate found" beat) -
+    otherwise a student who never authors the invariant check could never
+    reach this real, load-bearing fact at all."""
     collected: dict = {}
     context = LessonContext()
+    loc = app.localization
 
     def _restore_context_if_present() -> None:
         data = collected.get("analytical_context")
@@ -441,30 +513,26 @@ def build_lesson_ten_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             collected["gate_resolution"] = brief
             advance()
 
-        return BriefBuilderScene(
-            app,
-            "lesson.l10.gate_builder.title",
-            (
-                OPTIONAL_FIELD_SEVERITY_FIELD,
-                OPTIONAL_FIELD_THRESHOLD_FIELD,
-                INVARIANT_TOLERANCE_FIELD,
-                INVARIANT_SEVERITY_FIELD,
-            ),
-            on_complete,
-            guided=True,
-        )
+        return BriefBuilderScene(app, "lesson.l10.gate_builder.title", GATE_FIELDS, on_complete, guided=True)
 
-    # --- Gate rerun / concentration reveals ---
+    # --- Gate rerun reveal - runs the student's own real config ---
 
     def gate_rerun_reveal(advance):
         dataset = apply_round1(collected.get("round1_resolution", {}))
-        warn_count, _warn_rate = referral_null_count_and_rate(dataset)
-        invariant_count = invariant_fail_count(dataset)
+        gate_resolution = collected.get("gate_resolution", {})
+        outcome = evaluate_gate(dataset, gate_resolution)
 
         def on_complete(interpretation):
             collected["gate_rerun_interpretation"] = interpretation
             _sync_context_into_collected()
             advance()
+
+        optional_code = referral_null_python_code() if outcome.optional_check.exists else None
+        invariant_code = (
+            invariant_python_code(atol=0.0 if gate_resolution.get("invariant_tolerance") == "exact_match_atol_0" else 1.0, rtol=0.0)
+            if outcome.invariant_check.exists
+            else None
+        )
 
         return ComparisonRevealScene(
             app,
@@ -472,16 +540,19 @@ def build_lesson_ten_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             narrative_keys=("dialogue.l10_gate_rerun.line1", "dialogue.l10_gate_rerun.line2"),
             comparisons=(
                 ComparisonValue(
-                    "lesson.l10.gate_rerun.warn_flagged_label",
-                    float(warn_count),
-                    python_code=referral_null_python_code(),
-                    value_format=lambda v: f"{int(v)} of 200",
+                    "lesson.l10.gate_rerun.optional_check_label",
+                    0.0,
+                    python_code=optional_code,
+                    value_format=lambda v, text=_check_status_text(loc, outcome.optional_check, "lesson.l10.gate_rerun.noun.missing"): text,
                 ),
                 ComparisonValue(
-                    "lesson.l10.gate_rerun.invariant_flagged_label",
-                    float(invariant_count),
-                    python_code=invariant_python_code(),
-                    value_format=lambda v: f"{int(v)} of 200",
+                    "lesson.l10.gate_rerun.invariant_check_label",
+                    0.0,
+                    python_code=invariant_code,
+                    value_format=lambda v, text=_check_status_text(loc, outcome.invariant_check, "lesson.l10.gate_rerun.noun.mismatched"): text,
+                ),
+                ComparisonValue(
+                    "lesson.l10.gate_rerun.outcome_label", 0.0, value_format=lambda v, text=_gate_outcome_text(loc, outcome): text
                 ),
             ),
             interpret_prompt_key="lesson.l10.gate_rerun.interpret_prompt",
@@ -490,6 +561,33 @@ def build_lesson_ten_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             context=context,
             comparisons_are_evidence=False,
         )
+
+    def gate_revision_offer(advance):
+        collected["initial_gate_resolution"] = dict(collected.get("gate_resolution", {}))
+
+        def build_revision_task(on_task_complete):
+            def on_gate_complete(brief):
+                collected["gate_resolution"] = brief
+                collected["gate_revised"] = True
+                on_task_complete(None)
+
+            return BriefBuilderScene(app, "lesson.l10.gate_builder.title", GATE_FIELDS, on_gate_complete, guided=True)
+
+        def on_offer_complete(_engaged, _result):
+            advance()
+
+        return OfferThenTaskScene(
+            app,
+            build_revision_task,
+            on_offer_complete,
+            title_key="lesson.l10.gate_revision_offer.title",
+            line_keys=("lesson.l10.gate_revision_offer.line1",),
+            engage_label_key="lesson.l10.gate_revision_offer.engage",
+            skip_label_key="lesson.l10.gate_revision_offer.skip",
+        )
+
+    # --- Concentration reveal - a manual investigation, independent of
+    # --- whatever the student's own gate did or didn't catch ---
 
     def concentration_reveal(advance):
         dataset = apply_round1(collected.get("round1_resolution", {}))
@@ -560,7 +658,7 @@ def build_lesson_ten_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             skip_label_key="lesson.l10.batch_action_revision_offer.skip",
         )
 
-    # --- Simulated replay + clean rerun ---
+    # --- Simulated replay + path-aware final rerun ---
 
     def replay(advance):
         batch_action_resolution = collected.get("batch_action_resolution", {})
@@ -570,13 +668,12 @@ def build_lesson_ten_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         return DialogueScene(app, dialogue, on_complete=advance)
 
     def gate_rerun_clean(advance):
-        dataset = final_dataset(collected.get("round1_resolution", {}), collected.get("batch_action_resolution", {}))
-        # 6 baseline checks + the WARN-level optional-field check (always
-        # counted - a WARN is informational, never blocking, so it never
-        # withholds a real PASS the way the BLOCK-level invariant check
-        # does) + the invariant check itself, only once it's genuinely
-        # clean (zero real mismatches left in this final dataset).
-        passed = baseline_checks_passed(dataset) + 1 + int(invariant_fail_count(dataset) == 0)
+        round1_resolution = collected.get("round1_resolution", {})
+        batch_action_resolution = collected.get("batch_action_resolution", {})
+        gate_resolution = collected.get("gate_resolution", {})
+        dataset = final_dataset(round1_resolution, batch_action_resolution)
+        replay_happened = batch_action_resolution.get("review_status") == CORRECT_BATCH_ACTION_KEY
+        outcome = evaluate_gate(dataset, gate_resolution)
         total = naive_total(dataset)
 
         def on_complete(interpretation):
@@ -584,20 +681,53 @@ def build_lesson_ten_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             _sync_context_into_collected()
             advance()
 
+        checks_passed_value = ComparisonValue(
+            "lesson.l10.gate_rerun_clean.checks_passed_label",
+            float(outcome.assertions_passed()),
+            value_format=lambda v, run=outcome.assertions_run(): f"{int(v)} / {run}",
+        )
+        outcome_value = ComparisonValue(
+            "lesson.l10.gate_rerun.outcome_label", 0.0, value_format=lambda v, text=_gate_outcome_text(loc, outcome): text
+        )
+
+        if replay_happened:
+            return ComparisonRevealScene(
+                app,
+                title_key="lesson.l10.gate_rerun_clean.title",
+                narrative_keys=("dialogue.l10_gate_rerun_clean.line1", "dialogue.l10_gate_rerun_clean.line2"),
+                comparisons=(
+                    checks_passed_value,
+                    outcome_value,
+                    ComparisonValue(
+                        "lesson.l10.gate_rerun_clean.corrected_total_label",
+                        total,
+                        python_code=total_python_code(),
+                        value_format=lambda v: f"${v:,.2f}",
+                    ),
+                ),
+                interpret_prompt_key="lesson.l10.gate_rerun_clean.interpret_prompt",
+                interpret_options=GATE_RERUN_CLEAN_INTERPRET_OPTIONS,
+                on_complete=on_complete,
+                context=context,
+                comparisons_are_evidence=False,
+            )
+
         return ComparisonRevealScene(
             app,
-            title_key="lesson.l10.gate_rerun_clean.title",
-            narrative_keys=("dialogue.l10_gate_rerun_clean.line1", "dialogue.l10_gate_rerun_clean.line2"),
+            title_key="lesson.l10.gate_rerun_unresolved.title",
+            narrative_keys=("dialogue.l10_gate_rerun_unresolved.line1", "dialogue.l10_gate_rerun_unresolved.line2"),
             comparisons=(
+                checks_passed_value,
+                outcome_value,
                 ComparisonValue(
-                    "lesson.l10.gate_rerun_clean.checks_passed_label", float(min(passed, 8)), value_format=lambda v: f"{int(v)} / 8"
-                ),
-                ComparisonValue(
-                    "lesson.l10.gate_rerun_clean.corrected_total_label", total, python_code=total_python_code(), value_format=lambda v: f"${v:,.2f}"
+                    "lesson.l10.gate_rerun_unresolved.reported_total_label",
+                    total,
+                    python_code=total_python_code(),
+                    value_format=lambda v: f"${v:,.2f}",
                 ),
             ),
-            interpret_prompt_key="lesson.l10.gate_rerun_clean.interpret_prompt",
-            interpret_options=GATE_RERUN_CLEAN_INTERPRET_OPTIONS,
+            interpret_prompt_key="lesson.l10.gate_rerun_unresolved.interpret_prompt",
+            interpret_options=GATE_RERUN_UNRESOLVED_INTERPRET_OPTIONS,
             on_complete=on_complete,
             context=context,
             comparisons_are_evidence=False,
@@ -723,6 +853,8 @@ def build_lesson_ten_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             round1_revised=collected.get("round1_revised", False),
             initial_batch_action_resolution=collected.get("initial_batch_action_resolution", {}),
             batch_action_revised=collected.get("batch_action_revised", False),
+            initial_gate_resolution=collected.get("initial_gate_resolution", {}),
+            gate_revised=collected.get("gate_revised", False),
         )
 
     def feedback(advance):
@@ -748,6 +880,7 @@ def build_lesson_ten_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         coverage_investigation,
         gate_builder,
         gate_rerun_reveal,
+        gate_revision_offer,
         concentration_reveal,
         batch_action,
         batch_action_revision_offer,

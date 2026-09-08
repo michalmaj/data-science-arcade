@@ -8,7 +8,12 @@ from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_B
 
 _CORRECT_OPTIONAL_SEVERITY = "warn_at_threshold"
 _CORRECT_OPTIONAL_THRESHOLD = "flag_over_2pct"
-_CORRECT_INVARIANT_TOLERANCE = "small_tolerance_atol_1"
+_CORRECT_INVARIANT_TOLERANCE_OPTIONS = frozenset({"exact_match_atol_0", "small_tolerance_atol_1"})
+"""Both a real, explicit zero-tolerance match and a real, explicit small
+absolute tolerance are defensible here - on this specific dataset they
+behave identically (no legitimate rounding noise exists to distinguish
+them), so what's actually wrong is never declaring a tolerance at all
+(no_invariant_check), not picking one of these two over the other."""
 _CORRECT_INVARIANT_SEVERITY = "block"
 
 _CORRECT_BASELINE_GATE_MEANING = "six_conditions_only"
@@ -23,22 +28,32 @@ _OPT_OUT_GATE_VALUES = frozenset({"no_check", "no_action", "no_invariant_check"}
 
 # Evidence, split by the real role each fact plays in the final argument -
 # not "any N of M" (L08/L09 discipline). Every ComparisonRevealScene in
-# this lesson sets comparisons_are_evidence=False (5 reveals x 2 values
-# each would otherwise flood the Evidence step's own real layout ceiling,
-# the exact bug the L09 follow-up hit and fixed) - the only evidence this
-# lesson ever records comes from each reveal's own InterpretOption.
+# this lesson sets comparisons_are_evidence=False (would otherwise flood
+# the Evidence step's own real layout ceiling, the exact bug the L09
+# follow-up hit and fixed) - the only evidence this lesson ever records
+# comes from each reveal's own InterpretOption.
+#
+# The 5th role is path-aware: CORRECTED_KPI only ever exists on the real
+# block-and-replay path (a corrected batch never exists on any other
+# path), so a student on a methodologically weaker path still needs an
+# honest role to cite - FINAL_STATE_EVIDENCE_KEYS, only reachable on the
+# non-replay path, fills that role instead. Exactly one of the two is
+# ever reachable in a single real playthrough; _score_evidence treats
+# either as satisfying the same role.
 BASELINE_EVIDENCE_KEYS: tuple[str, ...] = ("lesson.l10.evidence.baseline_all_green",)
 NAIVE_KPI_EVIDENCE_KEYS: tuple[str, ...] = ("lesson.l10.evidence.naive_total_published",)
-INVARIANT_EVIDENCE_KEYS: tuple[str, ...] = ("lesson.l10.evidence.invariant_failure_rate",)
+GATE_RESULT_EVIDENCE_KEYS: tuple[str, ...] = ("lesson.l10.evidence.gate_reflects_only_written_checks",)
 CONCENTRATION_EVIDENCE_KEYS: tuple[str, ...] = ("lesson.l10.evidence.concentration_by_source",)
 CORRECTED_KPI_EVIDENCE_KEYS: tuple[str, ...] = ("lesson.l10.evidence.corrected_total",)
+FINAL_STATE_EVIDENCE_KEYS: tuple[str, ...] = ("lesson.l10.evidence.final_state_unresolved",)
 
 CRITICAL_EVIDENCE_KEYS: tuple[str, ...] = (
     BASELINE_EVIDENCE_KEYS
     + NAIVE_KPI_EVIDENCE_KEYS
-    + INVARIANT_EVIDENCE_KEYS
+    + GATE_RESULT_EVIDENCE_KEYS
     + CONCENTRATION_EVIDENCE_KEYS
     + CORRECTED_KPI_EVIDENCE_KEYS
+    + FINAL_STATE_EVIDENCE_KEYS
 )
 
 
@@ -60,6 +75,8 @@ class LessonTenResult:
     round1_revised: bool = False
     initial_batch_action_resolution: RepairResolution = field(default_factory=dict)
     batch_action_revised: bool = False
+    initial_gate_resolution: AnalyticalBrief = field(default_factory=dict)
+    gate_revised: bool = False
 
     def completed_thoughtfully(self) -> bool:
         return bool(self.round1_resolution) and bool(self.batch_action_resolution) and len(self.decision) > 0
@@ -85,7 +102,7 @@ class LessonTenResult:
 def _score_data_quality(result: LessonTenResult) -> tuple[float, FeedbackObservation | None]:
     severity_correct = result.gate_resolution.get("optional_field_severity") == _CORRECT_OPTIONAL_SEVERITY
     threshold_correct = result.gate_resolution.get("optional_field_threshold") == _CORRECT_OPTIONAL_THRESHOLD
-    tolerance_correct = result.gate_resolution.get("invariant_tolerance") == _CORRECT_INVARIANT_TOLERANCE
+    tolerance_correct = result.gate_resolution.get("invariant_tolerance") in _CORRECT_INVARIANT_TOLERANCE_OPTIONS
     invariant_severity_correct = result.gate_resolution.get("invariant_severity") == _CORRECT_INVARIANT_SEVERITY
     hits = int(severity_correct) + int(threshold_correct) + int(tolerance_correct) + int(invariant_severity_correct)
     score = 100.0 * hits / 4
@@ -99,17 +116,26 @@ def _score_data_quality(result: LessonTenResult) -> tuple[float, FeedbackObserva
 
 
 def _score_method(result: LessonTenResult) -> tuple[float, FeedbackObservation | None]:
-    round1_correct = result.round1_resolution.get("review_status") == CORRECT_ROUND1_KEY
+    """The Round 1 approve/hold pick is deliberately NOT part of core
+    METHOD - it's a real, un-punished trajectory/prior signal, scored
+    exclusively under OVERCONFIDENCE (see _score_overconfidence), since
+    treating it as a core METHOD failure would double-penalize the exact
+    temptation this lesson is designed to let a student walk into and
+    recover from. Core METHOD asks whether the *final* authored gate
+    actually covers the critical failure mode with a severity that
+    matches the real stakes, and whether the final batch action was
+    correct."""
+    gate_correctly_designed = (
+        result.gate_resolution.get("invariant_tolerance") not in (None, "no_invariant_check")
+        and result.gate_resolution.get("invariant_severity") == _CORRECT_INVARIANT_SEVERITY
+    )
     batch_action_correct = result.batch_action_resolution.get("review_status") == CORRECT_BATCH_ACTION_KEY
-    severity_matches_stakes = result.gate_resolution.get("invariant_severity") == _CORRECT_INVARIANT_SEVERITY
-    hits = int(round1_correct) + int(batch_action_correct) + int(severity_matches_stakes)
-    score = {3: 94.0, 2: 68.0, 1: 40.0, 0: 15.0}[hits]
-    if not round1_correct:
-        return score, FeedbackObservation("lesson.l10.feedback.approved_naive_publication", ScoreDimension.METHOD)
+    hits = int(gate_correctly_designed) + int(batch_action_correct)
+    score = {2: 94.0, 1: 55.0, 0: 15.0}[hits]
+    if not gate_correctly_designed:
+        return score, FeedbackObservation("lesson.l10.feedback.gate_not_correctly_designed", ScoreDimension.METHOD)
     if not batch_action_correct:
         return score, FeedbackObservation("lesson.l10.feedback.batch_action_wrong", ScoreDimension.METHOD)
-    if not severity_matches_stakes:
-        return score, FeedbackObservation("lesson.l10.feedback.invariant_severity_doesnt_match_stakes", ScoreDimension.METHOD)
     return score, None
 
 
@@ -204,13 +230,17 @@ def _score_reasoning(result: LessonTenResult) -> tuple[float, FeedbackObservatio
 
 def _score_evidence(result: LessonTenResult) -> tuple[float, FeedbackObservation | None]:
     present = set(result.critical_evidence_present)
+    # Role 5 is path-aware: a corrected batch only ever exists on the
+    # real block-and-replay path, so CORRECTED_KPI is only ever reachable
+    # there - FINAL_STATE_EVIDENCE_KEYS is the honest role for every
+    # other real path, never both reachable in the same playthrough.
     roles_present = sum(
         (
             bool(present & set(BASELINE_EVIDENCE_KEYS)),
             bool(present & set(NAIVE_KPI_EVIDENCE_KEYS)),
-            bool(present & set(INVARIANT_EVIDENCE_KEYS)),
+            bool(present & set(GATE_RESULT_EVIDENCE_KEYS)),
             bool(present & set(CONCENTRATION_EVIDENCE_KEYS)),
-            bool(present & set(CORRECTED_KPI_EVIDENCE_KEYS)),
+            bool(present & (set(CORRECTED_KPI_EVIDENCE_KEYS) | set(FINAL_STATE_EVIDENCE_KEYS))),
         )
     )
     score = {5: 97.0, 4: 82.0, 3: 62.0, 2: 42.0, 1: 24.0, 0: 12.0}[roles_present]
@@ -221,11 +251,18 @@ def _score_evidence(result: LessonTenResult) -> tuple[float, FeedbackObservation
 
 def _score_overconfidence(result: LessonTenResult) -> tuple[float, FeedbackObservation | None]:
     """Before-signal: the Round 1 approve/hold pick - approving for
-    publication under a green baseline gate IS the overclaiming act.
-    After-signal: whether pass_meaning ends up correctly calibrated. A
-    real recalibration (overclaimed at first, correctly calibrated by the
-    end) earns a genuine bonus, mirroring L01's own before->after
-    confidence shape - never a flat penalty just for having approved."""
+    publication under a green baseline gate IS the overclaiming act. This
+    dimension carries the *entire* real weight of that signal (core
+    METHOD deliberately does not - see _score_method's own docstring),
+    so the initial approve is never double-penalized, just properly
+    homed. After-signal: whether pass_meaning ends up correctly
+    calibrated - "PASS means the named checks passed" vs. "PASS means
+    the data is guaranteed correct," asked only after the student has
+    seen the gate's own real result and the corrected/unresolved final
+    state. A real recalibration (overclaimed at first, correctly
+    calibrated by the end) earns a genuine bonus, mirroring L01's own
+    before->after confidence shape - never a flat penalty just for
+    having approved."""
     pass_meaning_correct = result.decision.get("pass_meaning") == _CORRECT_PASS_MEANING
     if pass_meaning_correct and result.initially_overclaimed():
         return 96.0, FeedbackObservation("lesson.l10.feedback.recalibrated_after_overclaiming", ScoreDimension.OVERCONFIDENCE)
@@ -250,6 +287,15 @@ def _trajectory_observations(result: LessonTenResult) -> list[FeedbackObservatio
         and result.batch_action_resolution.get("review_status") == CORRECT_BATCH_ACTION_KEY
     ):
         observations.append(FeedbackObservation("lesson.l10.feedback.batch_action_recovered_via_revision"))
+    initial_invariant = result.initial_gate_resolution.get("invariant_tolerance")
+    final_invariant = result.gate_resolution.get("invariant_tolerance")
+    if (
+        result.gate_revised
+        and initial_invariant == "no_invariant_check"
+        and final_invariant is not None
+        and final_invariant != "no_invariant_check"
+    ):
+        observations.append(FeedbackObservation("lesson.l10.feedback.gate_recovered_via_revision"))
     return observations
 
 
