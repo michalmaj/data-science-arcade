@@ -108,8 +108,21 @@ from data_science_arcade.lessons.l09_outlier_patrol.scenario import (
     MASTERY_NEEDS_CORRECTION_FIELD as L09_MASTERY_NEEDS_CORRECTION_FIELD,
     RAW_INSPECTION_PROMPT as L09_RAW_INSPECTION_PROMPT,
 )
-from data_science_arcade.lessons.l10_validation_gate.checks import VALIDATION_CHECKS as L10_VALIDATION_CHECKS
-from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
+from data_science_arcade.lessons.l10_validation_gate.scenario import (
+    BASELINE_INTERPRET_OPTIONS as L10_BASELINE_INTERPRET_OPTIONS,
+    CONCENTRATION_INTERPRET_OPTIONS as L10_CONCENTRATION_INTERPRET_OPTIONS,
+    CONSEQUENCE_INTERPRET_OPTIONS as L10_CONSEQUENCE_INTERPRET_OPTIONS,
+    DECISION_FIELDS as L10_DECISION_FIELDS,
+    GATE_RERUN_CLEAN_INTERPRET_OPTIONS as L10_GATE_RERUN_CLEAN_INTERPRET_OPTIONS,
+    GATE_RERUN_INTERPRET_OPTIONS as L10_GATE_RERUN_INTERPRET_OPTIONS,
+    INVARIANT_SEVERITY_FIELD as L10_INVARIANT_SEVERITY_FIELD,
+    INVARIANT_TOLERANCE_FIELD as L10_INVARIANT_TOLERANCE_FIELD,
+    MASTERY_MISSING_RULE_FIELD as L10_MASTERY_MISSING_RULE_FIELD,
+    MASTERY_PASS_MEANING_FIELD as L10_MASTERY_PASS_MEANING_FIELD,
+    MASTERY_SEVERITY_FIELD as L10_MASTERY_SEVERITY_FIELD,
+    OPTIONAL_FIELD_SEVERITY_FIELD as L10_OPTIONAL_FIELD_SEVERITY_FIELD,
+    OPTIONAL_FIELD_THRESHOLD_FIELD as L10_OPTIONAL_FIELD_THRESHOLD_FIELD,
+)
 from data_science_arcade.lessons.l11_distribution_observatory.lenses import build_distribution_lenses
 from data_science_arcade.lessons.l11_distribution_observatory.order_values import generate_order_values
 from data_science_arcade.lessons.l11_distribution_observatory.scenario import DECISION_FIELDS as L11_DECISION_FIELDS
@@ -171,7 +184,6 @@ from data_science_arcade.ui.investigation_hub_scene import OPTION_SIZE as INVEST
 from data_science_arcade.ui.survey_builder_scene import OPTION_SIZE as SURVEY_OPTION_SIZE
 from data_science_arcade.ui.timeseries_scene import LENS_OPTION_SIZE as TIMESERIES_LENS_OPTION_SIZE
 from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTION_OPTION_SIZE
-from data_science_arcade.ui.flow_builder_scene import OPTION_SIZE as FLOW_OPTION_SIZE
 from data_science_arcade.ui.funnel_builder_scene import DEFINITION_OPTION_SIZE as FUNNEL_DEFINITION_OPTION_SIZE
 from data_science_arcade.ui.junction_scene import OPTION_SIZE as JUNCTION_OPTION_SIZE
 from data_science_arcade.ui.pipeline_builder_scene import OPTION_SIZE as PIPELINE_OPTION_SIZE
@@ -242,6 +254,13 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L09_MASTERY_MUST_NOT_REMOVE_FIELD,
         L09_MASTERY_NEEDS_CORRECTION_FIELD,
         *L10_DECISION_FIELDS,
+        L10_OPTIONAL_FIELD_SEVERITY_FIELD,
+        L10_OPTIONAL_FIELD_THRESHOLD_FIELD,
+        L10_INVARIANT_TOLERANCE_FIELD,
+        L10_INVARIANT_SEVERITY_FIELD,
+        L10_MASTERY_MISSING_RULE_FIELD,
+        L10_MASTERY_SEVERITY_FIELD,
+        L10_MASTERY_PASS_MEANING_FIELD,
         *L11_DECISION_FIELDS,
         *L12_DECISION_FIELDS,
         *L13_DECISION_FIELDS,
@@ -273,11 +292,6 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     wide_header_button_width = WIDE_HEADER_WIDTH - BUTTON_PADDING
     for source in L02_SOURCES:
         checks.append((f"source.{source.key}", source.name_key, wide_header_button_width))
-
-    flow_option_button_width = FLOW_OPTION_SIZE[0] - BUTTON_PADDING
-    for check in L10_VALIDATION_CHECKS:
-        for option in check.options:
-            checks.append((f"{check.key}.{option.key}", option.label_key, flow_option_button_width))
 
     distribution_option_button_width = DISTRIBUTION_OPTION_SIZE[0] - BUTTON_PADDING
     for lens in L11_LENSES:
@@ -443,6 +457,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L07_CONSEQUENCE_INTERPRET_OPTIONS,
         L09_DETECTION_INTERPRET_OPTIONS,
         L09_CONSEQUENCE_INTERPRET_OPTIONS,
+        L10_BASELINE_INTERPRET_OPTIONS,
+        L10_CONSEQUENCE_INTERPRET_OPTIONS,
+        L10_GATE_RERUN_INTERPRET_OPTIONS,
+        L10_CONCENTRATION_INTERPRET_OPTIONS,
+        L10_GATE_RERUN_CLEAN_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))

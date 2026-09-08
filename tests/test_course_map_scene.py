@@ -46,9 +46,9 @@ from data_science_arcade.lessons.l09_outlier_patrol.twist_data import CORRECT_DE
 from data_science_arcade.lessons.l09_outlier_patrol.twist_data import CORRECT_ROUND1_KEY as L09_CORRECT_ROUND1_KEY
 from data_science_arcade.lessons.l09_outlier_patrol.twist_data import ROUND1_ISSUE as L09_ROUND1_ISSUE
 from data_science_arcade.lessons.l09_outlier_patrol.twist_data import ROUND2_ISSUES as L09_ROUND2_ISSUES
-from data_science_arcade.lessons.l10_validation_gate.checks import CORRECT_RULE_BY_CHECK as L10_CORRECT_RULE_BY_CHECK
-from data_science_arcade.lessons.l10_validation_gate.checks import VALIDATION_CHECKS as L10_VALIDATION_CHECKS
 from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
+from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_BATCH_ACTION_KEY as L10_CORRECT_BATCH_ACTION_KEY
+from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_ROUND1_KEY as L10_CORRECT_ROUND1_KEY
 from data_science_arcade.lessons.l11_distribution_observatory.lenses import CORRECT_OPTION_BY_LENS as L11_CORRECT_OPTION_BY_LENS
 from data_science_arcade.lessons.l11_distribution_observatory.scenario import DECISION_FIELDS as L11_DECISION_FIELDS
 from data_science_arcade.lessons.l12_groupby_kitchen.requests import CORRECT_PIPELINE_BY_REQUEST as L12_CORRECT_PIPELINE_BY_REQUEST
@@ -1531,16 +1531,14 @@ def test_finishing_lesson_nine_marks_it_complete_and_unlocks_lesson_ten():
         pygame.quit()
 
 
-def _calibrate_every_l10_check_correctly(scene: FlowBuilderScene) -> None:
-    for _ in L10_VALIDATION_CHECKS:
-        step = scene._current_step()
-        correct_key = L10_CORRECT_RULE_BY_CHECK[step.key]
-        index = next(i for i, option in enumerate(step.options) if option.key == correct_key)
-        scene.buttons.buttons[index].on_activate()
-        scene.next_button.on_activate()
-
-
 def test_finishing_lesson_ten_marks_it_complete_and_unlocks_lesson_eleven():
+    """Picks the real correct review_status option at both WorkbenchScene
+    decision points (so the simulated replay stage actually runs its
+    REPLAY_DIALOGUE branch, not its NO_REPLAY_DIALOGUE one) and index-0
+    everywhere else - exact correctness of every other pick is its own
+    separately-tested behavior (see test_lesson10_scenario.py). This is a
+    smoke test for the real 18-stage flow finishing and unlocking Lesson
+    11, not a scoring test."""
     app = App()
     app.init()
     try:
@@ -1551,12 +1549,69 @@ def test_finishing_lesson_ten_marks_it_complete_and_unlocks_lesson_eleven():
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _calibrate_every_l10_check_correctly(app.scenes.current)  # guided checks
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _calibrate_every_l10_check_correctly(app.scenes.current)  # independent checks
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L10_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # baseline_gate_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # round1
+        flagged_cell = _first_flagged_cell_button(app.scenes.current.inner)
+        flagged_cell.on_activate()
+        app.scenes.current.inner.picker_buttons[L10_CORRECT_ROUND1_KEY].on_activate()
+        app.scenes.current.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # consequence_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # round1_revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
+
+        _play_dialogue_to_the_end(app.scenes.current)  # coverage_investigation
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # gate_builder
+        _fill_out(app.scenes.current.inner, app.scenes.current.inner.fields)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # gate_rerun_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # concentration_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # batch_action
+        flagged_cell = _first_flagged_cell_button(app.scenes.current.inner)
+        flagged_cell.on_activate()
+        app.scenes.current.inner.picker_buttons[L10_CORRECT_BATCH_ACTION_KEY].on_activate()
+        app.scenes.current.continue_button.on_activate()
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # batch_action_revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
+
+        _play_dialogue_to_the_end(app.scenes.current)  # replay (REPLAY_DIALOGUE, since the batch was correctly blocked)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # gate_rerun_clean
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # evidence_review
+        app.scenes.current.inner.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
