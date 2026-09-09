@@ -227,7 +227,7 @@ def test_a_playthrough_that_skips_mastery_still_completes():
         pygame.quit()
 
 
-def test_declining_the_revision_offer_never_marks_business_asks_revised():
+def test_declining_the_revision_offer_leaves_no_revised_picks_recorded():
     app = _init_app()
     try:
         finished_results = []
@@ -238,17 +238,18 @@ def test_declining_the_revision_offer_never_marks_business_asks_revised():
         feedback.on_complete()
         _play_dialogue_to_the_end(app.scenes.current)
 
-        assert finished_results[0].business_asks_revised is False
+        assert finished_results[0].business_asks_revised_picks is None
     finally:
         pygame.quit()
 
 
-def test_engaging_the_revision_offer_marks_business_asks_revised_but_never_overwrites_the_original_prior():
-    # The revision offer re-does the identical BriefBuilderScene as pure
-    # practice - its own picks are deliberately never stored anywhere; the
-    # only thing that carries forward is whether the student engaged at
-    # all (used to gate the trajectory-recovery observations, never to
-    # cap or replace the original unscored prior pass).
+def test_engaging_the_revision_offer_records_the_real_picks_not_just_a_flag():
+    # The revision offer's own real picks are what get recorded - never
+    # just an engaged=True flag standing in for them (the P1 the user
+    # reported: trajectory feedback was inferring "recovered via revision"
+    # from prior vs. Final Decision alone, which could misattribute credit
+    # to a revision that never actually fixed anything). The original
+    # unscored prior pass stays untouched either way.
     app = _init_app()
     try:
         finished_results = []
@@ -261,8 +262,28 @@ def test_engaging_the_revision_offer_marks_business_asks_revised_but_never_overw
         _play_dialogue_to_the_end(app.scenes.current)
 
         result = finished_results[0]
-        assert result.business_asks_revised is True
+        assert result.business_asks_revised_picks == GOOD_PRIOR
         assert result.business_asks_prior == wrong_prior
+    finally:
+        pygame.quit()
+
+
+def test_revision_offer_records_the_real_revised_picks_even_when_they_stay_wrong():
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_eleven_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+        wrong_prior = {"finance_prior_pick": "median", "product_prior_pick": "mean", "ops_prior_pick": "mean"}
+        still_wrong_revision = {"finance_prior_pick": "p90", "product_prior_pick": "p90", "ops_prior_pick": "median"}
+        feedback = _play_lesson_to_feedback(app, prior=wrong_prior, revision_engage=True, revised_prior=still_wrong_revision)
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.business_asks_revised_picks == still_wrong_revision
+        assert not any("recovered_via_revision" in o.text_key for o in feedback.evaluation.observations)
     finally:
         pygame.quit()
 
@@ -303,6 +324,68 @@ def test_the_player_facing_frame_never_leaks_the_segment_before_the_reveal():
         for action in context_data["actions"]:
             code = action.get("python_code") or ""
             assert "segment" not in code
+    finally:
+        pygame.quit()
+
+
+def test_segment_reveal_records_a_real_join_before_any_segment_filtering():
+    # P0: the player-facing `orders` frame never carries a `segment`
+    # column before this stage - the recorded Python Mirror action must
+    # show the real join/validate that brings one into scope, in order,
+    # before any orders['segment'] filtering line, so the mirror stays
+    # executable/logically readable top to bottom instead of jumping
+    # straight to a column nothing ever created.
+    app = _init_app()
+    try:
+        runner, collected = build_lesson_eleven_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        _play_distribution_explorer(app.scenes.current.inner, marker_keys=("mean", "median"), interpret_key="mean_falls_in_gap")
+        _play_comparison_reveal(app.scenes.current.inner, "p90_is_the_boundary")
+        _play_brief_builder(app.scenes.current.inner, GOOD_PRIOR)
+        _play_comparison_reveal(app.scenes.current.inner, "looks_like_two_populations")
+
+        assert isinstance(app.scenes.current.inner, DistributionExplorerScene)  # segment_reveal
+        _play_distribution_explorer(
+            app.scenes.current.inner, marker_keys=("consumer_mean", "business_mean"), interpret_key="segments_explain_mixture"
+        )
+
+        actions = collected["analytical_context"]["actions"]
+        segment_reveal_action = next(a for a in actions if a["python_code"] and "segment" in a["python_code"])
+        code = segment_reveal_action["python_code"]
+        merge_index = code.index("merge")
+        validate_index = code.index("validate")
+        filter_index = code.index("orders['segment']")
+        assert merge_index < filter_index
+        assert validate_index < filter_index
+    finally:
+        pygame.quit()
+
+
+def test_a_wrong_initial_interpretation_still_leaves_its_fact_available_as_evidence():
+    # P0: seeing a real, computed fact (the mean's position, the p90
+    # boundary, the IQR width, the segment split) must not require having
+    # correctly interpreted it on the spot - there's no revision path for
+    # these four reveals (only business_asks gets one), so gating Evidence
+    # on the correct interpretation would permanently punish a wrong first
+    # read. Every interpretation picked here is deliberately the WRONG one
+    # at its own stage.
+    app = _init_app()
+    try:
+        runner, collected = build_lesson_eleven_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        feedback = _play_lesson_to_feedback(
+            app,
+            explore_interpretation="mean_looks_representative",
+            capacity_interpretation="use_the_maximum_instead",
+            shape_interpretation_choice="one_population_with_outliers",
+            segment_interpretation_choice="segments_dont_matter",
+        )
+        assert isinstance(feedback, LessonFeedbackScene)
+        assert feedback.evaluation.dimension_scores[ScoreDimension.EVIDENCE] == 97.0
     finally:
         pygame.quit()
 

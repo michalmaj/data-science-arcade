@@ -96,6 +96,7 @@ class DistributionExplorerScene(Scene):
         interpret_hint_key: str | None = None,
         segment_series: tuple[tuple[str, str, list[float]], ...] | None = None,
         guided: bool = True,
+        preamble_python_code: str | None = None,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -110,6 +111,16 @@ class DistributionExplorerScene(Scene):
         self.interpret_hint_key = interpret_hint_key
         self.segment_series = segment_series
         self.guided = guided
+        self.preamble_python_code = preamble_python_code
+        """A real line (or lines) of Python that has to run before any of
+        `markers`' own python_code makes sense - e.g. segment_reveal's own
+        join that brings a `segment` column into scope for the first time,
+        since the player-facing frame never carries one before this reveal
+        (see order_values.py's own module docstring). None everywhere else.
+        Recorded once, always first, regardless of which markers are
+        toggled - the reveal itself (and the interpret action it's
+        attached to) happens the moment this stage is completed, not only
+        when a marker happens to be on."""
         self.active_markers: set[str] = set()
         self._interpret_choice: str | None = None
         self._rebuild_buttons()
@@ -138,8 +149,10 @@ class DistributionExplorerScene(Scene):
         return choose
 
     def _active_python_code(self) -> str | None:
-        lines = [m.python_code for m in self.markers if m.key in self.active_markers and m.python_code]
-        return "\n".join(lines) if lines else None
+        marker_lines = [m.python_code for m in self.markers if m.key in self.active_markers and m.python_code]
+        if self.preamble_python_code is not None:
+            return "\n".join([self.preamble_python_code, *marker_lines])
+        return "\n".join(marker_lines) if marker_lines else None
 
     def _continue(self) -> None:
         if not self._continue_enabled():

@@ -44,7 +44,15 @@ class LessonElevenResult:
     critical_evidence_present: tuple[str, ...] = field(default_factory=tuple)
     mastery_engaged: bool = False
     mastery_result: AnalyticalBrief = field(default_factory=dict)
-    business_asks_revised: bool = False
+    business_asks_revised_picks: dict[str, str] | None = None
+    """The real picks made on the revision_offer screen, keyed exactly
+    like business_asks_prior - None means the offer was skipped. Never
+    the Final Decision's own fields (a different, more nuanced option
+    space for product_typical_order_claim) and never a bare
+    engaged=True flag - see _trajectory_observations for why comparing
+    prior directly against these real revised picks (not against
+    whatever the Final Decision ends up being) is what keeps "recovered
+    via revision" honest about which step actually produced the fix."""
 
     def completed_thoughtfully(self) -> bool:
         return bool(self.business_asks_prior) and len(self.decision) > 0
@@ -167,15 +175,21 @@ def _score_communication(result: LessonElevenResult) -> tuple[float, FeedbackObs
 
 
 def _trajectory_observations(result: LessonElevenResult) -> list[FeedbackObservation]:
+    """Fires only for a change that genuinely happened AT the revision
+    step itself (prior wrong -> revised correct on that same screen) -
+    never inferred from "prior differs from whatever the Final Decision
+    ends up being," which could just as easily reflect a second, later
+    change with nothing to do with the revision offer at all."""
     observations: list[FeedbackObservation] = []
-    if not result.business_asks_revised:
+    revised = result.business_asks_revised_picks
+    if revised is None:
         return observations
     prior = result.business_asks_prior
-    if prior.get("finance_prior_pick") != _CORRECT_FINANCE and result.decision.get("finance_summary_choice") == _CORRECT_FINANCE:
+    if prior.get("finance_prior_pick") != _CORRECT_FINANCE and revised.get("finance_prior_pick") == _CORRECT_FINANCE:
         observations.append(FeedbackObservation("lesson.l11.feedback.finance_recovered_via_revision"))
-    if prior.get("product_prior_pick") != _CORRECT_PRODUCT_PRIOR and result._product_final_summary() == "median":
+    if prior.get("product_prior_pick") != _CORRECT_PRODUCT_PRIOR and revised.get("product_prior_pick") == _CORRECT_PRODUCT_PRIOR:
         observations.append(FeedbackObservation("lesson.l11.feedback.product_recovered_via_revision"))
-    if prior.get("ops_prior_pick") != _CORRECT_OPS and result.decision.get("ops_capacity_summary") == _CORRECT_OPS:
+    if prior.get("ops_prior_pick") != _CORRECT_OPS and revised.get("ops_prior_pick") == _CORRECT_OPS:
         observations.append(FeedbackObservation("lesson.l11.feedback.ops_recovered_via_revision"))
     return observations
 

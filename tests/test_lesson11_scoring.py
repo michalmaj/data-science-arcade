@@ -89,6 +89,25 @@ def test_reasoning_and_communication_are_independent_not_redundant_signals():
     assert any(o.text_key == "lesson.l11.feedback.communication_recommendation_wrong" for o in evaluation.observations)
 
 
+def test_low_reasoning_can_still_coexist_with_high_communication():
+    # The mirror-image regression: a student whose shape/product claims
+    # are genuinely self-contradictory (wrong shape pick; claims the real
+    # product limitation while never having recognized at segment_reveal
+    # that the segments explain the mixture) can still behave impeccably
+    # on the one thing COMMUNICATION actually measures - a correct
+    # recommendation backed by real, differentiated final picks. Confirms
+    # _real_differentiation feeding both scorers doesn't make them move
+    # together: REASONING bottoms out at a low band here while
+    # COMMUNICATION hits its own max.
+    result = _result(
+        decision=dict(GOOD_DECISION, shape_interpretation="roughly_symmetric"),
+        segment_interpretation_seen="segments_dont_matter",
+    )
+    evaluation = score_lesson_eleven(result, LESSON_11, hints_used=0)
+    assert evaluation.dimension_scores[ScoreDimension.REASONING] == 34.0
+    assert evaluation.dimension_scores[ScoreDimension.COMMUNICATION] == 96.0
+
+
 def test_communication_fails_when_the_final_picks_are_not_actually_differentiated():
     undifferentiated = _result(
         decision=dict(
@@ -157,19 +176,38 @@ def test_evidence_role_keys_are_all_distinct():
 
 
 def test_trajectory_observation_only_fires_after_a_real_revision_and_a_real_recovery():
-    never_revised = _result(business_asks_prior={"finance_prior_pick": "median", "product_prior_pick": "mean", "ops_prior_pick": "mean"}, business_asks_revised=False)
+    wrong_prior = {"finance_prior_pick": "median", "product_prior_pick": "mean", "ops_prior_pick": "mean"}
+    never_revised = _result(business_asks_prior=wrong_prior, business_asks_revised_picks=None)
     evaluation = score_lesson_eleven(never_revised, LESSON_11, hints_used=0)
     assert not any("recovered_via_revision" in o.text_key for o in evaluation.observations)
 
-    revised = _result(business_asks_prior={"finance_prior_pick": "median", "product_prior_pick": "mean", "ops_prior_pick": "mean"}, business_asks_revised=True)
+    revised = _result(business_asks_prior=wrong_prior, business_asks_revised_picks=GOOD_PRIOR)
     evaluation = score_lesson_eleven(revised, LESSON_11, hints_used=0)
     assert any(o.text_key == "lesson.l11.feedback.finance_recovered_via_revision" for o in evaluation.observations)
     assert any(o.text_key == "lesson.l11.feedback.product_recovered_via_revision" for o in evaluation.observations)
     assert any(o.text_key == "lesson.l11.feedback.ops_recovered_via_revision" for o in evaluation.observations)
 
 
+def test_trajectory_observation_never_fires_when_the_revision_itself_stayed_wrong():
+    # Regression: "recovered via revision" must never be inferred just
+    # because the prior differs from wherever the Final Decision ends up -
+    # it has to be the REVISION step itself that produced the fix. Here
+    # the revision screen's own picks are still wrong, even though the
+    # Final Decision (GOOD_DECISION, via _result's own default) ends up
+    # fully correct - a second, later change with nothing to do with the
+    # revision offer.
+    wrong_prior = {"finance_prior_pick": "median", "product_prior_pick": "mean", "ops_prior_pick": "mean"}
+    still_wrong_revision = {"finance_prior_pick": "p90", "product_prior_pick": "p90", "ops_prior_pick": "median"}
+    result = _result(business_asks_prior=wrong_prior, business_asks_revised_picks=still_wrong_revision)
+    evaluation = score_lesson_eleven(result, LESSON_11, hints_used=0)
+    assert not any("recovered_via_revision" in o.text_key for o in evaluation.observations)
+
+
 def test_a_wrong_prior_pick_never_caps_the_final_method_score_once_corrected():
-    result = _result(business_asks_prior={"finance_prior_pick": "p90", "product_prior_pick": "p90", "ops_prior_pick": "mean"}, business_asks_revised=True)
+    result = _result(
+        business_asks_prior={"finance_prior_pick": "p90", "product_prior_pick": "p90", "ops_prior_pick": "mean"},
+        business_asks_revised_picks=GOOD_PRIOR,
+    )
     evaluation = score_lesson_eleven(result, LESSON_11, hints_used=0)
     assert evaluation.dimension_scores[ScoreDimension.METHOD] == 94.0
 
