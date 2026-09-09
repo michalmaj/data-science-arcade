@@ -10,6 +10,11 @@ LESSON_12 = LessonDefinition(
         "lesson.l12.objective2",
         "lesson.l12.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.DATA_QUALITY, ScoreDimension.OVERCONFIDENCE),
-    estimated_minutes=15,
+    scoring_dimensions=(
+        ScoreDimension.METHOD,
+        ScoreDimension.REASONING,
+        ScoreDimension.EVIDENCE,
+    ),
+    estimated_minutes=24,
+    related_handbook_entry_id="observation_unit_and_grain",
 )
