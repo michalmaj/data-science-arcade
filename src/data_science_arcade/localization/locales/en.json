@@ -1708,7 +1708,7 @@
   "lesson.l11.feedback.product_summary_wrong": "The final Product claim doesn't correctly describe what a typical order looks like, limitation included.",
   "lesson.l11.feedback.ops_summary_wrong": "The final Ops pick doesn't actually mark the real 90%-coverage boundary.",
   "lesson.l11.feedback.shape_claim_incoherent": "The shape claim doesn't match what was actually seen at the segment reveal.",
-  "lesson.l11.feedback.product_claim_self_contradicted": "The product claim names the real limitation, but the shape claim contradicts it.",
+  "lesson.l11.feedback.product_claim_self_contradicted": "The product claim names the real limitation, but doesn't cite the segment evidence that actually explains it.",
   "lesson.l11.feedback.communication_claim_incoherent": "The communication recommendation doesn't match what the final picks actually do.",
   "lesson.l11.feedback.evidence_missing_a_real_role": "At least one real evidence role is missing from what was cited.",
   "lesson.l11.feedback.communication_recommendation_wrong": "The final recommendation still collapses this mixture into a single misleading number.",

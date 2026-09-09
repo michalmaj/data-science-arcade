@@ -88,20 +88,27 @@ def _shape_claim_coherent(result: LessonElevenResult) -> bool:
 
 def _product_shape_coherent(result: LessonElevenResult) -> bool:
     """Claiming the real limitation (product_typical_order_claim's own
-    correct option) while never actually having recognized at
-    segment_reveal that the two segments explain the mixture would be a
-    real self-contradiction - only checked when the product claim is
-    itself the correct one; a wrong product claim is METHOD's own
-    failure, not a REASONING one. Deliberately checks the real trajectory
-    action (segment_interpretation_seen) rather than re-checking
-    decision["shape_interpretation") - that field is _shape_claim_coherent's
-    own signal, and re-testing it here would make this check an
-    unreachable subset of that one (whenever shape_interpretation is
-    wrong, shape_claim_coherent already fails first) rather than a real,
-    independent fact."""
+    correct option, which asserts the median doesn't describe business
+    orders) without ever citing the one fact that actually explains WHY
+    - the segment-explains-mixture evidence role - would be a real
+    self-contradiction. Checked entirely against the FINAL Decision's
+    own fields (the product claim, and the real evidence the student
+    chose to cite), never against the un-revisable segment_reveal
+    trajectory pick itself: that stage has no revision path, so an
+    earlier version of this check gated REASONING on
+    segment_interpretation_seen directly, which permanently punished a
+    fully correct final argument after nothing more than a wrong first
+    read there - the same productive-failure bug the evidence-gating
+    fix already closed everywhere else in this lesson (see the L11
+    follow-up). Only checked when the product claim is itself correct;
+    a wrong product claim is METHOD's own failure, not a REASONING one.
+    Genuinely independent of EVIDENCE's own role-completeness score -
+    this asks whether the specific segment role backs up this specific
+    claim, not how many of the 4 roles were gathered overall."""
     if result.decision.get("product_typical_order_claim") != _CORRECT_PRODUCT_FINAL:
         return True
-    return result.segment_interpretation_seen == "segments_explain_mixture"
+    present = set(result.critical_evidence_present)
+    return bool(present & set(SEGMENT_EXPLAINS_EVIDENCE_KEYS))
 
 
 def _real_differentiation(result: LessonElevenResult) -> bool:
