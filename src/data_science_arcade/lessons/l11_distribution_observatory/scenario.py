@@ -40,27 +40,59 @@ DEBRIEF_DIALOGUE = Dialogue(
 MASTERY_DIALOGUE_KEYS = ("dialogue.l11_mastery.line1", "dialogue.l11_mastery.line2")
 
 # --- Distribution explore --------------------------------------------------
+#
+# Every option in each of these four interpret-option tuples carries the
+# SAME evidence_key - a deliberate deviation from ComparisonRevealScene's
+# own documented default (InterpretOption.evidence_key is normally reserved
+# for the one option whose CONTENT is itself the citable fact). Here the
+# citable fact is the real, already-computed value the reveal shows (the
+# mean's position, the p90 boundary, the IQR width, the segment split) -
+# that fact was genuinely seen regardless of which interpretation the
+# student picked. Gating it behind the correct interpretation would
+# permanently punish a wrong first read with no revision path for these
+# four reveals (only business_asks gets a revision offer) - exactly the
+# productive-failure violation this project's own discipline exists to
+# avoid. The interpretation itself still matters - it's tracked in
+# `collected` and, for segment_reveal, feeds real REASONING coherence
+# checks (_product_shape_coherent) - it just never gates whether the fact
+# can be cited later.
 
 EXPLORE_INTERPRET_OPTIONS = (
-    InterpretOption("mean_looks_representative", "lesson.l11.explore.interpret.option.mean_looks_representative"),
+    InterpretOption(
+        "mean_looks_representative",
+        "lesson.l11.explore.interpret.option.mean_looks_representative",
+        evidence_key="lesson.l11.evidence.center_location",
+    ),
     InterpretOption(
         "mean_falls_in_gap",
         "lesson.l11.explore.interpret.option.mean_falls_in_gap",
         evidence_key="lesson.l11.evidence.center_location",
     ),
-    InterpretOption("need_more_data", "lesson.l11.explore.interpret.option.need_more_data"),
+    InterpretOption(
+        "need_more_data",
+        "lesson.l11.explore.interpret.option.need_more_data",
+        evidence_key="lesson.l11.evidence.center_location",
+    ),
 )
 
 # --- Capacity check (p90) ---------------------------------------------
 
 CAPACITY_CHECK_INTERPRET_OPTIONS = (
-    InterpretOption("use_the_maximum_instead", "lesson.l11.capacity_check.interpret.option.use_the_maximum_instead"),
+    InterpretOption(
+        "use_the_maximum_instead",
+        "lesson.l11.capacity_check.interpret.option.use_the_maximum_instead",
+        evidence_key="lesson.l11.evidence.upper_tail_p90",
+    ),
     InterpretOption(
         "p90_is_the_boundary",
         "lesson.l11.capacity_check.interpret.option.p90_is_the_boundary",
         evidence_key="lesson.l11.evidence.upper_tail_p90",
     ),
-    InterpretOption("cant_know_without_more_data", "lesson.l11.capacity_check.interpret.option.cant_know_without_more_data"),
+    InterpretOption(
+        "cant_know_without_more_data",
+        "lesson.l11.capacity_check.interpret.option.cant_know_without_more_data",
+        evidence_key="lesson.l11.evidence.upper_tail_p90",
+    ),
 )
 
 # --- Business asks (prior, unscored) ---------------------------------------
@@ -97,25 +129,52 @@ BUSINESS_ASKS_FIELDS: tuple[BriefField, ...] = (FINANCE_PRIOR_FIELD, PRODUCT_PRI
 # --- Shape investigation -----------------------------------------------
 
 SHAPE_INTERPRET_OPTIONS = (
-    InterpretOption("one_population_with_outliers", "lesson.l11.shape.interpret.option.one_population_with_outliers"),
+    InterpretOption(
+        "one_population_with_outliers",
+        "lesson.l11.shape.interpret.option.one_population_with_outliers",
+        evidence_key="lesson.l11.evidence.shape_mixture",
+    ),
     InterpretOption(
         "looks_like_two_populations",
         "lesson.l11.shape.interpret.option.looks_like_two_populations",
         evidence_key="lesson.l11.evidence.shape_mixture",
     ),
-    InterpretOption("roughly_symmetric", "lesson.l11.shape.interpret.option.roughly_symmetric"),
+    InterpretOption(
+        "roughly_symmetric",
+        "lesson.l11.shape.interpret.option.roughly_symmetric",
+        evidence_key="lesson.l11.evidence.shape_mixture",
+    ),
 )
 
 # --- Segment reveal ------------------------------------------------------
+#
+# The player-facing `orders` frame never carries a `segment` column before
+# this stage (order_values.py's own module docstring) - this preamble is
+# the real, explicit action that brings one into scope, always recorded
+# first, so the Python Mirror stays executable/logically readable top to
+# bottom instead of jumping straight to `orders['segment']` with no line
+# that ever created it.
+SEGMENT_REVEAL_PREAMBLE_PYTHON_CODE = (
+    "segment_map = pd.read_csv('novamart_order_segments.csv')  # order_id -> segment\n"
+    "orders = orders.merge(segment_map, on='order_id', validate='one_to_one')"
+)
 
 SEGMENT_REVEAL_INTERPRET_OPTIONS = (
-    InterpretOption("segments_dont_matter", "lesson.l11.segment_reveal.interpret.option.segments_dont_matter"),
+    InterpretOption(
+        "segments_dont_matter",
+        "lesson.l11.segment_reveal.interpret.option.segments_dont_matter",
+        evidence_key="lesson.l11.evidence.segment_explains_mixture",
+    ),
     InterpretOption(
         "segments_explain_mixture",
         "lesson.l11.segment_reveal.interpret.option.segments_explain_mixture",
         evidence_key="lesson.l11.evidence.segment_explains_mixture",
     ),
-    InterpretOption("need_more_data_still", "lesson.l11.segment_reveal.interpret.option.need_more_data_still"),
+    InterpretOption(
+        "need_more_data_still",
+        "lesson.l11.segment_reveal.interpret.option.need_more_data_still",
+        evidence_key="lesson.l11.evidence.segment_explains_mixture",
+    ),
 )
 
 # --- Final Decision --------------------------------------------------------
@@ -371,14 +430,21 @@ def build_lesson_eleven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             interpret_prompt_key="lesson.l11.segment_reveal.interpret_prompt",
             interpret_options=SEGMENT_REVEAL_INTERPRET_OPTIONS,
             segment_series=segments,
+            preamble_python_code=SEGMENT_REVEAL_PREAMBLE_PYTHON_CODE,
         )
 
     # --- Revision offer ---
 
     def revision_offer(advance):
         def build_revision_task(on_task_complete):
-            def on_brief_complete(_brief):
-                collected["business_asks_revised"] = True
+            def on_brief_complete(brief):
+                # The real picks made on THIS screen, not just an
+                # engaged=True flag - trajectory feedback below compares
+                # these against the original prior pass, never against the
+                # (structurally different-shaped) Final Decision fields,
+                # so "recovered via revision" only ever fires for a change
+                # that genuinely happened at this exact step.
+                collected["business_asks_revised_picks"] = dict(brief)
                 on_task_complete(None)
 
             return BriefBuilderScene(app, "lesson.l11.business_asks.title", BUSINESS_ASKS_FIELDS, on_brief_complete, guided=True)
@@ -496,7 +562,7 @@ def build_lesson_eleven_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             critical_evidence_present=_critical_evidence_present(selected_evidence_ids),
             mastery_engaged=collected.get("mastery_engaged", False),
             mastery_result=collected.get("mastery_result", {}),
-            business_asks_revised=collected.get("business_asks_revised", False),
+            business_asks_revised_picks=collected.get("business_asks_revised_picks"),
         )
 
     def feedback(advance):
