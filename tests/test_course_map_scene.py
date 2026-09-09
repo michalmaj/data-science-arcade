@@ -49,8 +49,6 @@ from data_science_arcade.lessons.l09_outlier_patrol.twist_data import ROUND2_ISS
 from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_BATCH_ACTION_KEY as L10_CORRECT_BATCH_ACTION_KEY
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_ROUND1_KEY as L10_CORRECT_ROUND1_KEY
-from data_science_arcade.lessons.l11_distribution_observatory.lenses import CORRECT_OPTION_BY_LENS as L11_CORRECT_OPTION_BY_LENS
-from data_science_arcade.lessons.l11_distribution_observatory.scenario import DECISION_FIELDS as L11_DECISION_FIELDS
 from data_science_arcade.lessons.l12_groupby_kitchen.requests import CORRECT_PIPELINE_BY_REQUEST as L12_CORRECT_PIPELINE_BY_REQUEST
 from data_science_arcade.lessons.l12_groupby_kitchen.scenario import DECISION_FIELDS as L12_DECISION_FIELDS
 from data_science_arcade.lessons.l13_join_junction.requests import CORRECT_HOW_BY_REQUEST as L13_CORRECT_HOW_BY_REQUEST
@@ -100,7 +98,7 @@ from data_science_arcade.ui.cohort_matrix_scene import CohortMatrixScene
 from data_science_arcade.ui.correlation_scene import CorrelationScene
 from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
-from data_science_arcade.ui.distribution_scene import DistributionScene
+from data_science_arcade.ui.distribution_explorer_scene import DistributionExplorerScene
 from data_science_arcade.ui.finding_picker_scene import FindingPickerScene
 from data_science_arcade.ui.flow_builder_scene import FlowBuilderScene
 from data_science_arcade.ui.funnel_builder_scene import FunnelBuilderScene
@@ -1632,15 +1630,6 @@ def test_finishing_lesson_ten_marks_it_complete_and_unlocks_lesson_eleven():
         pygame.quit()
 
 
-def _calibrate_every_l11_lens_correctly(scene: DistributionScene) -> None:
-    for _ in range(len(scene.lenses)):
-        lens = scene._current_lens()
-        correct_key = L11_CORRECT_OPTION_BY_LENS[lens.key]
-        index = next(i for i, option in enumerate(lens.options) if option.key == correct_key)
-        scene.buttons.buttons[index].on_activate()
-        scene.next_button.on_activate()
-
-
 def test_finishing_lesson_eleven_marks_it_complete_and_unlocks_lesson_twelve():
     app = App()
     app.init()
@@ -1652,12 +1641,60 @@ def test_finishing_lesson_eleven_marks_it_complete_and_unlocks_lesson_twelve():
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _calibrate_every_l11_lens_correctly(app.scenes.current)  # guided lenses
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _calibrate_every_l11_lens_correctly(app.scenes.current)  # independent lenses
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L11_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, DistributionExplorerScene)  # distribution_explore
+        explore = app.scenes.current.inner
+        explore.marker_buttons["mean"].on_activate()
+        explore.interpret_buttons["mean_falls_in_gap"].on_activate()
+        explore.continue_button.on_activate()
+
+        # L11's own evidence only ever comes from a real, evidence-bearing
+        # interpret choice (comparisons_are_evidence=False throughout, see
+        # scoring.py's own docstring) - unlike L10's reveals, index-0 alone
+        # can't be trusted to gather DECISION_EVIDENCE_FIELD's own real
+        # min_count=2, so this smoke test picks the evidence-bearing
+        # interpretation at each reveal explicitly.
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # capacity_check
+        capacity_check = app.scenes.current.inner
+        index = next(i for i, o in enumerate(capacity_check.interpret_options) if o.key == "p90_is_the_boundary")
+        capacity_check.buttons.buttons[index].on_activate()
+        capacity_check.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # business_asks
+        _fill_out(app.scenes.current.inner, app.scenes.current.inner.fields)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # shape_investigation
+        shape_investigation = app.scenes.current.inner
+        index = next(i for i, o in enumerate(shape_investigation.interpret_options) if o.key == "looks_like_two_populations")
+        shape_investigation.buttons.buttons[index].on_activate()
+        shape_investigation.continue_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DistributionExplorerScene)  # segment_reveal
+        segment_reveal = app.scenes.current.inner
+        segment_reveal.interpret_buttons["segments_explain_mixture"].on_activate()
+        segment_reveal.continue_button.on_activate()
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

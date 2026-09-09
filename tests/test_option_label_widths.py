@@ -125,9 +125,16 @@ from data_science_arcade.lessons.l10_validation_gate.scenario import (
     OPTIONAL_FIELD_SEVERITY_FIELD as L10_OPTIONAL_FIELD_SEVERITY_FIELD,
     OPTIONAL_FIELD_THRESHOLD_FIELD as L10_OPTIONAL_FIELD_THRESHOLD_FIELD,
 )
-from data_science_arcade.lessons.l11_distribution_observatory.lenses import build_distribution_lenses
-from data_science_arcade.lessons.l11_distribution_observatory.order_values import generate_order_values
-from data_science_arcade.lessons.l11_distribution_observatory.scenario import DECISION_FIELDS as L11_DECISION_FIELDS
+from data_science_arcade.lessons.l11_distribution_observatory.scenario import (
+    BUSINESS_ASKS_FIELDS as L11_BUSINESS_ASKS_FIELDS,
+    CAPACITY_CHECK_INTERPRET_OPTIONS as L11_CAPACITY_CHECK_INTERPRET_OPTIONS,
+    DECISION_FIELDS as L11_DECISION_FIELDS,
+    EXPLORE_INTERPRET_OPTIONS as L11_EXPLORE_INTERPRET_OPTIONS,
+    MASTERY_INTERPRETATION_FIELD as L11_MASTERY_INTERPRETATION_FIELD,
+    MASTERY_SUPPORTING_EVIDENCE_FIELD as L11_MASTERY_SUPPORTING_EVIDENCE_FIELD,
+    SEGMENT_REVEAL_INTERPRET_OPTIONS as L11_SEGMENT_REVEAL_INTERPRET_OPTIONS,
+    SHAPE_INTERPRET_OPTIONS as L11_SHAPE_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l12_groupby_kitchen.requests import AGGREGATION_REQUESTS as L12_AGGREGATION_REQUESTS
 from data_science_arcade.lessons.l12_groupby_kitchen.scenario import DECISION_FIELDS as L12_DECISION_FIELDS
 from data_science_arcade.lessons.l13_join_junction.requests import JOIN_REQUESTS as L13_JOIN_REQUESTS
@@ -185,7 +192,6 @@ from data_science_arcade.ui.finding_picker_scene import OPTION_SIZE as FINDING_O
 from data_science_arcade.ui.investigation_hub_scene import OPTION_SIZE as INVESTIGATION_OPTION_SIZE
 from data_science_arcade.ui.survey_builder_scene import OPTION_SIZE as SURVEY_OPTION_SIZE
 from data_science_arcade.ui.timeseries_scene import LENS_OPTION_SIZE as TIMESERIES_LENS_OPTION_SIZE
-from data_science_arcade.ui.distribution_scene import OPTION_SIZE as DISTRIBUTION_OPTION_SIZE
 from data_science_arcade.ui.funnel_builder_scene import DEFINITION_OPTION_SIZE as FUNNEL_DEFINITION_OPTION_SIZE
 from data_science_arcade.ui.junction_scene import OPTION_SIZE as JUNCTION_OPTION_SIZE
 from data_science_arcade.ui.pipeline_builder_scene import OPTION_SIZE as PIPELINE_OPTION_SIZE
@@ -193,8 +199,6 @@ from data_science_arcade.ui.prediction_scene import DIRECTION_BUTTON_SIZE
 from data_science_arcade.ui.segment_slicer_scene import OPTION_SIZE as SEGMENT_OPTION_SIZE
 from data_science_arcade.ui.source_board_scene import WIDE_HEADER_WIDTH
 from data_science_arcade.ui.workbench_scene import PICKER_OPTION_SIZE
-
-L11_LENSES = build_distribution_lenses(generate_order_values())
 
 # Button.draw() centers text with no wrapping/truncation (unlike table cells
 # or dialogue text), so any label wider than its button silently spills past
@@ -263,7 +267,10 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L10_MASTERY_MISSING_RULE_FIELD,
         L10_MASTERY_SEVERITY_FIELD,
         L10_MASTERY_PASS_MEANING_FIELD,
+        *L11_BUSINESS_ASKS_FIELDS,
         *L11_DECISION_FIELDS,
+        L11_MASTERY_SUPPORTING_EVIDENCE_FIELD,
+        L11_MASTERY_INTERPRETATION_FIELD,
         *L12_DECISION_FIELDS,
         *L13_DECISION_FIELDS,
         *L14_DECISION_FIELDS,
@@ -294,11 +301,6 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     wide_header_button_width = WIDE_HEADER_WIDTH - BUTTON_PADDING
     for source in L02_SOURCES:
         checks.append((f"source.{source.key}", source.name_key, wide_header_button_width))
-
-    distribution_option_button_width = DISTRIBUTION_OPTION_SIZE[0] - BUTTON_PADDING
-    for lens in L11_LENSES:
-        for option in lens.options:
-            checks.append((f"{lens.key}.{option.key}", option.label_key, distribution_option_button_width))
 
     pipeline_option_button_width = PIPELINE_OPTION_SIZE[0] - BUTTON_PADDING
     for request in L01_GRAIN_REQUESTS:
@@ -441,6 +443,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         checks.append((f"l09_inspection.{option.key}", option.label_key, picker_option_button_width))
 
     comparison_reveal_option_button_width = COMPARISON_REVEAL_OPTION_SIZE[0] - BUTTON_PADDING
+    # DistributionExplorerScene's own interpret OPTION_SIZE is (420, 40) -
+    # the same 420 width as ComparisonRevealScene's, so L11's interpret
+    # option lists (both its ComparisonRevealScene reveals and its own
+    # DistributionExplorerScene reveals) share this same width group
+    # rather than needing a separate import for an identical number.
     for options in (
         L01_WINDOW_INTERPRET_OPTIONS,
         L01_ENTITY_INTERPRET_OPTIONS,
@@ -466,6 +473,10 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L10_CONCENTRATION_INTERPRET_OPTIONS,
         L10_GATE_RERUN_CLEAN_INTERPRET_OPTIONS,
         L10_GATE_RERUN_UNRESOLVED_INTERPRET_OPTIONS,
+        L11_EXPLORE_INTERPRET_OPTIONS,
+        L11_CAPACITY_CHECK_INTERPRET_OPTIONS,
+        L11_SHAPE_INTERPRET_OPTIONS,
+        L11_SEGMENT_REVEAL_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
