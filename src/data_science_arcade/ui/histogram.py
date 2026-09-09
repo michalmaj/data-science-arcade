@@ -51,6 +51,42 @@ def draw_histogram(
         pygame.draw.rect(surface, color, bar_rect)
 
 
+def draw_segmented_histogram(
+    surface: pygame.Surface,
+    rect: pygame.Rect,
+    series: tuple[tuple[list[float], tuple[int, int, int]], ...],
+    min_value: float,
+    max_value: float,
+    bin_count: int,
+) -> None:
+    """Like draw_histogram, but for 2+ real value series drawn as grouped
+    sub-bars within each shared bin, sharing one common peak scale so
+    relative heights stay honestly comparable across series - never each
+    series independently rescaled to its own peak, which would silently
+    misrepresent how large one group is relative to the other. On a real
+    bimodal mix (this scene's own first real use) most bins only ever
+    hold one series' own bar, since the two groups occupy disjoint value
+    ranges - the visual result reads as two side-by-side colored
+    clusters, not literal overlap, without any special-casing here."""
+    all_counts = [compute_bin_counts(values, min_value, max_value, bin_count) for values, _ in series]
+    peak = max((max(counts) for counts in all_counts if counts), default=0)
+    bin_width = rect.width / bin_count
+    sub_width = max(1, (round(bin_width) - 2) // max(1, len(series)))
+    for bin_index in range(bin_count):
+        for series_index, (_values, color) in enumerate(series):
+            count = all_counts[series_index][bin_index]
+            bar_height = round((count / peak) * rect.height) if peak else 0
+            if bar_height == 0:
+                continue
+            bar_rect = pygame.Rect(
+                rect.left + round(bin_index * bin_width) + series_index * sub_width,
+                rect.bottom - bar_height,
+                sub_width,
+                bar_height,
+            )
+            pygame.draw.rect(surface, color, bar_rect)
+
+
 def draw_value_marker(
     surface: pygame.Surface,
     rect: pygame.Rect,
