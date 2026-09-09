@@ -10,6 +10,12 @@ LESSON_11 = LessonDefinition(
         "lesson.l11.objective2",
         "lesson.l11.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.REASONING, ScoreDimension.OVERCONFIDENCE),
-    estimated_minutes=15,
+    scoring_dimensions=(
+        ScoreDimension.METHOD,
+        ScoreDimension.REASONING,
+        ScoreDimension.EVIDENCE,
+        ScoreDimension.COMMUNICATION,
+    ),
+    estimated_minutes=21,
+    related_handbook_entry_id="a_summary_is_not_the_distribution",
 )
