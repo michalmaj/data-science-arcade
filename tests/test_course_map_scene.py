@@ -49,8 +49,6 @@ from data_science_arcade.lessons.l09_outlier_patrol.twist_data import ROUND2_ISS
 from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_BATCH_ACTION_KEY as L10_CORRECT_BATCH_ACTION_KEY
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_ROUND1_KEY as L10_CORRECT_ROUND1_KEY
-from data_science_arcade.lessons.l12_groupby_kitchen.requests import CORRECT_PIPELINE_BY_REQUEST as L12_CORRECT_PIPELINE_BY_REQUEST
-from data_science_arcade.lessons.l12_groupby_kitchen.scenario import DECISION_FIELDS as L12_DECISION_FIELDS
 from data_science_arcade.lessons.l13_join_junction.requests import CORRECT_HOW_BY_REQUEST as L13_CORRECT_HOW_BY_REQUEST
 from data_science_arcade.lessons.l13_join_junction.scenario import DECISION_FIELDS as L13_DECISION_FIELDS
 from data_science_arcade.lessons.l14_chart_designer.requests import CORRECT_OPTION_BY_REQUEST as L14_CORRECT_OPTION_BY_REQUEST
@@ -88,6 +86,7 @@ from data_science_arcade.lessons.l29_the_executive_brief.findings import CORRECT
 from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
 from data_science_arcade.lessons.l30_the_data_incident.scenario import DECISION_FIELDS as L30_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonCheckpoint, LessonState
+from data_science_arcade.ui.aggregation_builder_scene import AggregationBuilderScene
 from data_science_arcade.ui.alert_config_scene import AlertConfigScene
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
@@ -1704,15 +1703,19 @@ def test_finishing_lesson_eleven_marks_it_complete_and_unlocks_lesson_twelve():
         pygame.quit()
 
 
-def _build_every_l12_pipeline_correctly(scene: PipelineBuilderScene) -> None:
-    for _ in range(len(scene.requests)):
-        request = scene._current_request()
-        correct_group_by, correct_aggregate = L12_CORRECT_PIPELINE_BY_REQUEST[request.key]
-        group_by_index = next(i for i, option in enumerate(request.group_by_options) if option.key == correct_group_by)
-        aggregate_index = next(i for i, option in enumerate(request.aggregate_options) if option.key == correct_aggregate)
-        scene.buttons.buttons[group_by_index].on_activate()
-        aggregate_button_index = len(request.group_by_options) + aggregate_index
-        scene.buttons.buttons[aggregate_button_index].on_activate()
+def _build_the_store_summary_correctly(scene: AggregationBuilderScene) -> None:
+    index = next(i for i, o in enumerate(scene.group_by_options) if o.key == "by_store")
+    scene.buttons.buttons[index].on_activate()
+    scene.next_button.on_activate()
+    for slot in scene.metric_slots:
+        correct_by_slot = {
+            "orders": "count_order_id",
+            "revenue": "sum_revenue",
+            "unique_customers": "nunique_customer_id",
+            "aov": "mean_revenue",
+        }
+        index = next(i for i, o in enumerate(slot.options) if o.key == correct_by_slot[slot.key])
+        scene.buttons.buttons[index].on_activate()
         scene.next_button.on_activate()
 
 
@@ -1727,12 +1730,55 @@ def test_finishing_lesson_twelve_marks_it_complete_and_unlocks_lesson_thirteen()
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _build_every_l12_pipeline_correctly(app.scenes.current)  # guided pipelines
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _build_every_l12_pipeline_correctly(app.scenes.current)  # independent pipelines
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L12_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, AggregationBuilderScene)  # store_summary_build
+        _build_the_store_summary_correctly(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # output_grain_check
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # customer_count_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # store_summary_revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
+
+        _play_dialogue_to_the_end(app.scenes.current)  # finance_rollup_ask
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # network_rollup_attempt
+        _fill_out(app.scenes.current.inner, app.scenes.current.inner.fields)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # customer_rollup_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # aov_rollup_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # rollup_revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            elif step.key == "safe_rollup_metrics":
+                decision.buttons.buttons[0].on_activate()
+                decision.buttons.buttons[1].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

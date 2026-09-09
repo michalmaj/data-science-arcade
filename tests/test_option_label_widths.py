@@ -135,8 +135,17 @@ from data_science_arcade.lessons.l11_distribution_observatory.scenario import (
     SEGMENT_REVEAL_INTERPRET_OPTIONS as L11_SEGMENT_REVEAL_INTERPRET_OPTIONS,
     SHAPE_INTERPRET_OPTIONS as L11_SHAPE_INTERPRET_OPTIONS,
 )
-from data_science_arcade.lessons.l12_groupby_kitchen.requests import AGGREGATION_REQUESTS as L12_AGGREGATION_REQUESTS
-from data_science_arcade.lessons.l12_groupby_kitchen.scenario import DECISION_FIELDS as L12_DECISION_FIELDS
+from data_science_arcade.lessons.l12_groupby_kitchen.scenario import (
+    AOV_ROLLUP_INTERPRET_OPTIONS as L12_AOV_ROLLUP_INTERPRET_OPTIONS,
+    CUSTOMER_COUNT_INTERPRET_OPTIONS as L12_CUSTOMER_COUNT_INTERPRET_OPTIONS,
+    CUSTOMER_ROLLUP_INTERPRET_OPTIONS as L12_CUSTOMER_ROLLUP_INTERPRET_OPTIONS,
+    DECISION_FIELDS as L12_DECISION_FIELDS,
+    GRAIN_CHECK_INTERPRET_OPTIONS as L12_GRAIN_CHECK_INTERPRET_OPTIONS,
+    GROUP_BY_OPTIONS as L12_GROUP_BY_OPTIONS,
+    MASTERY_INTERPRETATION_FIELD as L12_MASTERY_INTERPRETATION_FIELD,
+    MASTERY_SUPPORTING_EVIDENCE_FIELD as L12_MASTERY_SUPPORTING_EVIDENCE_FIELD,
+    METRIC_SLOTS as L12_METRIC_SLOTS,
+)
 from data_science_arcade.lessons.l13_join_junction.requests import JOIN_REQUESTS as L13_JOIN_REQUESTS
 from data_science_arcade.lessons.l13_join_junction.scenario import DECISION_FIELDS as L13_DECISION_FIELDS
 from data_science_arcade.lessons.l14_chart_designer.requests import CHART_REQUESTS as L14_CHART_REQUESTS
@@ -272,6 +281,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L11_MASTERY_SUPPORTING_EVIDENCE_FIELD,
         L11_MASTERY_INTERPRETATION_FIELD,
         *L12_DECISION_FIELDS,
+        L12_MASTERY_SUPPORTING_EVIDENCE_FIELD,
+        L12_MASTERY_INTERPRETATION_FIELD,
         *L13_DECISION_FIELDS,
         *L14_DECISION_FIELDS,
         *L15_DECISION_FIELDS,
@@ -308,11 +319,15 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{request.key}.group_by.{option.key}", option.label_key, pipeline_option_button_width))
         for option in request.aggregate_options:
             checks.append((f"{request.key}.aggregate.{option.key}", option.label_key, pipeline_option_button_width))
-    for request in L12_AGGREGATION_REQUESTS:
-        for option in request.group_by_options:
-            checks.append((f"{request.key}.group_by.{option.key}", option.label_key, pipeline_option_button_width))
-        for option in request.aggregate_options:
-            checks.append((f"{request.key}.aggregate.{option.key}", option.label_key, pipeline_option_button_width))
+    # AggregationBuilderScene's own OPTION_SIZE is (420, 40) - the same
+    # 420 width as brief_builder_scene's, so L12's group-by/metric-slot
+    # options share the same option_button_width group above rather than
+    # needing a separate import for an identical number.
+    for option in L12_GROUP_BY_OPTIONS:
+        checks.append((f"group_by.{option.key}", option.label_key, option_button_width))
+    for slot in L12_METRIC_SLOTS:
+        for option in slot.options:
+            checks.append((f"{slot.key}.{option.key}", option.label_key, option_button_width))
     for request in L02_BILLING_REQUESTS:
         for option in request.group_by_options:
             checks.append((f"{request.key}.group_by.{option.key}", option.label_key, pipeline_option_button_width))
@@ -477,6 +492,10 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L11_CAPACITY_CHECK_INTERPRET_OPTIONS,
         L11_SHAPE_INTERPRET_OPTIONS,
         L11_SEGMENT_REVEAL_INTERPRET_OPTIONS,
+        L12_GRAIN_CHECK_INTERPRET_OPTIONS,
+        L12_CUSTOMER_COUNT_INTERPRET_OPTIONS,
+        L12_CUSTOMER_ROLLUP_INTERPRET_OPTIONS,
+        L12_AOV_ROLLUP_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
