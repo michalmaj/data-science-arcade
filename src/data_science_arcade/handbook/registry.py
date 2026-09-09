@@ -115,6 +115,20 @@ OUTLIER_IS_A_FLAG_NOT_A_VERDICT = HandbookEntry(
     related_entry_ids=("observation_unit_and_grain", "population"),
 )
 
+A_SUMMARY_IS_NOT_THE_DISTRIBUTION = HandbookEntry(
+    id="a_summary_is_not_the_distribution",
+    title_key="handbook.article.a_summary_is_not_the_distribution.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.a_summary_is_not_the_distribution.body.1",
+        "handbook.article.a_summary_is_not_the_distribution.body.2",
+        "handbook.article.a_summary_is_not_the_distribution.body.3",
+        "handbook.article.a_summary_is_not_the_distribution.body.4",
+        "handbook.article.a_summary_is_not_the_distribution.body.5",
+    ),
+    related_entry_ids=("quantile", "population"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -124,6 +138,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     MISSINGNESS_HAS_A_MECHANISM,
     DUPLICATES_NEED_AN_IDENTITY,
     OUTLIER_IS_A_FLAG_NOT_A_VERDICT,
+    A_SUMMARY_IS_NOT_THE_DISTRIBUTION,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -182,6 +197,12 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         id="confounder",
         term_key="handbook.glossary.confounder.term",
         definition_key="handbook.glossary.confounder.definition",
+    ),
+    GlossaryEntry(
+        id="quantile",
+        term_key="handbook.glossary.quantile.term",
+        definition_key="handbook.glossary.quantile.definition",
+        related_entry_id="a_summary_is_not_the_distribution",
     ),
 )
 
