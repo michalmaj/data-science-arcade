@@ -52,16 +52,49 @@ ORDERS_SCHEMA = Schema(
 )
 
 
+def _interleave_by_weight(counts: dict[str, int]) -> list[str]:
+    """Spreads each key's own occurrences as evenly as possible across the
+    full 260-length sequence (a fractional-position interleave: each of a
+    key's own `count` occurrences gets a target position `(k+0.5)/count`
+    in [0, 1), then every key's tokens are merged and sorted by that
+    position) rather than one contiguous block per key. `_date_list()`
+    assigns dates to these same 260 positions strictly in sequence order,
+    so a block-per-store layout would accidentally confine each store to
+    only the first few days its own block happened to span - a real,
+    unintended store x date structure in a feed meant to look like one
+    real population, not three curve-fit views. Interleaving first
+    removes that before dates are ever assigned."""
+    tagged: list[tuple[float, str]] = []
+    for key, count in counts.items():
+        for k in range(count):
+            tagged.append(((k + 0.5) / count, key))
+    tagged.sort(key=lambda item: (item[0], item[1]))
+    return [key for _position, key in tagged]
+
+
+def _returned_occurrence_indices(store_id: str) -> set[int]:
+    """Which of this store's own 0-indexed occurrences (counted in the
+    order they appear once interleaved) are returned - evenly spread
+    across the store's own occurrences via the same fractional-position
+    logic as `_interleave_by_weight`, rather than front-loaded onto its
+    first few occurrences, which would otherwise cluster every return
+    onto whichever few days this store's own occurrences land on first."""
+    count = STORE_ORDER_COUNTS[store_id]
+    returns = STORE_RETURN_COUNTS[store_id]
+    return {round(j * count / returns) for j in range(returns)}
+
+
 def _rows() -> list[tuple[str, str, bool]]:
+    store_sequence = _interleave_by_weight(STORE_ORDER_COUNTS)
+    returned_occurrences = {store_id: _returned_occurrence_indices(store_id) for store_id in STORE_ORDER_COUNTS}
+    occurrence_counts: dict[str, int] = dict.fromkeys(STORE_ORDER_COUNTS, 0)
+
     rows: list[tuple[str, str, bool]] = []
-    order_index = 0
-    for store_id, count in STORE_ORDER_COUNTS.items():
-        returns_left = STORE_RETURN_COUNTS[store_id]
-        for i in range(count):
-            order_id = f"O-{order_index + 1:04d}"
-            returned = i < returns_left
-            rows.append((order_id, store_id, returned))
-            order_index += 1
+    for order_index, store_id in enumerate(store_sequence):
+        occurrence = occurrence_counts[store_id]
+        returned = occurrence in returned_occurrences[store_id]
+        rows.append((f"O-{order_index + 1:04d}", store_id, returned))
+        occurrence_counts[store_id] += 1
     return rows
 
 
@@ -100,6 +133,14 @@ STORE_IDS: tuple[str, ...] = tuple(STORE_ORDER_COUNTS.keys())
 STORE_RETURN_RATES: dict[str, float] = {store_id: store_return_rate_pct(store_id) for store_id in STORE_ORDER_COUNTS}
 DELIVERY_BIN_EDGES = (15, 30, 45, 60, 75, 90)
 DELIVERY_BIN_COUNTS = (50, 130, 40, 30, 10)
+DELIVERY_BIN_RANGE_LABELS: tuple[str, ...] = tuple(
+    f"{DELIVERY_BIN_EDGES[i]}-{DELIVERY_BIN_EDGES[i + 1]}" for i in range(len(DELIVERY_BIN_EDGES) - 1)
+)
+"""Same real bins the histogram itself uses - the distribution ask's own
+alternative chart form plots this identical (label, count) series, never
+a different aggregate/grain, so the two options isolate visual encoding
+alone (bars vs. a connected line) rather than confounding form with a
+changed analytical question."""
 
 # --- Optional mastery - a different domain: monthly SLA compliance --------
 #
