@@ -3,14 +3,21 @@ from collections.abc import Callable
 import pygame
 
 from data_science_arcade.core.display import LOGICAL_SIZE
+from data_science_arcade.core.fonts import get_font
 from data_science_arcade.core.scenes import Scene
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
-from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text
+from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text, wrap_text
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 OFFER_BUTTON_SIZE = (420, 46)
+LINES_TOP = 150
+LINE_TEXT_SIZE = 16
+LINE_MAX_WIDTH = 800
+LINE_SPACING = 4
+FIRST_BUTTON_GAP = 30
+BUTTON_GAP = 14
 
 
 class SequenceScene(Scene):
@@ -86,12 +93,34 @@ class OfferThenTaskScene(Scene):
             return getattr(self._active, name)
         raise AttributeError(name)
 
+    def _line_layout(self) -> tuple[list[int], int]:
+        """(top y per line_key, content bottom) - computed from each
+        line's own real wrapped line count rather than a fixed 40px step
+        per key, the same "advance by however many lines it actually
+        wrapped to" fix ComparisonRevealScene's own narrative box already
+        needed: a fixed step let a longer key's own wrapped 2nd/3rd line
+        run into the next key's own text, or into the offer buttons below
+        - caught only by a real screenshot with real, longer content
+        (L14's own 3-line mastery offer), not by the shorter 1-2 line
+        content every prior caller happened to use."""
+        loc = self.app.localization
+        font = get_font(LINE_TEXT_SIZE)
+        line_height = font.get_linesize() + LINE_SPACING
+        tops: list[int] = []
+        y = LINES_TOP
+        for key in self._line_keys:
+            tops.append(y)
+            y += len(wrap_text(loc.t(key), font, LINE_MAX_WIDTH)) * line_height
+        return tops, y
+
     def _rebuild_offer_buttons(self) -> None:
         loc = self.app.localization
+        _tops, content_bottom = self._line_layout()
+        first_button_y = content_bottom + FIRST_BUTTON_GAP
         engage_rect = pygame.Rect(0, 0, *OFFER_BUTTON_SIZE)
-        engage_rect.center = (CENTER_X, 260)
+        engage_rect.center = (CENTER_X, first_button_y)
         skip_rect = pygame.Rect(0, 0, *OFFER_BUTTON_SIZE)
-        skip_rect.center = (CENTER_X, 320)
+        skip_rect.center = (CENTER_X, first_button_y + OFFER_BUTTON_SIZE[1] + BUTTON_GAP)
         self.buttons = ButtonGroup(
             [
                 Button(engage_rect, loc.t(self._engage_label_key), self._engage),
@@ -126,6 +155,7 @@ class OfferThenTaskScene(Scene):
         loc = self.app.localization
         surface.fill(colors.BACKGROUND)
         draw_centered_text(surface, loc.t(self._title_key), (CENTER_X, 90), 28, colors.TEXT)
-        for index, key in enumerate(self._line_keys):
-            draw_wrapped_text(surface, loc.t(key), (CENTER_X - 400, 150 + index * 40), 800, 16, colors.TEXT)
+        tops, _content_bottom = self._line_layout()
+        for top, key in zip(tops, self._line_keys):
+            draw_wrapped_text(surface, loc.t(key), (CENTER_X - 400, top), LINE_MAX_WIDTH, LINE_TEXT_SIZE, colors.TEXT, line_spacing=LINE_SPACING)
         self.buttons.draw(surface)
