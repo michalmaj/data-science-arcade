@@ -59,6 +59,34 @@ def test_store_ids_are_real_and_stable_order():
     assert STORE_IDS == ("S01", "S02", "S03", "S04")
 
 
+def test_each_store_is_spread_across_the_full_date_range_not_confined_to_a_block():
+    # Regression: the row generator used to assign stores in contiguous
+    # blocks and returns front-loaded within each block, so each store
+    # (and its own returns) accidentally landed on only a few of the 14
+    # real days - an unintended store x date structure in a feed meant to
+    # look like one real population. Every store must now appear across
+    # the whole real date range.
+    orders = generate_orders()
+    days_per_store = orders.frame.groupby("store_id")["order_date"].nunique()
+    for store_id in STORE_IDS:
+        assert days_per_store[store_id] == 14
+
+
+def test_returns_are_spread_across_a_stores_own_occurrences_not_front_loaded():
+    orders = generate_orders()
+    for store_id in STORE_IDS:
+        store_rows = orders.frame[orders.frame["store_id"] == store_id].sort_values("order_id")
+        returned_positions = [i for i, returned in enumerate(store_rows["returned"]) if returned]
+        count = len(store_rows)
+        returns = STORE_RETURN_COUNTS[store_id]
+        assert len(returned_positions) == returns
+        if returns > 1:
+            # Front-loaded returns would all land in the first few
+            # positions; spread returns reach at least halfway through
+            # this store's own occurrence sequence.
+            assert max(returned_positions) >= count // 2
+
+
 def test_mastery_domain_has_a_real_mixed_pattern_against_a_fixed_target():
     assert len(MASTERY_MONTHS) == 12
     assert len(MASTERY_SLA_COMPLIANCE_PCT) == 12

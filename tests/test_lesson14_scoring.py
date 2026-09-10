@@ -43,10 +43,13 @@ def test_all_best_fit_forms_score_the_top_method_band():
     assert _method_score(_result()) == 96.0
 
 
-def test_all_worst_forms_score_the_bottom_method_band():
-    # 0 (stores=line) + 1 (dates=bar_chronological, its own least-tier) + 0 (distribution) = 1 point total.
-    result = _result(chart_choice_stores="line", chart_choice_dates="bar_chronological", chart_choice_distribution="bar_store_averages")
-    assert _method_score(result) == 24.0
+def test_all_worst_reachable_forms_score_the_worst_reachable_method_band():
+    # 0 (stores=line) + 1 (dates=bar_chronological, its own least tier) +
+    # 1 (distribution=frequency_polygon, its own least tier - the
+    # distribution ask has no 0-point tier at all, since both its real
+    # options plot the same real (bin, count) series) = 2 points total.
+    result = _result(chart_choice_stores="line", chart_choice_dates="bar_chronological", chart_choice_distribution="frequency_polygon")
+    assert _method_score(result) == 40.0
 
 
 def test_method_is_tiered_not_binary_a_defensible_pick_scores_above_a_wrong_one():
@@ -61,7 +64,7 @@ def test_method_scores_the_final_executed_chart_not_the_decision_claim():
     # Decision itself states the correct normative answer - METHOD must
     # stay low (real executed state), REASONING must stay high (real
     # comprehension), applying the L13-followup lesson proactively.
-    result = _result(chart_choice_stores="line", chart_choice_dates="bar_chronological", chart_choice_distribution="bar_store_averages")
+    result = _result(chart_choice_stores="line", chart_choice_dates="bar_chronological", chart_choice_distribution="frequency_polygon")
     evaluation = score_lesson_fourteen(result, LESSON_14, hints_used=0)
     assert evaluation.dimension_scores[ScoreDimension.METHOD] < 50.0
     assert evaluation.dimension_scores[ScoreDimension.REASONING] == 94.0
@@ -80,6 +83,23 @@ def test_reasoning_requires_both_the_form_and_its_paired_rationale():
     evaluation = score_lesson_fourteen(right_form_wrong_rationale, LESSON_14, hints_used=0)
     full_credit = score_lesson_fourteen(_result(), LESSON_14, hints_used=0)
     assert evaluation.dimension_scores[ScoreDimension.REASONING] < full_credit.dimension_scores[ScoreDimension.REASONING]
+
+
+def test_stores_reasoning_accepts_either_real_bar_form_ordering_is_a_method_only_concern():
+    # REASONING checks FORM understanding only ("bars compare magnitude
+    # between categories") - real for either bar chart, regardless of
+    # which real order it's drawn in. Requiring the specific sorted
+    # variant here would smuggle a METHOD-tier ordering preference into a
+    # check that's only supposed to be about form.
+    natural_order_claim = _result(decision={**GOOD_DECISION, "chart_form_for_stores": "bar_natural_order"})
+    sorted_claim = _result(decision={**GOOD_DECISION, "chart_form_for_stores": "bar_sorted_desc"})
+    evaluation_natural = score_lesson_fourteen(natural_order_claim, LESSON_14, hints_used=0)
+    evaluation_sorted = score_lesson_fourteen(sorted_claim, LESSON_14, hints_used=0)
+    assert evaluation_natural.dimension_scores[ScoreDimension.REASONING] == evaluation_sorted.dimension_scores[ScoreDimension.REASONING]
+
+    line_claim = _result(decision={**GOOD_DECISION, "chart_form_for_stores": "line"})
+    evaluation_line = score_lesson_fourteen(line_claim, LESSON_14, hints_used=0)
+    assert evaluation_line.dimension_scores[ScoreDimension.REASONING] < evaluation_sorted.dimension_scores[ScoreDimension.REASONING]
 
 
 def test_communication_is_independent_of_method_and_reasoning():
