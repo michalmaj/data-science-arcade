@@ -1708,7 +1708,7 @@
   "lesson.l11.feedback.product_summary_wrong": "Finalne twierdzenie dla Product nie opisuje poprawnie, jak wygląda typowe zamówienie, wraz z ograniczeniem.",
   "lesson.l11.feedback.ops_summary_wrong": "Finalny wybór dla Ops faktycznie nie wyznacza realnej granicy pokrycia 90%.",
   "lesson.l11.feedback.shape_claim_incoherent": "Twierdzenie o kształcie nie zgadza się z tym, co faktycznie zobaczono przy odsłonięciu segmentów.",
-  "lesson.l11.feedback.product_claim_self_contradicted": "Twierdzenie o Product nazywa realne ograniczenie, ale twierdzenie o kształcie mu przeczy.",
+  "lesson.l11.feedback.product_claim_self_contradicted": "Twierdzenie o Product nazywa realne ograniczenie, ale nie przywołuje evidence o segmentach, które je wyjaśnia.",
   "lesson.l11.feedback.communication_claim_incoherent": "Rekomendacja komunikacyjna nie zgadza się z tym, co faktycznie robią finalne wybory.",
   "lesson.l11.feedback.evidence_missing_a_real_role": "W przywołanych dowodach brakuje przynajmniej jednej realnej roli.",
   "lesson.l11.feedback.communication_recommendation_wrong": "Finalna rekomendacja nadal ściska tę mieszankę do jednej mylącej liczby.",

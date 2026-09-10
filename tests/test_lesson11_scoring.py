@@ -92,16 +92,17 @@ def test_reasoning_and_communication_are_independent_not_redundant_signals():
 def test_low_reasoning_can_still_coexist_with_high_communication():
     # The mirror-image regression: a student whose shape/product claims
     # are genuinely self-contradictory (wrong shape pick; claims the real
-    # product limitation while never having recognized at segment_reveal
-    # that the segments explain the mixture) can still behave impeccably
-    # on the one thing COMMUNICATION actually measures - a correct
-    # recommendation backed by real, differentiated final picks. Confirms
-    # _real_differentiation feeding both scorers doesn't make them move
-    # together: REASONING bottoms out at a low band here while
-    # COMMUNICATION hits its own max.
+    # product limitation without citing the segment evidence that
+    # actually explains it) can still behave impeccably on the one thing
+    # COMMUNICATION actually measures - a correct recommendation backed
+    # by real, differentiated final picks. Confirms _real_differentiation
+    # feeding both scorers doesn't make them move together: REASONING
+    # bottoms out at a low band here while COMMUNICATION hits its own
+    # max.
+    missing_segment_role = CENTER_LOCATION_EVIDENCE_KEYS + UPPER_TAIL_EVIDENCE_KEYS + SHAPE_MIXTURE_EVIDENCE_KEYS
     result = _result(
         decision=dict(GOOD_DECISION, shape_interpretation="roughly_symmetric"),
-        segment_interpretation_seen="segments_dont_matter",
+        critical_evidence_present=missing_segment_role,
     )
     evaluation = score_lesson_eleven(result, LESSON_11, hints_used=0)
     assert evaluation.dimension_scores[ScoreDimension.REASONING] == 34.0
@@ -128,18 +129,35 @@ def test_shape_claim_incoherent_when_the_final_shape_pick_itself_is_wrong():
     assert evaluation.dimension_scores[ScoreDimension.REASONING] < 92.0
 
 
-def test_product_claim_self_contradicted_when_limitation_claimed_but_the_reveal_was_never_recognized():
+def test_product_claim_self_contradicted_when_the_limitation_is_claimed_without_citing_the_segment_evidence():
     # A real, independent fact from shape_claim_coherent's own check: the
-    # final shape_interpretation pick is itself correct, but the student's
-    # own segment_reveal interpret choice never actually recognized the
-    # segments as explaining the mixture - a genuine self-contradiction
+    # final shape_interpretation pick is itself correct, but the segment-
+    # explains-mixture evidence role was never cited in the Final
+    # Decision's own evidence selection - a genuine self-contradiction
     # with product's own correct "median, but only for the consumer half"
-    # claim, not just a re-check of the same field (regression guard: this
-    # observation was previously unreachable - see scoring.py's own
-    # docstring on _product_shape_coherent).
-    result = _result(segment_interpretation_seen="segments_dont_matter")
+    # claim, not just a re-check of the same field.
+    #
+    # Checked entirely against the FINAL argument (this evidence
+    # selection), never against the un-revisable segment_reveal
+    # trajectory pick itself - a regression guard for the productive-
+    # failure bug an earlier version of this check had: gating REASONING
+    # on segment_interpretation_seen directly permanently punished a
+    # correct final argument after nothing more than a wrong first read
+    # at a stage with no revision path.
+    missing_segment_role = CENTER_LOCATION_EVIDENCE_KEYS + UPPER_TAIL_EVIDENCE_KEYS + SHAPE_MIXTURE_EVIDENCE_KEYS
+    result = _result(critical_evidence_present=missing_segment_role)
     evaluation = score_lesson_eleven(result, LESSON_11, hints_used=0)
     assert any(o.text_key == "lesson.l11.feedback.product_claim_self_contradicted" for o in evaluation.observations)
+
+
+def test_product_claim_coherent_when_the_segment_evidence_is_cited_even_after_a_wrong_initial_read():
+    # The productive-failure fix itself: a wrong initial segment_reveal
+    # interpretation must never permanently cap REASONING once the
+    # student's final argument is genuinely well-supported.
+    result = _result(segment_interpretation_seen="segments_dont_matter", critical_evidence_present=CRITICAL_EVIDENCE_KEYS)
+    evaluation = score_lesson_eleven(result, LESSON_11, hints_used=0)
+    assert evaluation.dimension_scores[ScoreDimension.REASONING] == 92.0
+    assert not any(o.text_key == "lesson.l11.feedback.product_claim_self_contradicted" for o in evaluation.observations)
 
 
 # --- EVIDENCE: role-based, never "any N of M" ------------------------------
