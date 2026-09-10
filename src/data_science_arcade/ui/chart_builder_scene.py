@@ -49,6 +49,15 @@ class ChartFormOption:
     value_format: Callable[[float], str] = lambda v: f"{v:,.0f}"
     raw_values: tuple[float, ...] | None = None  # histogram - real, un-truncated, full population
     bin_edges: tuple[float, ...] | None = None  # histogram - one fixed, explicit, deterministic binning
+    mirror_extra_code: str | None = None
+    """Real pandas code needed to reach THIS option's own rendered
+    series, beyond whatever the caller's shared data-prep action already
+    computed (e.g. a sort_values() a sorted-bar option renders but a
+    natural-order option doesn't) - shown before the Visualization-intent
+    comment so the Mirror genuinely reproduces what actually got
+    rendered, never silently omitting a transform the picture itself
+    depended on. None (the default) means this option renders the shared
+    data as-is, no extra line needed."""
 
 
 def _format_cell(value: float) -> str:
@@ -153,6 +162,8 @@ class ChartBuilderScene(Scene):
         if option is None:
             return
         python_code = self._mirror_comment(option)
+        if option.mirror_extra_code:
+            python_code = f"{option.mirror_extra_code}\n{python_code}"
         self.context.record_action(label_key=self.title_key, python_code=python_code, key=self.mirror_action_key)
         self.on_complete(self.choice)
 
