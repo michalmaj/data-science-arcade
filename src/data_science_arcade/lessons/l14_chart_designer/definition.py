@@ -10,6 +10,7 @@ LESSON_14 = LessonDefinition(
         "lesson.l14.objective2",
         "lesson.l14.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.COMMUNICATION, ScoreDimension.OVERCONFIDENCE),
-    estimated_minutes=15,
+    scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.REASONING, ScoreDimension.EVIDENCE, ScoreDimension.COMMUNICATION),
+    estimated_minutes=22,
+    related_handbook_entry_id="a_chart_encodes_a_question",
 )
