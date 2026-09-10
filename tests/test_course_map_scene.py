@@ -1795,7 +1795,7 @@ def test_finishing_lesson_thirteen_marks_it_complete_and_unlocks_lesson_fourteen
     """Picks index-0 everywhere this smoke test can (any real join type,
     any real decision option) - correctness isn't the point here (see
     test_lesson13_scenario.py). This is a smoke test for the real
-    16-stage flow finishing and unlocking Lesson 14."""
+    17-stage flow finishing and unlocking Lesson 14."""
     app = App()
     app.init()
     try:
@@ -1825,17 +1825,21 @@ def test_finishing_lesson_thirteen_marks_it_complete_and_unlocks_lesson_fourteen
         assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # promotions_key_inspection
         _confirm_reveal(app.scenes.current.inner)
 
-        assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # raw_promotions_attempt
+        assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # raw_promotions_attempt - real validate= failure
         _confirm_join_builder(app.scenes.current.inner)
 
         assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # concrete_fan_out_example
         _confirm_reveal(app.scenes.current.inner)
 
-        assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # validate_reveal
-        _confirm_join_builder(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # promotions_repair_decision - real choice
+        _confirm_join_builder(app.scenes.current.inner)  # index-0 = preaggregate_first, the correct repair
 
-        assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # repair_attempt
-        _confirm_join_builder(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # promotions_repair_consequence_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # promotions_repair_revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # multi_check_validation_reveal
         _confirm_reveal(app.scenes.current.inner)
