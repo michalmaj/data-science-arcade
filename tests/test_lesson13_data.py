@@ -129,6 +129,61 @@ def test_revenue_reconciles_after_the_repair_but_not_after_the_raw_join(orders, 
     assert raw["revenue"].sum() > real_total  # the raw join triple/double-counts fan-out customers' own revenue
 
 
+# --- The dedupe_keep_first trap - passes every mechanical reconciliation
+# check (row count, order_id uniqueness, right-key uniqueness, revenue)
+# identically to the correct repair, while silently discarding real
+# promotion information. Only a concrete per-customer inspection catches
+# it - a deliberate, real gap in the mechanical checks, not an oversight.
+
+
+def test_dedupe_keep_first_produces_a_real_unique_key_too(active_promotions):
+    deduped = active_promotions.frame.drop_duplicates(subset="customer_id", keep="first")
+    assert len(deduped) == ACTIVE_PROMOTIONS_DISTINCT_CUSTOMERS
+    assert deduped["customer_id"].is_unique
+
+
+def test_dedupe_keep_first_passes_every_mechanical_check_identically_to_the_correct_repair(orders, active_promotions):
+    promo_per_customer = active_promotions.frame.groupby("customer_id", as_index=False).agg(
+        active_promotion_count=("promotion_code", "size")
+    )
+    deduped = active_promotions.frame.drop_duplicates(subset="customer_id", keep="first")
+
+    correct = orders.frame.merge(promo_per_customer, on="customer_id", how="left", validate="many_to_one")
+    trap = orders.frame.merge(deduped, on="customer_id", how="left", validate="many_to_one")
+
+    assert len(correct) == len(trap) == TOTAL_ORDERS
+    assert correct["order_id"].is_unique and trap["order_id"].is_unique
+    assert correct["revenue"].sum() == trap["revenue"].sum() == orders.frame["revenue"].sum()
+
+
+def test_dedupe_keep_first_silently_undercounts_the_concrete_example_customer(active_promotions):
+    # The real, only-visible-this-way trap: C011 genuinely has 3 active
+    # promotions, but dedupe_keep_first's own surviving row represents
+    # just 1 of them - the fact multi_check_validation_reveal's own
+    # mechanical checks cannot catch (see the test above).
+    deduped = active_promotions.frame.drop_duplicates(subset="customer_id", keep="first")
+    real_count = int((active_promotions.frame["customer_id"] == CONCRETE_EXAMPLE_CUSTOMER_ID).sum())
+    deduped_count = int((deduped["customer_id"] == CONCRETE_EXAMPLE_CUSTOMER_ID).sum())
+    assert real_count == 3
+    assert deduped_count == 1
+
+
+def test_join_raw_directly_is_the_only_repair_choice_that_fails_order_id_uniqueness(orders, active_promotions):
+    promo_per_customer = active_promotions.frame.groupby("customer_id", as_index=False).agg(
+        active_promotion_count=("promotion_code", "size")
+    )
+    deduped = active_promotions.frame.drop_duplicates(subset="customer_id", keep="first")
+
+    correct = orders.frame.merge(promo_per_customer, on="customer_id", how="left", validate="many_to_one")
+    trap = orders.frame.merge(deduped, on="customer_id", how="left", validate="many_to_one")
+    raw = orders.frame.merge(active_promotions.frame, on="customer_id", how="left")
+
+    assert correct["order_id"].is_unique
+    assert trap["order_id"].is_unique
+    assert not raw["order_id"].is_unique
+    assert len(raw) != TOTAL_ORDERS
+
+
 def test_the_concrete_example_customer_has_exactly_one_order_and_three_promotions(orders, active_promotions):
     example_orders = orders.frame[orders.frame["customer_id"] == CONCRETE_EXAMPLE_CUSTOMER_ID]
     assert len(example_orders) == 1

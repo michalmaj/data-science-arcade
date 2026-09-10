@@ -20,6 +20,7 @@ PROMPT_MAX_WIDTH = 820
 FIRST_OPTION_Y = 130
 OPTION_SIZE = (280, 40)
 OPTION_SPACING = 300
+EXPLANATION_TOP = 175
 SUMMARY_TOP = 220
 SUMMARY_LINE_HEIGHT = 22
 PREVIEW_TOP = 330
@@ -36,9 +37,37 @@ HINT_Y = 470
 
 @dataclass(frozen=True)
 class JoinTypeOption:
+    """One complete, real, self-contained join attempt a student can pick
+    - never a bare `how` value alone. `right_dataset` lets sibling options
+    represent genuinely different real strategies against the SAME left
+    table (e.g. "pre-aggregate first" vs "join the raw table anyway" vs
+    "drop_duplicates and keep one row per key") rather than only varying
+    which `how` is used - the mechanism this lesson's own promotions
+    repair decision needs. `validate`/`validate_explanation_key` are also
+    per-option (not scene-wide) for the same reason: "join raw anyway"
+    genuinely validates nothing (that's the choice being made), while a
+    sibling option in the same picker validates `"many_to_one"` and
+    either passes or fails for real."""
+
     key: str
     label_key: str
     how: str  # a real pandas merge() how value: "inner" | "left" | "outer"
+    right_dataset: Dataset
+    validate: str | None = None
+    validate_explanation_key: str | None = None
+    """Shown (once this option is selected) explaining exactly which
+    cardinality contract `validate` is checking - e.g. "orders may repeat
+    this key; the right table must have at most one row for it." Never
+    left implicit: a bare "validate=" button label doesn't say what's
+    actually being validated."""
+    preamble_python_code: str | None = None
+    """A real, self-contained statement that produces `right_dataset`
+    itself (e.g. a groupby/agg or drop_duplicates line), recorded onto
+    the SAME Mirror action right before the merge call - mirrors
+    DistributionExplorerScene's own `preamble_python_code` fix (L11's own
+    follow-up) for the identical problem: a later action referencing a
+    dataset nothing upstream ever built would otherwise read as a script
+    using an undefined name."""
 
 
 def _format_cell(value: object) -> str:
@@ -52,15 +81,19 @@ def _format_cell(value: object) -> str:
 
 
 class JoinBuilderScene(Scene):
-    """One real, live-computed join attempt - pick a join type, see the
-    real `left_dataset.frame.merge(right_dataset.frame, on=join_column,
-    how=..., indicator=True, validate=validate)` result: total row count,
-    the real `_merge` breakdown (both/left_only/right_only), and a capped
-    live preview table - never a node-per-row visualization (the retired
+    """One real, live-computed join attempt - pick an option, see the
+    real `left_dataset.frame.merge(option.right_dataset.frame,
+    on=join_column, how=option.how, indicator=True,
+    validate=option.validate)` result: total row count, the real
+    `_merge` breakdown (both/left_only/right_only), and a capped live
+    preview table - never a node-per-row visualization (the retired
     JunctionScene's own approach, which cannot scale past a handful of
-    rows without putting 100+ shapes on screen).
+    rows without putting 100+ shapes on screen). Each option is fully
+    self-contained (see `JoinTypeOption`'s own docstring) so a single
+    picker can represent genuinely different real strategies against the
+    same left table, not just different `how` values.
 
-    When `validate` is set and the real merge raises
+    When an option's own `validate` is set and the real merge raises
     `pandas.errors.MergeError`, that's caught and shown as its own
     distinct, real state (the actual exception's own message) instead of
     crashing or silently falling back - this is what makes `validate=`
@@ -87,12 +120,10 @@ class JoinBuilderScene(Scene):
         app,
         title_key: str,
         left_dataset: Dataset,
-        right_dataset: Dataset,
         join_column: str,
         join_type_options: tuple[JoinTypeOption, ...],
         on_complete: Callable[[str, bool], None],  # (chosen JoinTypeOption.key, real merge succeeded)
         context: LessonContext,
-        validate: str | None = None,
         initial_choice: str | None = None,
         output_variable_name: str = "result",
         mirror_action_key: str = "join_pipeline",
@@ -102,12 +133,10 @@ class JoinBuilderScene(Scene):
         super().__init__(app)
         self.title_key = title_key
         self.left_dataset = left_dataset
-        self.right_dataset = right_dataset
         self.join_column = join_column
         self.join_type_options = join_type_options
         self.on_complete = on_complete
         self.context = context
-        self.validate = validate
         self.output_variable_name = output_variable_name
         self.mirror_action_key = mirror_action_key
         self.hint_key = hint_key
@@ -153,16 +182,16 @@ class JoinBuilderScene(Scene):
             return None, None
         try:
             merged = self.left_dataset.frame.merge(
-                self.right_dataset.frame, on=self.join_column, how=option.how, indicator=True, validate=self.validate
+                option.right_dataset.frame, on=self.join_column, how=option.how, indicator=True, validate=option.validate
             )
             return merged, None
         except pd.errors.MergeError as exc:
             return None, str(exc)
 
     def _merge_call_code(self, option: JoinTypeOption) -> str:
-        validate_kwarg = f", validate='{self.validate}'" if self.validate else ""
+        validate_kwarg = f", validate='{option.validate}'" if option.validate else ""
         return (
-            f"{self.left_dataset.name}.merge({self.right_dataset.name}, on='{self.join_column}', "
+            f"{self.left_dataset.name}.merge({option.right_dataset.name}, on='{self.join_column}', "
             f"how='{option.how}', indicator=True{validate_kwarg})"
         )
 
@@ -173,9 +202,10 @@ class JoinBuilderScene(Scene):
         merged, error = self._attempt_merge()
         call_code = self._merge_call_code(option)
         if error is not None:
-            python_code = f"import pandas as pd\ntry:\n    {call_code}\nexcept pd.errors.MergeError as exc:\n    str(exc)"
+            merge_statement = f"import pandas as pd\ntry:\n    {call_code}\nexcept pd.errors.MergeError as exc:\n    str(exc)"
         else:
-            python_code = f"{self.output_variable_name} = {call_code}"
+            merge_statement = f"{self.output_variable_name} = {call_code}"
+        python_code = f"{option.preamble_python_code}\n{merge_statement}" if option.preamble_python_code else merge_statement
         self.context.record_action(label_key=self.title_key, python_code=python_code, key=self.mirror_action_key)
         self.on_complete(self.choice, error is None)
 
@@ -211,6 +241,12 @@ class JoinBuilderScene(Scene):
         if self.choice is None:
             draw_centered_text(surface, loc.t("lesson.l13.builder.pick_hint"), (CENTER_X, SUMMARY_TOP), 15, colors.BUTTON_TEXT_DISABLED)
             return
+
+        option = self._selected_option()
+        if option.validate_explanation_key is not None:
+            draw_centered_wrapped_text(
+                surface, loc.t(option.validate_explanation_key), (CENTER_X, EXPLANATION_TOP), PROMPT_MAX_WIDTH, 13, colors.BUTTON_TEXT_DISABLED
+            )
 
         merged, error = self._attempt_merge()
         if error is not None:

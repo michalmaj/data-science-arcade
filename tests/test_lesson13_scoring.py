@@ -7,6 +7,7 @@ from data_science_arcade.lessons.l13_join_junction.scoring import (
     MULTI_CHECK_VALIDATION_EVIDENCE_KEYS,
     ORDERS_KEY_EVIDENCE_KEYS,
     PROMOTIONS_KEY_EVIDENCE_KEYS,
+    REPAIR_CONSEQUENCE_EVIDENCE_KEYS,
     LessonThirteenResult,
     _mastery_succeeded,
     score_lesson_thirteen,
@@ -27,6 +28,8 @@ def _result(**overrides) -> LessonThirteenResult:
     base = dict(
         join1_first_choice="left",
         join1_choice="left",
+        promotions_repair_first_choice="preaggregate_first",
+        promotions_repair_choice="preaggregate_first",
         decision=GOOD_DECISION,
         critical_evidence_present=CRITICAL_EVIDENCE_KEYS,
     )
@@ -34,86 +37,95 @@ def _result(**overrides) -> LessonThirteenResult:
     return LessonThirteenResult(**base)
 
 
-# --- METHOD ------------------------------------------------------------
+# --- METHOD: scored purely off the FINAL EXECUTED pipeline state -----------
 
 
-def test_a_fully_correct_final_decision_scores_the_top_method_band():
+def test_a_fully_correct_final_executed_pipeline_scores_the_top_method_band():
     evaluation = score_lesson_thirteen(_result(), LESSON_13, hints_used=0)
     assert evaluation.dimension_scores[ScoreDimension.METHOD] == 96.0
 
 
-def test_a_wrong_orders_join_type_lowers_method_and_reports_the_real_feedback_key():
-    result = _result(decision=dict(GOOD_DECISION, orders_join_type="inner", orders_join_row_count="108"))
+def test_method_ignores_the_final_decisions_own_claims_and_scores_the_real_pipeline():
+    # The P0 regression this follow-up fixes: leaving the real pipeline on
+    # inner while claiming "left" in the Join Brief must NOT earn METHOD
+    # credit - Final Decision can never "rewrite history."
+    result = _result(join1_first_choice="inner", join1_choice="inner", decision=dict(GOOD_DECISION, orders_join_type="left"))
     evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
     assert evaluation.dimension_scores[ScoreDimension.METHOD] < 96.0
-    assert any(o.text_key == "lesson.l13.feedback.orders_join_type_wrong" for o in evaluation.observations)
+    assert any(o.text_key == "lesson.l13.feedback.join1_pipeline_wrong" for o in evaluation.observations)
 
 
-def test_method_is_scored_off_the_final_decision_not_the_earlier_stage_pick():
-    # join1_first_choice/join1_choice describe the interactive practice
-    # pick - only decision["orders_join_type"] is the real scored fact,
-    # matching L12's own rollup_prior/rollup_revised_picks vs. Final
-    # Decision separation.
-    result = _result(join1_first_choice="inner", join1_choice="inner", decision=GOOD_DECISION)
+def test_a_wrong_final_executed_repair_lowers_method_even_with_a_correct_decision_claim():
+    result = _result(promotions_repair_first_choice="join_raw_directly", promotions_repair_choice="join_raw_directly")
     evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
-    assert evaluation.dimension_scores[ScoreDimension.METHOD] == 96.0
+    assert evaluation.dimension_scores[ScoreDimension.METHOD] < 96.0
+    assert any(o.text_key == "lesson.l13.feedback.promotions_repair_pipeline_wrong" for o in evaluation.observations)
 
 
-# --- REASONING -----------------------------------------------------------
+def test_a_student_who_leaves_a_wrong_pipeline_but_understands_the_fix_scores_method_low_reasoning_high():
+    # The exact example the user gave: wrong pipeline left in place, but
+    # the Final Decision correctly states what SHOULD have been done.
+    result = _result(
+        join1_first_choice="inner",
+        join1_choice="inner",
+        promotions_repair_first_choice="join_raw_directly",
+        promotions_repair_choice="join_raw_directly",
+        decision=GOOD_DECISION,  # correctly claims left/120 and preaggregate_first/120
+    )
+    evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
+    assert evaluation.dimension_scores[ScoreDimension.METHOD] == 14.0  # both real facts wrong
+    assert evaluation.dimension_scores[ScoreDimension.REASONING] == 95.0  # full normative understanding, still correct
 
 
-def test_reasoning_is_full_when_every_claim_is_internally_coherent():
+# --- REASONING: normative understanding + coherence, independent of the
+# real pipeline's own state -------------------------------------------
+
+
+def test_reasoning_is_full_when_every_claim_is_correct_and_evidenced():
     evaluation = score_lesson_thirteen(_result(), LESSON_13, hints_used=0)
-    assert evaluation.dimension_scores[ScoreDimension.REASONING] == 93.0
+    assert evaluation.dimension_scores[ScoreDimension.REASONING] == 95.0
 
 
-def test_reasoning_drops_when_the_row_count_contradicts_the_stated_join_type():
-    # Claiming "left" while also claiming "108" (inner's own real number)
-    # is self-contradictory, independent of whether "left" is itself the
-    # objectively correct pick.
-    result = _result(decision=dict(GOOD_DECISION, orders_join_row_count="108"))
+def test_reasoning_drops_when_the_join1_claim_is_normatively_wrong():
+    result = _result(decision=dict(GOOD_DECISION, orders_join_type="inner", orders_join_row_count="108"))
     evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
-    assert evaluation.dimension_scores[ScoreDimension.REASONING] < 93.0
-    assert any(o.text_key == "lesson.l13.feedback.join1_incoherent" for o in evaluation.observations)
+    assert evaluation.dimension_scores[ScoreDimension.REASONING] < 95.0
+    assert any(o.text_key == "lesson.l13.feedback.join1_not_understood" for o in evaluation.observations)
 
 
-def test_reasoning_drops_when_the_repair_row_count_contradicts_the_preaggregation_claim():
-    # Claiming pre-aggregation is needed while still reporting 147 (the
-    # raw-join number) is incoherent.
-    result = _result(decision=dict(GOOD_DECISION, promotions_row_count_after_repair="147"))
+def test_reasoning_drops_when_the_promotions_key_cardinality_claim_is_wrong():
+    result = _result(decision=dict(GOOD_DECISION, promotions_key_cardinality="one_to_one"))
     evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
-    assert evaluation.dimension_scores[ScoreDimension.REASONING] < 93.0
-    assert any(o.text_key == "lesson.l13.feedback.repair_incoherent" for o in evaluation.observations)
+    assert evaluation.dimension_scores[ScoreDimension.REASONING] < 95.0
+    assert any(o.text_key == "lesson.l13.feedback.promotions_key_cardinality_wrong" for o in evaluation.observations)
 
 
-def test_a_wrong_but_internally_consistent_repair_claim_stays_reasoning_coherent():
-    # Claiming raw-join-is-fine (wrong on the merits, METHOD's own job)
-    # while honestly reporting the real 147-row consequence of that
-    # claim is internally coherent, even though substantively wrong.
+def test_reasoning_drops_when_the_repair_claim_is_normatively_wrong():
     result = _result(
         decision=dict(GOOD_DECISION, promotions_join_needs_preaggregation="join_raw_directly", promotions_row_count_after_repair="147")
     )
     evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
-    assert evaluation.dimension_scores[ScoreDimension.REASONING] == 93.0
+    assert evaluation.dimension_scores[ScoreDimension.REASONING] < 95.0
+    assert any(o.text_key == "lesson.l13.feedback.repair_not_understood" for o in evaluation.observations)
 
 
 def test_reasoning_drops_when_the_validation_claim_has_no_supporting_evidence():
     result = _result(critical_evidence_present=tuple(k for k in CRITICAL_EVIDENCE_KEYS if k not in MULTI_CHECK_VALIDATION_EVIDENCE_KEYS))
     evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
-    assert evaluation.dimension_scores[ScoreDimension.REASONING] < 93.0
+    assert evaluation.dimension_scores[ScoreDimension.REASONING] < 95.0
     assert any(o.text_key == "lesson.l13.feedback.validation_claim_unevidenced" for o in evaluation.observations)
 
 
-# --- EVIDENCE --------------------------------------------------------------
+# --- EVIDENCE - 6 real roles ------------------------------------------------
 
 
-def test_evidence_is_full_with_all_five_real_roles():
+def test_evidence_is_full_with_all_six_real_roles():
     evaluation = score_lesson_thirteen(_result(), LESSON_13, hints_used=0)
     assert evaluation.dimension_scores[ScoreDimension.EVIDENCE] == 97.0
 
 
 def test_evidence_drops_when_a_real_role_is_missing():
-    result = _result(critical_evidence_present=tuple(k for k in CRITICAL_EVIDENCE_KEYS if k not in FAN_OUT_EVIDENCE_KEYS))
+    result = _result(critical_evidence_present=tuple(k for k in CRITICAL_EVIDENCE_KEYS if k not in REPAIR_CONSEQUENCE_EVIDENCE_KEYS))
     evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
     assert evaluation.dimension_scores[ScoreDimension.EVIDENCE] < 97.0
     assert any(o.text_key == "lesson.l13.feedback.evidence_missing_a_real_role" for o in evaluation.observations)
@@ -128,20 +140,26 @@ def test_no_data_quality_or_reproducibility_dimension_is_ever_scored():
 # --- Trajectory: real wrong-then-corrected AT the revision step itself ----
 
 
-def test_trajectory_fires_only_for_a_real_recovery_at_the_revision_step():
+def test_join1_trajectory_fires_only_for_a_real_recovery_at_the_revision_step():
     result = _result(join1_first_choice="inner", join1_choice="left")
     evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
     assert any(o.text_key == "lesson.l13.feedback.orders_join_type_recovered_via_revision" for o in evaluation.observations)
 
 
-def test_trajectory_does_not_fire_when_the_first_pick_was_already_correct():
+def test_join1_trajectory_does_not_fire_when_the_first_pick_was_already_correct():
     result = _result(join1_first_choice="left", join1_choice="left")
     evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
     assert not any("recovered_via_revision" in o.text_key for o in evaluation.observations)
 
 
-def test_trajectory_does_not_fire_when_the_revision_was_declined_and_stayed_wrong():
-    result = _result(join1_first_choice="inner", join1_choice="inner")
+def test_repair_trajectory_fires_only_for_a_real_recovery_at_the_revision_step():
+    result = _result(promotions_repair_first_choice="dedupe_keep_first", promotions_repair_choice="preaggregate_first")
+    evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
+    assert any(o.text_key == "lesson.l13.feedback.promotions_repair_recovered_via_revision" for o in evaluation.observations)
+
+
+def test_repair_trajectory_does_not_fire_when_the_revision_was_declined_and_stayed_wrong():
+    result = _result(promotions_repair_first_choice="join_raw_directly", promotions_repair_choice="join_raw_directly")
     evaluation = score_lesson_thirteen(result, LESSON_13, hints_used=0)
     assert not any("recovered_via_revision" in o.text_key for o in evaluation.observations)
 
@@ -161,8 +179,6 @@ def test_mastery_requires_the_correct_grain_judgment_and_the_real_distinguishing
 
 
 def test_mastery_fails_when_the_only_cited_fact_is_the_naive_heuristic_itself():
-    # "row count grew" is exactly the naive heuristic being inverted -
-    # citing it as if it were the distinguishing fact must not count.
     result = _result(
         mastery_engaged=True,
         mastery_result={"mastery_row_growth_judgment": "expected_real_grain", "mastery_supporting_evidence": ("row_count_grew",)},
@@ -208,18 +224,20 @@ def test_hints_used_adds_a_shared_generic_observation():
     assert any(o.text_key == "lesson.feedback.hints_used" for o in evaluation.observations)
 
 
-def test_completed_thoughtfully_requires_both_a_join1_choice_and_a_real_decision():
+def test_completed_thoughtfully_requires_a_join1_choice_a_repair_choice_and_a_real_decision():
     assert _result().completed_thoughtfully() is True
     assert _result(join1_choice=None).completed_thoughtfully() is False
+    assert _result(promotions_repair_choice=None).completed_thoughtfully() is False
     assert _result(decision={}).completed_thoughtfully() is False
 
 
-def test_all_five_evidence_role_constants_are_disjoint_and_cover_critical_keys():
+def test_all_six_evidence_role_constants_are_disjoint_and_cover_critical_keys():
     roles = (
         ORDERS_KEY_EVIDENCE_KEYS,
         JOIN1_CONSEQUENCE_EVIDENCE_KEYS,
         PROMOTIONS_KEY_EVIDENCE_KEYS,
         FAN_OUT_EVIDENCE_KEYS,
+        REPAIR_CONSEQUENCE_EVIDENCE_KEYS,
         MULTI_CHECK_VALIDATION_EVIDENCE_KEYS,
     )
     seen: set[str] = set()

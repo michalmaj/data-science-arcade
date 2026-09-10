@@ -52,22 +52,136 @@ DEBRIEF_DIALOGUE = Dialogue(
 )
 MASTERY_DIALOGUE_KEYS = ("dialogue.l13_mastery.line1", "dialogue.l13_mastery.line2", "dialogue.l13_mastery.line3")
 
+_PROMO_PER_CUSTOMER_SCHEMA = Schema(columns=(ColumnSchema("customer_id", "object"), ColumnSchema("active_promotion_count", "int64")))
+
+
+def _promo_per_customer_dataset(active_promotions: Dataset) -> Dataset:
+    frame = active_promotions.frame.groupby("customer_id", as_index=False).agg(active_promotion_count=("promotion_code", "size"))
+    return Dataset(name="promo_per_customer", frame=frame, schema=_PROMO_PER_CUSTOMER_SCHEMA)
+
+
+def _deduped_promotions_dataset(active_promotions: Dataset) -> Dataset:
+    frame = active_promotions.frame.drop_duplicates(subset="customer_id", keep="first")
+    return Dataset(name="deduped_promotions", frame=frame, schema=active_promotions.schema)
+
+
 # --- Join 1 (orders <-> customers) -----------------------------------------
 #
 # A clean one-to-many join from customers' own unique key - nothing
 # multiplies here, only rows get kept or dropped. No gratuitous right
 # join: only inner/left/outer are ever offered as real options.
-
-JOIN1_OPTIONS = (
-    JoinTypeOption("inner", "lesson.l13.builder.join1.option.inner", "inner"),
-    JoinTypeOption("left", "lesson.l13.builder.join1.option.left", "left"),
-    JoinTypeOption("outer", "lesson.l13.builder.join1.option.outer", "outer"),
-)
-RAW_PROMO_OPTIONS = (JoinTypeOption("left_raw", "lesson.l13.builder.raw_promo.option.left", "left"),)
-VALIDATE_PROMO_OPTIONS = (JoinTypeOption("left_validated", "lesson.l13.builder.validate_promo.option.left", "left"),)
-REPAIR_OPTIONS = (JoinTypeOption("left_repaired", "lesson.l13.builder.repair.option.left", "left"),)
+# validate="many_to_one" is real here too, not reserved as a special
+# trick shown only at failure - customers' own customer_id IS unique
+# regardless of which `how` is picked, so this always passes for real.
 
 _JOIN1_ROW_COUNT_BY_HOW: dict[str, int] = {"inner": JOIN1_INNER_ROW_COUNT, "left": JOIN1_LEFT_ROW_COUNT, "outer": JOIN1_OUTER_ROW_COUNT}
+
+
+def _join1_options(customers: Dataset) -> tuple[JoinTypeOption, ...]:
+    return tuple(
+        JoinTypeOption(
+            key,
+            f"lesson.l13.builder.join1.option.{key}",
+            how,
+            right_dataset=customers,
+            validate="many_to_one",
+            validate_explanation_key="lesson.l13.builder.join1.validate_explanation",
+        )
+        for key, how in (("inner", "inner"), ("left", "left"), ("outer", "outer"))
+    )
+
+
+def _raw_promo_options(active_promotions: Dataset) -> tuple[JoinTypeOption, ...]:
+    # Same real contract as Join 1 (validate="many_to_one"), and this
+    # time it genuinely fails - active_promotions' own customer_id
+    # really isn't unique. The fan-out numbers this would have silently
+    # produced are shown next, in concrete_fan_out_example - computed
+    # independently (self-contained python_code) rather than depending
+    # on this action's own output, since this merge never actually
+    # succeeds here.
+    return (
+        JoinTypeOption(
+            "left_raw",
+            "lesson.l13.builder.raw_promo.option.left",
+            "left",
+            right_dataset=active_promotions,
+            validate="many_to_one",
+            validate_explanation_key="lesson.l13.builder.raw_promo.validate_explanation",
+        ),
+    )
+
+
+# --- The promotions repair decision - a real choice, not a narrated
+# canonical step. Three genuinely different real strategies against the
+# same active_promotions table, each really executed:
+#   - preaggregate_first: the correct repair (groupby to customer grain,
+#     then a real many-to-one join that actually passes validate=).
+#   - join_raw_directly: accept the raw table's own real cardinality,
+#     no validate= - keeps the real 147-row fan-out.
+#   - dedupe_keep_first: the tempting trap - drop_duplicates makes the
+#     key pass validate="many_to_one" too, but silently discards every
+#     promotion after the first for a multi-promo customer (real
+#     information loss no row-count-based check below can catch; only
+#     the concrete per-customer reveal does).
+
+
+def _repair_decision_options(
+    active_promotions: Dataset, promo_per_customer: Dataset, deduped_promotions: Dataset
+) -> tuple[JoinTypeOption, ...]:
+    return (
+        JoinTypeOption(
+            "preaggregate_first",
+            "lesson.l13.builder.repair_decision.option.preaggregate_first",
+            "left",
+            right_dataset=promo_per_customer,
+            validate="many_to_one",
+            validate_explanation_key="lesson.l13.builder.repair_decision.preaggregate_first.validate_explanation",
+            preamble_python_code=(
+                "promo_per_customer = active_promotions.groupby('customer_id', as_index=False).agg(\n"
+                "    active_promotion_count=('promotion_code', 'size'),\n"
+                ")"
+            ),
+        ),
+        JoinTypeOption(
+            "join_raw_directly",
+            "lesson.l13.builder.repair_decision.option.join_raw_directly",
+            "left",
+            right_dataset=active_promotions,
+            validate=None,
+            validate_explanation_key="lesson.l13.builder.repair_decision.join_raw_directly.validate_explanation",
+        ),
+        JoinTypeOption(
+            "dedupe_keep_first",
+            "lesson.l13.builder.repair_decision.option.dedupe_keep_first",
+            "left",
+            right_dataset=deduped_promotions,
+            validate="many_to_one",
+            validate_explanation_key="lesson.l13.builder.repair_decision.dedupe_keep_first.validate_explanation",
+            preamble_python_code="deduped_promotions = active_promotions.drop_duplicates(subset='customer_id', keep='first')",
+        ),
+    )
+
+
+def _repair_right_dataset(choice: str, active_promotions: Dataset, promo_per_customer: Dataset, deduped_promotions: Dataset) -> Dataset:
+    return {"preaggregate_first": promo_per_customer, "join_raw_directly": active_promotions, "dedupe_keep_first": deduped_promotions}[
+        choice
+    ]
+
+
+def _represented_promo_count(right: Dataset, customer_id: str) -> float:
+    """How many of this customer's real active promotions the CHOSEN
+    repair's own right-side table actually represents - read from the
+    real `active_promotion_count` feature when the repair produced one
+    (preaggregate_first), or counted directly from however many rows
+    that table still carries for this customer otherwise (join_raw_
+    directly's own 3 raw rows; dedupe_keep_first's own single surviving
+    row - silently undercounting, the real trap no row-count-based check
+    elsewhere catches)."""
+    if "active_promotion_count" in right.frame.columns:
+        row = right.frame.loc[right.frame["customer_id"] == customer_id]
+        return float(row["active_promotion_count"].iloc[0])
+    return float((right.frame["customer_id"] == customer_id).sum())
+
 
 # --- Reveal interpret options ------------------------------------------
 
@@ -125,6 +239,15 @@ FAN_OUT_INTERPRET_OPTIONS = (
     ),
 )
 
+# repair_consequence has no evidence_key on its own options either - same
+# manual, update-by-key recording as join1_consequence, since the
+# stage-12 revision can change which repair is actually in effect.
+REPAIR_CONSEQUENCE_INTERPRET_OPTIONS = (
+    InterpretOption("represented_correctly_and_safely", "lesson.l13.repair_consequence.interpret.option.correct"),
+    InterpretOption("represented_but_order_row_multiplied", "lesson.l13.repair_consequence.interpret.option.multiplied"),
+    InterpretOption("silently_lost_real_information", "lesson.l13.repair_consequence.interpret.option.lost_information"),
+)
+
 MULTI_CHECK_INTERPRET_OPTIONS = (
     InterpretOption(
         "row_count_alone_insufficient",
@@ -178,6 +301,7 @@ PROMOTIONS_NEEDS_PREAGGREGATION_FIELD = BriefField(
     options=(
         BriefOption("preaggregate_first", "lesson.l13.decision.needs_preaggregation.option.preaggregate_first"),
         BriefOption("join_raw_directly", "lesson.l13.decision.needs_preaggregation.option.join_raw_directly"),
+        BriefOption("dedupe_keep_first", "lesson.l13.decision.needs_preaggregation.option.dedupe_keep_first"),
     ),
 )
 PROMOTIONS_REPAIRED_ROW_COUNT_FIELD = BriefField(
@@ -197,7 +321,7 @@ VALIDATION_SUFFICIENCY_FIELD = BriefField(
         BriefOption("yes_row_count_enough", "lesson.l13.decision.validation_sufficiency.option.yes"),
     ),
 )
-DECISION_EVIDENCE_FIELD = EvidenceField(key="evidence", prompt_key="lesson.l13.decision.evidence.prompt", min_count=3, max_count=5)
+DECISION_EVIDENCE_FIELD = EvidenceField(key="evidence", prompt_key="lesson.l13.decision.evidence.prompt", min_count=3, max_count=6)
 DECISION_FIELDS: tuple[BriefField, ...] = (
     ORDERS_JOIN_TYPE_FIELD,
     ORDERS_JOIN_ROW_COUNT_FIELD,
@@ -243,16 +367,26 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     entangled in the same stage. LessonContext is threaded through every
     analytical stage exactly like L06-L12.
 
-    Join 1's own final state (after the stage-5 revision opportunity) is
-    tracked for trajectory feedback, but only the Final Decision's own
-    `orders_join_type` field is the real scored METHOD fact - see
-    LessonThirteenResult's own docstring for why."""
+    Both Join 1 and the promotions repair are real cold-pick -> real
+    executed consequence -> revision-offer sequences. METHOD is scored
+    purely off each one's own FINAL EXECUTED state
+    (`join1_choice`/`promotions_repair_choice`) - the Final Decision's own
+    claims about them are separately checked for normative understanding
+    and internal coherence under REASONING (see scoring.py's own
+    docstring for why Final Decision can never "rewrite" what the
+    pipeline actually did)."""
     collected: dict = {}
     context = LessonContext()
 
     customers = generate_customers()
     orders = generate_orders()
     active_promotions = generate_active_promotions()
+    promo_per_customer = _promo_per_customer_dataset(active_promotions)
+    deduped_promotions = _deduped_promotions_dataset(active_promotions)
+
+    join1_options = _join1_options(customers)
+    raw_promo_options = _raw_promo_options(active_promotions)
+    repair_decision_options = _repair_decision_options(active_promotions, promo_per_customer, deduped_promotions)
 
     def _restore_context_if_present() -> None:
         data = collected.get("analytical_context")
@@ -268,6 +402,15 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         action = context.record_action(label_key="lesson.l13.evidence.join1_consequence", key="join1_consequence_role")
         context.record_evidence(
             label_key="lesson.l13.evidence.join1_consequence", source_action=action, key="join1_consequence_role", detail=detail
+        )
+
+    def _record_repair_consequence_evidence(choice: str) -> None:
+        right = _repair_right_dataset(choice, active_promotions, promo_per_customer, deduped_promotions)
+        represented_count = _represented_promo_count(right, CONCRETE_EXAMPLE_CUSTOMER_ID)
+        detail = f"{CONCRETE_EXAMPLE_CUSTOMER_ID}: represents {represented_count:.0f} of 3 real promotions after {choice}"
+        action = context.record_action(label_key="lesson.l13.evidence.repair_consequence", key="repair_consequence_role")
+        context.record_evidence(
+            label_key="lesson.l13.evidence.repair_consequence", source_action=action, key="repair_consequence_role", detail=detail
         )
 
     # --- The Ask ---
@@ -320,9 +463,8 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             app,
             "lesson.l13.builder.join1.title",
             orders,
-            customers,
             "customer_id",
-            JOIN1_OPTIONS,
+            join1_options,
             on_complete,
             context,
             output_variable_name="join1_result",
@@ -375,9 +517,8 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 app,
                 "lesson.l13.builder.join1.title",
                 orders,
-                customers,
                 "customer_id",
-                JOIN1_OPTIONS,
+                join1_options,
                 on_revise_complete,
                 context,
                 initial_choice=collected["join1_choice"],
@@ -449,9 +590,8 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             app,
             "lesson.l13.builder.raw_promo.title",
             orders,
-            active_promotions,
             "customer_id",
-            RAW_PROMO_OPTIONS,
+            raw_promo_options,
             on_complete,
             context,
             output_variable_name="raw_promo_join",
@@ -459,9 +599,13 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             guided=True,
         )
 
-    # --- Concrete fan-out example ---
+    # --- Concrete fan-out example (rows AND the real revenue consequence) ---
 
     def concrete_fan_out_example(advance):
+        raw_promo_join = orders.frame.merge(active_promotions.frame, on="customer_id", how="left")
+        real_revenue = float(orders.frame["revenue"].sum())
+        naive_revenue = float(raw_promo_join["revenue"].sum())
+
         def on_complete(_interpretation):
             _sync_context_into_collected()
             advance()
@@ -480,8 +624,32 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 ComparisonValue(
                     "lesson.l13.fan_out.after_label",
                     3.0,
-                    python_code=f"raw_promo_join.loc[raw_promo_join['customer_id'] == '{CONCRETE_EXAMPLE_CUSTOMER_ID}']",
+                    # Self-contained (not "raw_promo_join.loc[...]"): the
+                    # earlier raw_promotions_attempt action now really
+                    # fails validate="many_to_one" (item 3's own point),
+                    # so it never actually assigns raw_promo_join -
+                    # nothing upstream in the Mirror can be assumed to
+                    # have defined it.
+                    python_code=(
+                        "raw_promo_join = orders.merge(active_promotions, on='customer_id', how='left')\n"
+                        f"raw_promo_join.loc[raw_promo_join['customer_id'] == '{CONCRETE_EXAMPLE_CUSTOMER_ID}']"
+                    ),
                     value_format=lambda v: f"{v:,.0f} rows",
+                ),
+                ComparisonValue(
+                    "lesson.l13.fan_out.naive_revenue_label",
+                    naive_revenue,
+                    python_code=(
+                        "raw_promo_join = orders.merge(active_promotions, on='customer_id', how='left')\n"
+                        "raw_promo_join['revenue'].sum()"
+                    ),
+                    value_format=lambda v: f"${v:,.2f}",
+                ),
+                ComparisonValue(
+                    "lesson.l13.fan_out.real_revenue_label",
+                    real_revenue,
+                    python_code="orders['revenue'].sum()",
+                    value_format=lambda v: f"${v:,.2f}",
                 ),
             ),
             interpret_prompt_key="lesson.l13.fan_out.interpret_prompt",
@@ -491,77 +659,124 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             comparisons_are_evidence=False,
         )
 
-    # --- validate= reveal ---
+    # --- The promotions repair decision (a real choice, not narrated) ---
 
-    def validate_reveal(advance):
-        def on_complete(_choice, _succeeded):
+    def promotions_repair_decision(advance):
+        def on_complete(choice, _succeeded):
+            collected["promotions_repair_first_choice"] = choice
+            collected["promotions_repair_choice"] = choice
             _sync_context_into_collected()
             advance()
 
         return JoinBuilderScene(
             app,
-            "lesson.l13.builder.validate_promo.title",
+            "lesson.l13.builder.repair_decision.title",
             orders,
-            active_promotions,
             "customer_id",
-            VALIDATE_PROMO_OPTIONS,
+            repair_decision_options,
             on_complete,
             context,
-            validate="many_to_one",
-            output_variable_name="_probe",
-            mirror_action_key="validate_probe_pipeline",
-            guided=True,
-        )
-
-    # --- Repair: pre-aggregate then join ---
-
-    def repair_attempt(advance):
-        promo_per_customer_frame = active_promotions.frame.groupby("customer_id", as_index=False).agg(
-            active_promotion_count=("promotion_code", "size")
-        )
-        promo_per_customer_schema = Schema(
-            columns=(ColumnSchema("customer_id", "object"), ColumnSchema("active_promotion_count", "int64"))
-        )
-        promo_per_customer = Dataset(name="promo_per_customer", frame=promo_per_customer_frame, schema=promo_per_customer_schema)
-        context.record_action(
-            label_key="lesson.l13.repair.preaggregate_title",
-            python_code=(
-                "promo_per_customer = active_promotions.groupby('customer_id', as_index=False).agg(\n"
-                "    active_promotion_count=('promotion_code', 'size'),\n"
-                ")"
-            ),
-            key="preaggregate_pipeline",
-        )
-
-        def on_complete(_choice, _succeeded):
-            _sync_context_into_collected()
-            advance()
-
-        return JoinBuilderScene(
-            app,
-            "lesson.l13.builder.repair.title",
-            orders,
-            promo_per_customer,
-            "customer_id",
-            REPAIR_OPTIONS,
-            on_complete,
-            context,
-            validate="many_to_one",
             output_variable_name="final",
             mirror_action_key="repair_pipeline",
+            hint_key="lesson.l13.builder.repair_decision.hint",
             guided=True,
         )
 
-    # --- Multi-check validation reveal ---
+    # --- Promotions repair consequence reveal (path-aware, concrete) ---
+
+    def promotions_repair_consequence_reveal(advance):
+        choice = collected["promotions_repair_choice"]
+        right = _repair_right_dataset(choice, active_promotions, promo_per_customer, deduped_promotions)
+        option = next(o for o in repair_decision_options if o.key == choice)
+        final = orders.frame.merge(right.frame, on="customer_id", how=option.how, indicator=True, validate=option.validate)
+        order_rows_for_customer = float((final["customer_id"] == CONCRETE_EXAMPLE_CUSTOMER_ID).sum())
+        represented_count = _represented_promo_count(right, CONCRETE_EXAMPLE_CUSTOMER_ID)
+
+        def on_complete(_interpretation):
+            _record_repair_consequence_evidence(choice)
+            _sync_context_into_collected()
+            advance()
+
+        return ComparisonRevealScene(
+            app,
+            title_key="lesson.l13.repair_consequence.title",
+            narrative_keys=("dialogue.l13_repair_consequence.line1",),
+            comparisons=(
+                ComparisonValue(
+                    "lesson.l13.repair_consequence.real_promo_count_label",
+                    3.0,
+                    python_code=f"active_promotions.loc[active_promotions['customer_id'] == '{CONCRETE_EXAMPLE_CUSTOMER_ID}']",
+                    value_format=lambda v: f"{v:,.0f}",
+                ),
+                ComparisonValue(
+                    "lesson.l13.repair_consequence.order_rows_label", order_rows_for_customer, value_format=lambda v: f"{v:,.0f}"
+                ),
+                ComparisonValue(
+                    "lesson.l13.repair_consequence.represented_count_label", represented_count, value_format=lambda v: f"{v:,.0f}"
+                ),
+            ),
+            interpret_prompt_key="lesson.l13.repair_consequence.interpret_prompt",
+            interpret_options=REPAIR_CONSEQUENCE_INTERPRET_OPTIONS,
+            on_complete=on_complete,
+            context=context,
+            comparisons_are_evidence=False,
+        )
+
+    # --- Promotions repair revision offer ---
+
+    def promotions_repair_revision_offer(advance):
+        prior_choice = collected["promotions_repair_choice"]
+
+        def build_revision_task(on_task_complete):
+            def on_revise_complete(choice, _succeeded):
+                collected["promotions_repair_choice"] = choice
+                if choice != prior_choice:
+                    _record_repair_consequence_evidence(choice)
+                on_task_complete(None)
+
+            return JoinBuilderScene(
+                app,
+                "lesson.l13.builder.repair_decision.title",
+                orders,
+                "customer_id",
+                repair_decision_options,
+                on_revise_complete,
+                context,
+                initial_choice=collected["promotions_repair_choice"],
+                output_variable_name="final",
+                mirror_action_key="repair_pipeline",
+                hint_key="lesson.l13.builder.repair_decision.hint",
+                guided=True,
+            )
+
+        def on_offer_complete(_engaged, _result):
+            _sync_context_into_collected()
+            advance()
+
+        return OfferThenTaskScene(
+            app,
+            build_revision_task,
+            on_offer_complete,
+            title_key="lesson.l13.repair_revision_offer.title",
+            line_keys=("lesson.l13.repair_revision_offer.line1",),
+            engage_label_key="lesson.l13.repair_revision_offer.engage",
+            skip_label_key="lesson.l13.repair_revision_offer.skip",
+        )
+
+    # --- Multi-check validation reveal (path-aware - never a canonical-
+    # green proof independent of what the student actually did) ---
 
     def multi_check_validation_reveal(advance):
-        promo_per_customer_frame = active_promotions.frame.groupby("customer_id", as_index=False).agg(
-            active_promotion_count=("promotion_code", "size")
-        )
-        corrected = orders.frame.merge(promo_per_customer_frame, on="customer_id", how="left", indicator=True)
+        choice = collected["promotions_repair_choice"]
+        right = _repair_right_dataset(choice, active_promotions, promo_per_customer, deduped_promotions)
+        final = orders.frame.merge(right.frame, on="customer_id", how="left", indicator=True)
+
+        row_count_matches = float(len(final))
+        order_id_unique = 1.0 if final["order_id"].is_unique else 0.0
+        right_key_unique = 1.0 if right.frame["customer_id"].is_unique else 0.0
         revenue_before = float(orders.frame["revenue"].sum())
-        revenue_after = float(corrected["revenue"].sum())
-        unmatched_orders = int((corrected["_merge"] == "left_only").sum())
+        revenue_after = float(final["revenue"].sum())
+        unmatched = float((final["_merge"] == "left_only").sum())
 
         def on_complete(_interpretation):
             action = context.record_action(label_key="lesson.l13.evidence.multi_check_validation", key="multi_check_validation_role")
@@ -569,7 +784,11 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 label_key="lesson.l13.evidence.multi_check_validation",
                 source_action=action,
                 key="multi_check_validation_role",
-                detail=f"key unique: True, revenue ${revenue_before:,.2f} -> ${revenue_after:,.2f}, unmatched: {unmatched_orders}",
+                detail=(
+                    f"rows={int(row_count_matches)}, order_id_unique={bool(order_id_unique)}, "
+                    f"right_key_unique={bool(right_key_unique)}, revenue ${revenue_before:,.2f} -> ${revenue_after:,.2f}, "
+                    f"unmatched={int(unmatched)}"
+                ),
             )
             _sync_context_into_collected()
             advance()
@@ -580,9 +799,14 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             narrative_keys=("dialogue.l13_multi_check.line1",),
             comparisons=(
                 ComparisonValue(
-                    "lesson.l13.multi_check.key_unique_label",
-                    1.0,
-                    python_code="promo_per_customer['customer_id'].is_unique",
+                    "lesson.l13.multi_check.row_count_label", row_count_matches, value_format=lambda v: f"{v:,.0f}"
+                ),
+                ComparisonValue(
+                    "lesson.l13.multi_check.order_id_unique_label", order_id_unique, value_format=lambda v: "Yes" if v == 1.0 else "No"
+                ),
+                ComparisonValue(
+                    "lesson.l13.multi_check.right_key_unique_label",
+                    right_key_unique,
                     value_format=lambda v: "Yes" if v == 1.0 else "No",
                 ),
                 ComparisonValue(
@@ -591,9 +815,7 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 ComparisonValue(
                     "lesson.l13.multi_check.revenue_after_label", revenue_after, value_format=lambda v: f"${v:,.2f}"
                 ),
-                ComparisonValue(
-                    "lesson.l13.multi_check.unmatched_label", float(unmatched_orders), value_format=lambda v: f"{v:,.0f}"
-                ),
+                ComparisonValue("lesson.l13.multi_check.unmatched_label", unmatched, value_format=lambda v: f"{v:,.0f}"),
             ),
             interpret_prompt_key="lesson.l13.multi_check.interpret_prompt",
             interpret_options=MULTI_CHECK_INTERPRET_OPTIONS,
@@ -676,6 +898,8 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         return LessonThirteenResult(
             join1_first_choice=collected.get("join1_first_choice"),
             join1_choice=collected.get("join1_choice"),
+            promotions_repair_first_choice=collected.get("promotions_repair_first_choice"),
+            promotions_repair_choice=collected.get("promotions_repair_choice"),
             decision=decision,
             critical_evidence_present=_critical_evidence_present(selected_evidence_ids),
             mastery_engaged=collected.get("mastery_engaged", False),
@@ -704,8 +928,9 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         promotions_key_inspection,
         raw_promotions_attempt,
         concrete_fan_out_example,
-        validate_reveal,
-        repair_attempt,
+        promotions_repair_decision,
+        promotions_repair_consequence_reveal,
+        promotions_repair_revision_offer,
         multi_check_validation_reveal,
         final_decision,
         mastery_challenge,

@@ -147,14 +147,19 @@ from data_science_arcade.lessons.l12_groupby_kitchen.scenario import (
     MASTERY_SUPPORTING_EVIDENCE_FIELD as L12_MASTERY_SUPPORTING_EVIDENCE_FIELD,
     METRIC_SLOTS as L12_METRIC_SLOTS,
 )
+from data_science_arcade.lessons.l13_join_junction.orders import (
+    generate_active_promotions as l13_generate_active_promotions,
+    generate_customers as l13_generate_customers,
+)
 from data_science_arcade.lessons.l13_join_junction.scenario import (
     DECISION_FIELDS as L13_DECISION_FIELDS,
-    JOIN1_OPTIONS as L13_JOIN1_OPTIONS,
     MASTERY_ROW_GROWTH_JUDGMENT_FIELD as L13_MASTERY_ROW_GROWTH_JUDGMENT_FIELD,
     MASTERY_SUPPORTING_EVIDENCE_FIELD as L13_MASTERY_SUPPORTING_EVIDENCE_FIELD,
-    RAW_PROMO_OPTIONS as L13_RAW_PROMO_OPTIONS,
-    REPAIR_OPTIONS as L13_REPAIR_OPTIONS,
-    VALIDATE_PROMO_OPTIONS as L13_VALIDATE_PROMO_OPTIONS,
+    _deduped_promotions_dataset as l13_deduped_promotions_dataset,
+    _join1_options as l13_join1_options,
+    _promo_per_customer_dataset as l13_promo_per_customer_dataset,
+    _raw_promo_options as l13_raw_promo_options,
+    _repair_decision_options as l13_repair_decision_options,
 )
 from data_science_arcade.lessons.l14_chart_designer.requests import CHART_REQUESTS as L14_CHART_REQUESTS
 from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS as L14_DECISION_FIELDS
@@ -346,7 +351,16 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{request.key}.aggregate.{option.key}", option.label_key, pipeline_option_button_width))
 
     join_builder_option_button_width = JOIN_BUILDER_OPTION_SIZE[0] - BUTTON_PADDING
-    for option in (*L13_JOIN1_OPTIONS, *L13_RAW_PROMO_OPTIONS, *L13_VALIDATE_PROMO_OPTIONS, *L13_REPAIR_OPTIONS):
+    l13_customers = l13_generate_customers()
+    l13_active_promotions = l13_generate_active_promotions()
+    l13_promo_per_customer = l13_promo_per_customer_dataset(l13_active_promotions)
+    l13_deduped_promotions = l13_deduped_promotions_dataset(l13_active_promotions)
+    l13_options = (
+        *l13_join1_options(l13_customers),
+        *l13_raw_promo_options(l13_active_promotions),
+        *l13_repair_decision_options(l13_active_promotions, l13_promo_per_customer, l13_deduped_promotions),
+    )
+    for option in l13_options:
         checks.append((f"join_builder.{option.key}", option.label_key, join_builder_option_button_width))
 
     chart_option_button_width = CHART_OPTION_SIZE[0] - BUTTON_PADDING
