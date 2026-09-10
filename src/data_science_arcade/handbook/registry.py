@@ -143,6 +143,20 @@ JOINS_HAVE_CARDINALITY = HandbookEntry(
     related_entry_ids=("observation_unit_and_grain", "duplicates_need_an_identity", "cardinality"),
 )
 
+A_CHART_ENCODES_A_QUESTION = HandbookEntry(
+    id="a_chart_encodes_a_question",
+    title_key="handbook.article.a_chart_encodes_a_question.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.a_chart_encodes_a_question.body.1",
+        "handbook.article.a_chart_encodes_a_question.body.2",
+        "handbook.article.a_chart_encodes_a_question.body.3",
+        "handbook.article.a_chart_encodes_a_question.body.4",
+        "handbook.article.a_chart_encodes_a_question.body.5",
+    ),
+    related_entry_ids=("a_summary_is_not_the_distribution",),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -154,6 +168,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     OUTLIER_IS_A_FLAG_NOT_A_VERDICT,
     A_SUMMARY_IS_NOT_THE_DISTRIBUTION,
     JOINS_HAVE_CARDINALITY,
+    A_CHART_ENCODES_A_QUESTION,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
