@@ -187,16 +187,25 @@ def _trajectory_observations(result: LessonTwelveResult) -> list[FeedbackObserva
 
 
 def _mastery_succeeded(result: LessonTwelveResult) -> bool:
-    """Success requires the real PAIR of a correct final judgment AND a
-    genuinely distinguishing supporting fact - the same regression
-    pattern L03/L04/L11 all needed a guard for. Citing only that the
-    channels "use the same kind of average" (true, but insufficient
-    alone) never counts; a real volume/overlap fact must be among what
-    was cited."""
-    interpretation_correct = result.mastery_result.get("mastery_interpretation") == "network_avg_needs_weighting"
+    """Two SEPARATE judgments, each requiring its own genuinely relevant
+    supporting fact - not one combined judgment accepting either fact as
+    interchangeable support. Customer overlap justifies why unique
+    purchasers can't be summed across channels; it says nothing about
+    whether the average value per conversion needs weighting, and vice
+    versa for channel-volume differences. Treating them as interchangeable
+    was exactly the "correct claim + unrelated true fact" regression
+    pattern L03/L04/L11 all needed a guard for - this requires the
+    correct evidence-to-claim PAIRING for both judgments, not just one
+    real fact cited somewhere in the pile."""
     evidence = set(result.mastery_result.get("mastery_supporting_evidence", ()))
-    real_distinguishing_fact = bool(evidence & {"channel_volumes_differ", "customers_overlap_channels"})
-    return interpretation_correct and real_distinguishing_fact
+
+    purchaser_sum_correct = result.mastery_result.get("mastery_purchaser_sum") == "cant_sum_overlap"
+    purchaser_sum_evidenced = "customers_overlap_channels" in evidence
+
+    avg_value_correct = result.mastery_result.get("mastery_avg_value_method") == "raw_or_weighted"
+    avg_value_evidenced = "channel_volumes_differ" in evidence
+
+    return purchaser_sum_correct and purchaser_sum_evidenced and avg_value_correct and avg_value_evidenced
 
 
 def score_lesson_twelve(result: LessonTwelveResult, definition: LessonDefinition, hints_used: int) -> LessonEvaluation:

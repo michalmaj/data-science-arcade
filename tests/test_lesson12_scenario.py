@@ -15,6 +15,7 @@ from data_science_arcade.lessons.l12_groupby_kitchen.scenario import (
     NETWORK_ROLLUP_FIELDS,
     build_lesson_twelve_runner,
 )
+from data_science_arcade.lessons.l12_groupby_kitchen.orders import generate_orders, sum_of_store_distinct_customers
 from data_science_arcade.lessons.l12_groupby_kitchen.scoring import CRITICAL_EVIDENCE_KEYS, LessonTwelveResult, score_lesson_twelve
 from data_science_arcade.ui.aggregation_builder_scene import AggregationBuilderScene
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
@@ -23,6 +24,7 @@ from data_science_arcade.ui.composite_scene import OfferThenTaskScene, SequenceS
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
+from data_science_arcade.workbench.context import LessonContext
 
 from lesson_test_helpers import click_through_mission_briefing
 
@@ -41,8 +43,9 @@ GOOD_DECISION = {
     "network_customer_method": "distinct_network_wide",
     "network_aov_method": "order_level_or_weighted",
 }
-GOOD_MASTERY_SUPPORTING = ("channel_volumes_differ",)
-GOOD_MASTERY_INTERPRETATION = "network_avg_needs_weighting"
+GOOD_MASTERY_SUPPORTING = ("channel_volumes_differ", "customers_overlap_channels")
+GOOD_MASTERY_PURCHASER_SUM = "cant_sum_overlap"
+GOOD_MASTERY_AVG_VALUE_METHOD = "raw_or_weighted"
 
 
 def _init_app() -> App:
@@ -110,13 +113,18 @@ def _play_decision_builder(scene: DecisionBuilderScene, *, decision_keys: dict, 
         scene.next_button.on_activate()
 
 
-def _play_mastery_select(scene: BriefBuilderScene, supporting_keys: tuple[str, ...], interpretation_key: str) -> None:
+def _play_mastery_select(
+    scene: BriefBuilderScene, supporting_keys: tuple[str, ...], purchaser_sum_key: str, avg_value_method_key: str
+) -> None:
     multi_field = scene.fields[0]
     for key in supporting_keys:
         scene.buttons.buttons[_option_index(multi_field, key)].on_activate()
     scene.next_button.on_activate()
-    single_field = scene.fields[1]
-    scene.buttons.buttons[_option_index(single_field, interpretation_key)].on_activate()
+    purchaser_sum_field = scene.fields[1]
+    scene.buttons.buttons[_option_index(purchaser_sum_field, purchaser_sum_key)].on_activate()
+    scene.next_button.on_activate()
+    avg_value_method_field = scene.fields[2]
+    scene.buttons.buttons[_option_index(avg_value_method_field, avg_value_method_key)].on_activate()
     scene.next_button.on_activate()
 
 
@@ -132,14 +140,15 @@ def _play_lesson_to_feedback(
     revised_metric_choices=None,
     rollup_prior=GOOD_ROLLUP,
     customer_rollup_interpretation="overlap_breaks_the_sum",
-    aov_rollup_interpretation="volumes_break_the_unweighted_mean",
+    aov_rollup_interpretation="unweighted_mean_weights_stores_not_orders",
     rollup_revision_engage: bool = False,
     revised_rollup=None,
     decision=GOOD_DECISION,
     evidence_ids=None,
     mastery_engage: bool = False,
     mastery_supporting=GOOD_MASTERY_SUPPORTING,
-    mastery_interpretation=GOOD_MASTERY_INTERPRETATION,
+    mastery_purchaser_sum=GOOD_MASTERY_PURCHASER_SUM,
+    mastery_avg_value_method=GOOD_MASTERY_AVG_VALUE_METHOD,
 ) -> LessonFeedbackScene:
     assert isinstance(app.scenes.current.inner, DialogueScene)  # briefing
     _play_dialogue_to_the_end(app.scenes.current)
@@ -196,7 +205,7 @@ def _play_lesson_to_feedback(
         mastery_offer.buttons.buttons[0].on_activate()  # Engage
         select_scene = _leaf_scene(mastery_offer)
         assert isinstance(select_scene, BriefBuilderScene)
-        _play_mastery_select(select_scene, mastery_supporting, mastery_interpretation)
+        _play_mastery_select(select_scene, mastery_supporting, mastery_purchaser_sum, mastery_avg_value_method)
     else:
         mastery_offer.buttons.buttons[1].on_activate()  # Skip
 
@@ -229,7 +238,8 @@ def test_the_full_lesson_plays_through_all_fourteen_stages_to_a_result():
         assert result.mastery_engaged is True
         assert result.mastery_result == {
             "mastery_supporting_evidence": GOOD_MASTERY_SUPPORTING,
-            "mastery_interpretation": GOOD_MASTERY_INTERPRETATION,
+            "mastery_purchaser_sum": GOOD_MASTERY_PURCHASER_SUM,
+            "mastery_avg_value_method": GOOD_MASTERY_AVG_VALUE_METHOD,
         }
         assert collected is not None
     finally:
@@ -434,6 +444,40 @@ def test_every_field_has_at_least_two_options(field):
 def test_every_metric_slot_has_at_least_two_options():
     for slot in METRIC_SLOTS:
         assert len(slot.options) >= 2
+
+
+def test_the_happy_path_python_mirror_executes_top_to_bottom_against_real_orders():
+    # Regression for the P0 bug where the Mirror's own pipeline line was a
+    # bare, unassigned `orders.groupby(...).agg(...)` expression and the
+    # weighted-AOV reveal referenced `store_summary`/`np` before either
+    # existed anywhere in the Mirror. A substring check can't catch that -
+    # this assembles the real happy-path context.python_mirror() and
+    # actually executes it against a real `orders` namespace.
+    app = _init_app()
+    try:
+        runner, collected = build_lesson_twelve_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_lesson_to_feedback(app)
+
+        restored_context = LessonContext()
+        restored_context.restore_from_dict(collected["analytical_context"])
+        mirror = restored_context.python_mirror()
+
+        assert "store_summary = orders.groupby(" in mirror
+        assert "import numpy as np" in mirror
+        assert "np.average(" in mirror
+
+        namespace: dict = {"orders": generate_orders().frame}
+        exec(mirror, namespace)
+
+        store_summary = namespace["store_summary"]
+        assert store_summary["unique_customers"].sum() == sum_of_store_distinct_customers()
+        assert namespace["np"].average(store_summary["aov"], weights=store_summary["orders"]) == pytest.approx(
+            namespace["orders"]["revenue"].mean()
+        )
+    finally:
+        pygame.quit()
 
 
 def test_score_lesson_twelve_is_wired_as_the_lessons_own_scorer():

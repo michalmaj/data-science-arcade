@@ -180,8 +180,8 @@ AOV_ROLLUP_INTERPRET_OPTIONS = (
         evidence_key="lesson.l12.evidence.aov_rollup",
     ),
     InterpretOption(
-        "volumes_break_the_unweighted_mean",
-        "lesson.l12.aov_rollup.interpret.option.volumes_break_the_unweighted_mean",
+        "unweighted_mean_weights_stores_not_orders",
+        "lesson.l12.aov_rollup.interpret.option.unweighted_mean_weights_stores_not_orders",
         evidence_key="lesson.l12.evidence.aov_rollup",
     ),
     InterpretOption(
@@ -268,13 +268,22 @@ MASTERY_SUPPORTING_EVIDENCE_FIELD = MultiChoiceField(
     min_count=1,
     max_count=2,
 )
-MASTERY_INTERPRETATION_FIELD = BriefField(
-    key="mastery_interpretation",
-    prompt_key="lesson.l12.mastery.field.interpretation.prompt",
+MASTERY_PURCHASER_SUM_FIELD = BriefField(
+    key="mastery_purchaser_sum",
+    prompt_key="lesson.l12.mastery.field.purchaser_sum.prompt",
     options=(
-        BriefOption("channels_directly_comparable", "lesson.l12.mastery.option.interpretation.channels_directly_comparable"),
-        BriefOption("network_avg_needs_weighting", "lesson.l12.mastery.option.interpretation.network_avg_needs_weighting"),
-        BriefOption("cant_tell", "lesson.l12.mastery.option.interpretation.cant_tell"),
+        BriefOption("sum_is_fine", "lesson.l12.mastery.option.purchaser_sum.sum_is_fine"),
+        BriefOption("cant_sum_overlap", "lesson.l12.mastery.option.purchaser_sum.cant_sum_overlap"),
+        BriefOption("cant_tell", "lesson.l12.mastery.option.purchaser_sum.cant_tell"),
+    ),
+)
+MASTERY_AVG_VALUE_METHOD_FIELD = BriefField(
+    key="mastery_avg_value_method",
+    prompt_key="lesson.l12.mastery.field.avg_value_method.prompt",
+    options=(
+        BriefOption("mean_of_channel_averages", "lesson.l12.mastery.option.avg_value_method.mean_of_channel_averages"),
+        BriefOption("raw_or_weighted", "lesson.l12.mastery.option.avg_value_method.raw_or_weighted"),
+        BriefOption("cant_tell", "lesson.l12.mastery.option.avg_value_method.cant_tell"),
     ),
 )
 
@@ -344,6 +353,7 @@ def build_lesson_twelve_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             on_complete,
             context,
             guided=True,
+            output_variable_name="store_summary",
         )
 
     # --- Output-grain check (path-aware) ---
@@ -385,9 +395,17 @@ def build_lesson_twelve_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l12.customer_count.title",
             narrative_keys=("dialogue.l12_customer_count.line1", "dialogue.l12_customer_count.line2"),
             comparisons=(
-                ComparisonValue("lesson.l12.customer_count.rows_label", float(store_order_count("S02")), value_format=lambda v: f"{v:,.0f}"),
                 ComparisonValue(
-                    "lesson.l12.customer_count.distinct_label", float(store_distinct_customers("S02")), value_format=lambda v: f"{v:,.0f}"
+                    "lesson.l12.customer_count.rows_label",
+                    float(store_order_count("S02")),
+                    python_code="orders.loc[orders['store_id'] == 'S02', 'customer_id'].size",
+                    value_format=lambda v: f"{v:,.0f}",
+                ),
+                ComparisonValue(
+                    "lesson.l12.customer_count.distinct_label",
+                    float(store_distinct_customers("S02")),
+                    python_code="orders.loc[orders['store_id'] == 'S02', 'customer_id'].nunique()",
+                    value_format=lambda v: f"{v:,.0f}",
                 ),
             ),
             interpret_prompt_key="lesson.l12.customer_count.interpret_prompt",
@@ -421,6 +439,7 @@ def build_lesson_twelve_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 initial_group_by=collected["group_by"],
                 initial_choices=dict(collected["metric_choices"]),
                 guided=True,
+                output_variable_name="store_summary",
             )
 
         def on_offer_complete(_engaged, _result):
@@ -464,8 +483,18 @@ def build_lesson_twelve_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             narrative_keys=("dialogue.l12_customer_rollup.line1", "dialogue.l12_customer_rollup.line2"),
             comparisons=(
                 ComparisonValue("lesson.l12.customer_rollup.cross_store_label", float(len(cross_store_customers())), value_format=lambda v: f"{v:,.0f}"),
-                ComparisonValue("lesson.l12.customer_rollup.sum_label", float(sum_of_store_distinct_customers()), value_format=lambda v: f"{v:,.0f}"),
-                ComparisonValue("lesson.l12.customer_rollup.network_label", float(network_distinct_customers()), value_format=lambda v: f"{v:,.0f}"),
+                ComparisonValue(
+                    "lesson.l12.customer_rollup.sum_label",
+                    float(sum_of_store_distinct_customers()),
+                    python_code="store_summary['unique_customers'].sum()",
+                    value_format=lambda v: f"{v:,.0f}",
+                ),
+                ComparisonValue(
+                    "lesson.l12.customer_rollup.network_label",
+                    float(network_distinct_customers()),
+                    python_code="orders['customer_id'].nunique()",
+                    value_format=lambda v: f"{v:,.0f}",
+                ),
             ),
             interpret_prompt_key="lesson.l12.customer_rollup.interpret_prompt",
             interpret_options=CUSTOMER_ROLLUP_INTERPRET_OPTIONS,
@@ -486,12 +515,22 @@ def build_lesson_twelve_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             title_key="lesson.l12.aov_rollup.title",
             narrative_keys=("dialogue.l12_aov_rollup.line1", "dialogue.l12_aov_rollup.line2"),
             comparisons=(
-                ComparisonValue("lesson.l12.aov_rollup.naive_label", naive_mean_of_store_aovs(), value_format=lambda v: f"${v:,.2f}"),
-                ComparisonValue("lesson.l12.aov_rollup.network_label", network_aov(), value_format=lambda v: f"${v:,.2f}"),
+                ComparisonValue(
+                    "lesson.l12.aov_rollup.naive_label",
+                    naive_mean_of_store_aovs(),
+                    python_code="store_summary['aov'].mean()",
+                    value_format=lambda v: f"${v:,.2f}",
+                ),
+                ComparisonValue(
+                    "lesson.l12.aov_rollup.network_label",
+                    network_aov(),
+                    python_code="orders['revenue'].mean()",
+                    value_format=lambda v: f"${v:,.2f}",
+                ),
                 ComparisonValue(
                     "lesson.l12.aov_rollup.weighted_label",
                     weighted_aov(),
-                    python_code="np.average(store_summary['aov'], weights=store_summary['orders'])",
+                    python_code="import numpy as np\nnp.average(store_summary['aov'], weights=store_summary['orders'])",
                     value_format=lambda v: f"${v:,.2f}",
                 ),
             ),
@@ -562,7 +601,7 @@ def build_lesson_twelve_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 return BriefBuilderScene(
                     app,
                     "lesson.l12.mastery.title",
-                    (MASTERY_SUPPORTING_EVIDENCE_FIELD, MASTERY_INTERPRETATION_FIELD),
+                    (MASTERY_SUPPORTING_EVIDENCE_FIELD, MASTERY_PURCHASER_SUM_FIELD, MASTERY_AVG_VALUE_METHOD_FIELD),
                     on_task_complete,
                     guided=False,
                 )
