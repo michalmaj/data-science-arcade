@@ -49,8 +49,6 @@ from data_science_arcade.lessons.l09_outlier_patrol.twist_data import ROUND2_ISS
 from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_BATCH_ACTION_KEY as L10_CORRECT_BATCH_ACTION_KEY
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_ROUND1_KEY as L10_CORRECT_ROUND1_KEY
-from data_science_arcade.lessons.l14_chart_designer.requests import CORRECT_OPTION_BY_REQUEST as L14_CORRECT_OPTION_BY_REQUEST
-from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS as L14_DECISION_FIELDS
 from data_science_arcade.lessons.l15_segment_detective.requests import CORRECT_OPTION_BY_REQUEST as L15_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l15_segment_detective.scenario import DECISION_FIELDS as L15_DECISION_FIELDS
 from data_science_arcade.lessons.l16_metric_forge.requests import CORRECT_OPTION_BY_REQUEST as L16_CORRECT_OPTION_BY_REQUEST
@@ -89,6 +87,7 @@ from data_science_arcade.ui.alert_config_scene import AlertConfigScene
 from data_science_arcade.ui.api_console_scene import APIConsoleScene
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.button import Button
+from data_science_arcade.ui.chart_builder_scene import ChartBuilderScene
 from data_science_arcade.ui.chart_designer_scene import ChartDesignerScene
 from data_science_arcade.ui.checkpoint_monitor_scene import CheckpointMonitorScene
 from data_science_arcade.ui.cohort_matrix_scene import CohortMatrixScene
@@ -1870,16 +1869,16 @@ def test_finishing_lesson_thirteen_marks_it_complete_and_unlocks_lesson_fourteen
         pygame.quit()
 
 
-def _pick_every_l14_chart_correctly(scene: ChartDesignerScene) -> None:
-    for _ in range(len(scene.requests)):
-        request = scene._current_request()
-        correct_key = L14_CORRECT_OPTION_BY_REQUEST[request.key]
-        index = next(i for i, option in enumerate(request.options) if option.key == correct_key)
-        scene.buttons.buttons[index].on_activate()
-        scene.next_button.on_activate()
+def _confirm_chart_builder(scene: ChartBuilderScene, index: int = 0) -> None:
+    scene.buttons.buttons[index].on_activate()
+    scene.continue_button.on_activate()
 
 
 def test_finishing_lesson_fourteen_marks_it_complete_and_unlocks_lesson_fifteen():
+    """Picks index-0 everywhere this smoke test can (any real chart form,
+    any real decision option) - correctness isn't the point here (see
+    test_lesson14_scenario.py). This is a smoke test for the real
+    12-stage flow finishing and unlocking Lesson 15."""
     app = App()
     app.init()
     try:
@@ -1890,12 +1889,46 @@ def test_finishing_lesson_fourteen_marks_it_complete_and_unlocks_lesson_fifteen(
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _pick_every_l14_chart_correctly(app.scenes.current)  # guided charts
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _pick_every_l14_chart_correctly(app.scenes.current)  # independent charts
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L14_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, ChartBuilderScene)  # store_attempt
+        _confirm_chart_builder(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # store_consequence_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ChartBuilderScene)  # dates_attempt
+        _confirm_chart_builder(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # dates_consequence_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ChartBuilderScene)  # distribution_attempt
+        _confirm_chart_builder(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # distribution_consequence_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # consolidated_revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

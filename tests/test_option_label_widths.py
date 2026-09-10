@@ -161,8 +161,15 @@ from data_science_arcade.lessons.l13_join_junction.scenario import (
     _raw_promo_options as l13_raw_promo_options,
     _repair_decision_options as l13_repair_decision_options,
 )
-from data_science_arcade.lessons.l14_chart_designer.requests import CHART_REQUESTS as L14_CHART_REQUESTS
-from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS as L14_DECISION_FIELDS
+from data_science_arcade.lessons.l14_chart_designer.scenario import (
+    DATES_CONSEQUENCE_INTERPRET_OPTIONS as L14_DATES_CONSEQUENCE_INTERPRET_OPTIONS,
+    DATES_OPTIONS as L14_DATES_OPTIONS,
+    DECISION_FIELDS as L14_DECISION_FIELDS,
+    DISTRIBUTION_CONSEQUENCE_INTERPRET_OPTIONS as L14_DISTRIBUTION_CONSEQUENCE_INTERPRET_OPTIONS,
+    DISTRIBUTION_OPTIONS as L14_DISTRIBUTION_OPTIONS,
+    STORE_CONSEQUENCE_INTERPRET_OPTIONS as L14_STORE_CONSEQUENCE_INTERPRET_OPTIONS,
+    STORE_OPTIONS as L14_STORE_OPTIONS,
+)
 from data_science_arcade.lessons.l15_segment_detective.requests import SEGMENT_REQUESTS as L15_SEGMENT_REQUESTS
 from data_science_arcade.lessons.l15_segment_detective.scenario import DECISION_FIELDS as L15_DECISION_FIELDS
 from data_science_arcade.lessons.l16_metric_forge.requests import METRIC_REQUESTS as L16_METRIC_REQUESTS
@@ -203,6 +210,7 @@ from data_science_arcade.ui.alert_config_scene import OPTION_SIZE as ALERT_OPTIO
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
 from data_science_arcade.ui.correlation_scene import OPTION_SIZE as CORRELATION_OPTION_SIZE
 from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
+from data_science_arcade.ui.chart_builder_scene import OPTION_SIZE as CHART_BUILDER_OPTION_SIZE
 from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPTION_SIZE
 from data_science_arcade.ui.composite_scene import OFFER_BUTTON_SIZE
 from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
@@ -363,10 +371,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for option in l13_options:
         checks.append((f"join_builder.{option.key}", option.label_key, join_builder_option_button_width))
 
+    chart_builder_option_button_width = CHART_BUILDER_OPTION_SIZE[0] - BUTTON_PADDING
+    for option in (*L14_STORE_OPTIONS, *L14_DATES_OPTIONS, *L14_DISTRIBUTION_OPTIONS):
+        checks.append((f"chart_builder.{option.key}", option.label_key, chart_builder_option_button_width))
+
     chart_option_button_width = CHART_OPTION_SIZE[0] - BUTTON_PADDING
-    for request in L14_CHART_REQUESTS:
-        for option in request.options:
-            checks.append((f"{request.key}.{option.key}", option.label_key, chart_option_button_width))
     for request in L28_CHART_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, chart_option_button_width))
@@ -520,6 +529,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L12_CUSTOMER_COUNT_INTERPRET_OPTIONS,
         L12_CUSTOMER_ROLLUP_INTERPRET_OPTIONS,
         L12_AOV_ROLLUP_INTERPRET_OPTIONS,
+        L14_STORE_CONSEQUENCE_INTERPRET_OPTIONS,
+        L14_DATES_CONSEQUENCE_INTERPRET_OPTIONS,
+        L14_DISTRIBUTION_CONSEQUENCE_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
