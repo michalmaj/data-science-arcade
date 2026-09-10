@@ -129,6 +129,20 @@ A_SUMMARY_IS_NOT_THE_DISTRIBUTION = HandbookEntry(
     related_entry_ids=("quantile", "population"),
 )
 
+JOINS_HAVE_CARDINALITY = HandbookEntry(
+    id="joins_have_cardinality",
+    title_key="handbook.article.joins_have_cardinality.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.joins_have_cardinality.body.1",
+        "handbook.article.joins_have_cardinality.body.2",
+        "handbook.article.joins_have_cardinality.body.3",
+        "handbook.article.joins_have_cardinality.body.4",
+        "handbook.article.joins_have_cardinality.body.5",
+    ),
+    related_entry_ids=("observation_unit_and_grain", "duplicates_need_an_identity", "cardinality"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -139,6 +153,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     DUPLICATES_NEED_AN_IDENTITY,
     OUTLIER_IS_A_FLAG_NOT_A_VERDICT,
     A_SUMMARY_IS_NOT_THE_DISTRIBUTION,
+    JOINS_HAVE_CARDINALITY,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -203,6 +218,12 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.quantile.term",
         definition_key="handbook.glossary.quantile.definition",
         related_entry_id="a_summary_is_not_the_distribution",
+    ),
+    GlossaryEntry(
+        id="cardinality",
+        term_key="handbook.glossary.cardinality.term",
+        definition_key="handbook.glossary.cardinality.definition",
+        related_entry_id="joins_have_cardinality",
     ),
 )
 

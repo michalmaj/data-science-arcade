@@ -10,6 +10,7 @@ LESSON_13 = LessonDefinition(
         "lesson.l13.objective2",
         "lesson.l13.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.DATA_QUALITY, ScoreDimension.OVERCONFIDENCE),
-    estimated_minutes=15,
+    scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.REASONING, ScoreDimension.EVIDENCE),
+    estimated_minutes=26,
+    related_handbook_entry_id="joins_have_cardinality",
 )
