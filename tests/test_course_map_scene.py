@@ -49,8 +49,6 @@ from data_science_arcade.lessons.l09_outlier_patrol.twist_data import ROUND2_ISS
 from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_BATCH_ACTION_KEY as L10_CORRECT_BATCH_ACTION_KEY
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_ROUND1_KEY as L10_CORRECT_ROUND1_KEY
-from data_science_arcade.lessons.l13_join_junction.requests import CORRECT_HOW_BY_REQUEST as L13_CORRECT_HOW_BY_REQUEST
-from data_science_arcade.lessons.l13_join_junction.scenario import DECISION_FIELDS as L13_DECISION_FIELDS
 from data_science_arcade.lessons.l14_chart_designer.requests import CORRECT_OPTION_BY_REQUEST as L14_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS as L14_DECISION_FIELDS
 from data_science_arcade.lessons.l15_segment_detective.requests import CORRECT_OPTION_BY_REQUEST as L15_CORRECT_OPTION_BY_REQUEST
@@ -102,7 +100,7 @@ from data_science_arcade.ui.finding_picker_scene import FindingPickerScene
 from data_science_arcade.ui.flow_builder_scene import FlowBuilderScene
 from data_science_arcade.ui.funnel_builder_scene import FunnelBuilderScene
 from data_science_arcade.ui.investigation_hub_scene import InvestigationHubScene
-from data_science_arcade.ui.junction_scene import JunctionScene
+from data_science_arcade.ui.join_builder_scene import JoinBuilderScene
 from data_science_arcade.ui.mission_briefing_scene import MissionBriefingScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
@@ -1788,16 +1786,16 @@ def test_finishing_lesson_twelve_marks_it_complete_and_unlocks_lesson_thirteen()
         pygame.quit()
 
 
-def _choose_every_l13_join_correctly(scene: JunctionScene) -> None:
-    for _ in range(len(scene.requests)):
-        request = scene._current_request()
-        correct_how = L13_CORRECT_HOW_BY_REQUEST[request.key]
-        index = next(i for i, option in enumerate(request.options) if option.how == correct_how)
-        scene.buttons.buttons[index].on_activate()
-        scene.next_button.on_activate()
+def _confirm_join_builder(scene: JoinBuilderScene, index: int = 0) -> None:
+    scene.buttons.buttons[index].on_activate()
+    scene.continue_button.on_activate()
 
 
 def test_finishing_lesson_thirteen_marks_it_complete_and_unlocks_lesson_fourteen():
+    """Picks index-0 everywhere this smoke test can (any real join type,
+    any real decision option) - correctness isn't the point here (see
+    test_lesson13_scenario.py). This is a smoke test for the real
+    16-stage flow finishing and unlocking Lesson 14."""
     app = App()
     app.init()
     try:
@@ -1808,12 +1806,57 @@ def test_finishing_lesson_thirteen_marks_it_complete_and_unlocks_lesson_fourteen
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _choose_every_l13_join_correctly(app.scenes.current)  # guided junctions
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _choose_every_l13_join_correctly(app.scenes.current)  # independent junctions
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L13_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # orders_key_inspection
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # join1_attempt
+        _confirm_join_builder(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # join1_consequence_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(offer, OfferThenTaskScene)  # join1_revision_offer - skipped
+        offer.buttons.buttons[1].on_activate()
+
+        _play_dialogue_to_the_end(app.scenes.current)  # finance_promotions_ask
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # promotions_key_inspection
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # raw_promotions_attempt
+        _confirm_join_builder(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # concrete_fan_out_example
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # validate_reveal
+        _confirm_join_builder(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # repair_attempt
+        _confirm_join_builder(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # multi_check_validation_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

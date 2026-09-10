@@ -146,8 +146,15 @@ from data_science_arcade.lessons.l12_groupby_kitchen.scenario import (
     MASTERY_SUPPORTING_EVIDENCE_FIELD as L12_MASTERY_SUPPORTING_EVIDENCE_FIELD,
     METRIC_SLOTS as L12_METRIC_SLOTS,
 )
-from data_science_arcade.lessons.l13_join_junction.requests import JOIN_REQUESTS as L13_JOIN_REQUESTS
-from data_science_arcade.lessons.l13_join_junction.scenario import DECISION_FIELDS as L13_DECISION_FIELDS
+from data_science_arcade.lessons.l13_join_junction.scenario import (
+    DECISION_FIELDS as L13_DECISION_FIELDS,
+    JOIN1_OPTIONS as L13_JOIN1_OPTIONS,
+    MASTERY_ROW_GROWTH_JUDGMENT_FIELD as L13_MASTERY_ROW_GROWTH_JUDGMENT_FIELD,
+    MASTERY_SUPPORTING_EVIDENCE_FIELD as L13_MASTERY_SUPPORTING_EVIDENCE_FIELD,
+    RAW_PROMO_OPTIONS as L13_RAW_PROMO_OPTIONS,
+    REPAIR_OPTIONS as L13_REPAIR_OPTIONS,
+    VALIDATE_PROMO_OPTIONS as L13_VALIDATE_PROMO_OPTIONS,
+)
 from data_science_arcade.lessons.l14_chart_designer.requests import CHART_REQUESTS as L14_CHART_REQUESTS
 from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS as L14_DECISION_FIELDS
 from data_science_arcade.lessons.l15_segment_detective.requests import SEGMENT_REQUESTS as L15_SEGMENT_REQUESTS
@@ -202,7 +209,7 @@ from data_science_arcade.ui.investigation_hub_scene import OPTION_SIZE as INVEST
 from data_science_arcade.ui.survey_builder_scene import OPTION_SIZE as SURVEY_OPTION_SIZE
 from data_science_arcade.ui.timeseries_scene import LENS_OPTION_SIZE as TIMESERIES_LENS_OPTION_SIZE
 from data_science_arcade.ui.funnel_builder_scene import DEFINITION_OPTION_SIZE as FUNNEL_DEFINITION_OPTION_SIZE
-from data_science_arcade.ui.junction_scene import OPTION_SIZE as JUNCTION_OPTION_SIZE
+from data_science_arcade.ui.join_builder_scene import OPTION_SIZE as JOIN_BUILDER_OPTION_SIZE
 from data_science_arcade.ui.pipeline_builder_scene import OPTION_SIZE as PIPELINE_OPTION_SIZE
 from data_science_arcade.ui.prediction_scene import DIRECTION_BUTTON_SIZE
 from data_science_arcade.ui.segment_slicer_scene import OPTION_SIZE as SEGMENT_OPTION_SIZE
@@ -284,6 +291,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L12_MASTERY_SUPPORTING_EVIDENCE_FIELD,
         L12_MASTERY_INTERPRETATION_FIELD,
         *L13_DECISION_FIELDS,
+        L13_MASTERY_SUPPORTING_EVIDENCE_FIELD,
+        L13_MASTERY_ROW_GROWTH_JUDGMENT_FIELD,
         *L14_DECISION_FIELDS,
         *L15_DECISION_FIELDS,
         *L16_DECISION_FIELDS,
@@ -334,10 +343,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         for option in request.aggregate_options:
             checks.append((f"{request.key}.aggregate.{option.key}", option.label_key, pipeline_option_button_width))
 
-    junction_option_button_width = JUNCTION_OPTION_SIZE[0] - BUTTON_PADDING
-    for request in L13_JOIN_REQUESTS:
-        for option in request.options:
-            checks.append((f"{request.key}.{option.key}", option.label_key, junction_option_button_width))
+    join_builder_option_button_width = JOIN_BUILDER_OPTION_SIZE[0] - BUTTON_PADDING
+    for option in (*L13_JOIN1_OPTIONS, *L13_RAW_PROMO_OPTIONS, *L13_VALIDATE_PROMO_OPTIONS, *L13_REPAIR_OPTIONS):
+        checks.append((f"join_builder.{option.key}", option.label_key, join_builder_option_button_width))
 
     chart_option_button_width = CHART_OPTION_SIZE[0] - BUTTON_PADDING
     for request in L14_CHART_REQUESTS:
