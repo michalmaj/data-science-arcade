@@ -10,11 +10,7 @@ from data_science_arcade.app.game import App
 from data_science_arcade.lessons.framework.definition import ScoreDimension
 from data_science_arcade.lessons.l13_join_junction.definition import LESSON_13
 from data_science_arcade.lessons.l13_join_junction.orders import generate_active_promotions, generate_customers, generate_orders
-from data_science_arcade.lessons.l13_join_junction.scenario import (
-    DECISION_FIELDS,
-    JOIN1_OPTIONS,
-    build_lesson_thirteen_runner,
-)
+from data_science_arcade.lessons.l13_join_junction.scenario import DECISION_FIELDS, build_lesson_thirteen_runner
 from data_science_arcade.lessons.l13_join_junction.scoring import CRITICAL_EVIDENCE_KEYS, LessonThirteenResult, score_lesson_thirteen
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
@@ -76,11 +72,6 @@ def _play_join_builder(scene: JoinBuilderScene, choice_key: str) -> None:
     scene.continue_button.on_activate()
 
 
-def _fill_single_select(scene: BriefBuilderScene, field, option_key: str) -> None:
-    scene.buttons.buttons[_option_index(field, option_key)].on_activate()
-    scene.next_button.on_activate()
-
-
 def _play_decision_builder(scene: DecisionBuilderScene, *, decision_keys: dict, evidence_ids: list[str] | None = None) -> None:
     for step in scene._steps:
         if step.key == "evidence":
@@ -112,6 +103,10 @@ def _play_lesson_to_feedback(
     revised_join1_choice=None,
     promotions_key_interpretation="promotions_key_is_one_to_many",
     fan_out_interpretation="key_matched_more_than_one_row",
+    repair_choice="preaggregate_first",
+    repair_consequence_interpretation="represented_correctly_and_safely",
+    repair_revision_engage: bool = False,
+    revised_repair_choice=None,
     multi_check_interpretation="row_count_alone_insufficient",
     decision=GOOD_DECISION,
     evidence_ids=None,
@@ -154,11 +149,22 @@ def _play_lesson_to_feedback(
     assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # concrete_fan_out_example
     _play_comparison_reveal(app.scenes.current.inner, fan_out_interpretation)
 
-    assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # validate_reveal
-    _play_join_builder(app.scenes.current.inner, "left_validated")
+    assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # promotions_repair_decision
+    _play_join_builder(app.scenes.current.inner, repair_choice)
 
-    assert isinstance(app.scenes.current.inner, JoinBuilderScene)  # repair_attempt
-    _play_join_builder(app.scenes.current.inner, "left_repaired")
+    assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # promotions_repair_consequence_reveal
+    _play_comparison_reveal(app.scenes.current.inner, repair_consequence_interpretation)
+
+    offer = _leaf_scene(app.scenes.current.inner)
+    assert isinstance(offer, OfferThenTaskScene)  # promotions_repair_revision_offer
+    if repair_revision_engage:
+        offer.buttons.buttons[0].on_activate()  # Engage
+        leaf = _leaf_scene(offer)
+        assert isinstance(leaf, JoinBuilderScene)
+        assert revised_repair_choice is not None
+        _play_join_builder(leaf, revised_repair_choice)
+    else:
+        offer.buttons.buttons[1].on_activate()  # Skip
 
     assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # multi_check_validation_reveal
     _play_comparison_reveal(app.scenes.current.inner, multi_check_interpretation)
@@ -180,7 +186,7 @@ def _play_lesson_to_feedback(
     return app.scenes.current.inner
 
 
-def test_the_full_lesson_plays_through_all_sixteen_stages_to_a_result():
+def test_the_full_lesson_plays_through_all_seventeen_stages_to_a_result():
     app = _init_app()
     try:
         finished_results = []
@@ -200,6 +206,8 @@ def test_the_full_lesson_plays_through_all_sixteen_stages_to_a_result():
         assert result.completed_thoughtfully() is True
         assert result.join1_first_choice == "left"
         assert result.join1_choice == "left"
+        assert result.promotions_repair_first_choice == "preaggregate_first"
+        assert result.promotions_repair_choice == "preaggregate_first"
         assert set(result.decision) == {field.key for field in DECISION_FIELDS} | {"evidence"}
         assert set(result.critical_evidence_present) == set(CRITICAL_EVIDENCE_KEYS)
         assert result.mastery_engaged is True
@@ -282,6 +290,85 @@ def test_declining_the_join1_revision_keeps_the_cold_pick():
         pygame.quit()
 
 
+def test_the_promotions_repair_is_a_real_decision_that_actually_executes():
+    # The P0 regression this follow-up fixes: the repair used to be a
+    # single forced button that always did the correct pre-aggregation
+    # regardless of any earlier choice. Picking the raw-join-anyway
+    # option here must leave the REAL pipeline fanned out.
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_thirteen_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+
+        feedback = _play_lesson_to_feedback(
+            app,
+            repair_choice="join_raw_directly",
+            repair_consequence_interpretation="represented_but_order_row_multiplied",
+        )
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.promotions_repair_first_choice == "join_raw_directly"
+        assert result.promotions_repair_choice == "join_raw_directly"
+        assert feedback.evaluation.dimension_scores[ScoreDimension.METHOD] < 96.0
+    finally:
+        pygame.quit()
+
+
+def test_the_dedupe_keep_first_trap_is_a_real_selectable_repair_choice():
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_thirteen_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+
+        feedback = _play_lesson_to_feedback(
+            app,
+            repair_choice="dedupe_keep_first",
+            repair_consequence_interpretation="silently_lost_real_information",
+        )
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.promotions_repair_choice == "dedupe_keep_first"
+        assert feedback.evaluation.dimension_scores[ScoreDimension.METHOD] < 96.0
+    finally:
+        pygame.quit()
+
+
+def test_repair_revision_recovers_from_dedupe_to_preaggregate():
+    app = _init_app()
+    try:
+        finished_results = []
+        runner, _ = build_lesson_thirteen_runner(app, on_finished=lambda result: finished_results.append(result))
+        runner.start()
+        click_through_mission_briefing(app)
+
+        feedback = _play_lesson_to_feedback(
+            app,
+            repair_choice="dedupe_keep_first",
+            repair_consequence_interpretation="silently_lost_real_information",
+            repair_revision_engage=True,
+            revised_repair_choice="preaggregate_first",
+        )
+        feedback.on_complete()
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        result = finished_results[0]
+        assert result.promotions_repair_first_choice == "dedupe_keep_first"
+        assert result.promotions_repair_choice == "preaggregate_first"
+        assert any(
+            o.text_key == "lesson.l13.feedback.promotions_repair_recovered_via_revision" for o in feedback.evaluation.observations
+        )
+    finally:
+        pygame.quit()
+
+
 def test_evidence_is_available_after_a_wrong_initial_interpretation_at_every_no_revision_reveal():
     # Applying the L11-follow-up lesson proactively: orders_key,
     # promotions_key, fan_out, and multi_check have no revision path of
@@ -331,7 +418,7 @@ def test_the_happy_path_python_mirror_executes_top_to_bottom_against_real_tables
         assert "indicator=True" in mirror
         assert "validate='many_to_one'" in mirror
         assert "promo_per_customer = active_promotions.groupby(" in mirror
-        assert "except pd.errors.MergeError" in mirror
+        assert "final = orders.merge(promo_per_customer" in mirror
 
         namespace: dict = {
             "orders": generate_orders().frame,
@@ -347,14 +434,33 @@ def test_the_happy_path_python_mirror_executes_top_to_bottom_against_real_tables
         pygame.quit()
 
 
+def test_the_dedupe_path_python_mirror_also_executes_top_to_bottom():
+    app = _init_app()
+    try:
+        runner, collected = build_lesson_thirteen_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_lesson_to_feedback(app, repair_choice="dedupe_keep_first", repair_consequence_interpretation="silently_lost_real_information")
+
+        restored_context = LessonContext()
+        restored_context.restore_from_dict(collected["analytical_context"])
+        mirror = restored_context.python_mirror()
+        assert "deduped_promotions = active_promotions.drop_duplicates(" in mirror
+
+        namespace: dict = {
+            "orders": generate_orders().frame,
+            "customers": generate_customers().frame,
+            "active_promotions": generate_active_promotions().frame,
+        }
+        exec(mirror, namespace)
+        assert len(namespace["final"]) == 120
+    finally:
+        pygame.quit()
+
+
 @pytest.mark.parametrize("field", DECISION_FIELDS)
 def test_every_decision_field_has_at_least_two_options(field):
     assert len(field.options) >= 2
-
-
-def test_every_join1_option_has_a_real_pandas_how_value():
-    for option in JOIN1_OPTIONS:
-        assert option.how in ("inner", "left", "outer")
 
 
 def test_score_lesson_thirteen_is_wired_as_the_lessons_own_scorer():
@@ -368,6 +474,8 @@ def test_score_lesson_thirteen_is_wired_as_the_lessons_own_scorer():
             LessonThirteenResult(
                 join1_first_choice="left",
                 join1_choice="left",
+                promotions_repair_first_choice="preaggregate_first",
+                promotions_repair_choice="preaggregate_first",
                 decision=dict(GOOD_DECISION, evidence=CRITICAL_EVIDENCE_KEYS),
                 critical_evidence_present=CRITICAL_EVIDENCE_KEYS,
             ),
