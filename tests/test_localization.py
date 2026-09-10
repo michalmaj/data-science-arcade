@@ -1,8 +1,11 @@
+import json
+
 import pytest
 
 from data_science_arcade.localization.service import (
     DEFAULT_LOCALE,
     LOCALE_ENDONYMS,
+    LOCALES_DIR,
     SUPPORTED_LOCALES,
     Localization,
     load_all_locales,
@@ -11,6 +14,32 @@ from data_science_arcade.localization.service import (
 
 def test_every_supported_locale_has_an_endonym():
     assert set(LOCALE_ENDONYMS) == set(SUPPORTED_LOCALES)
+
+
+def _duplicate_keys(pairs: list[tuple[str, object]]) -> list[str]:
+    seen: dict[str, int] = {}
+    for key, _value in pairs:
+        seen[key] = seen.get(key, 0) + 1
+    return [key for key, count in seen.items() if count > 1]
+
+
+@pytest.mark.parametrize("code", SUPPORTED_LOCALES)
+def test_locale_file_has_no_duplicate_top_level_keys(code):
+    # A plain json.load() silently keeps only the LAST occurrence of a
+    # repeated key, so a stale block left behind by a lesson rebuild (two
+    # full L12 blocks shipped side by side once, see the L12 follow-up)
+    # can sit in the file undetected forever - the key-set parity test
+    # above can't catch it either, since the set of keys looks identical
+    # either way. This guards every lesson, not just L12.
+    duplicates: list[str] = []
+
+    def _check(pairs: list[tuple[str, object]]) -> dict:
+        duplicates.extend(_duplicate_keys(pairs))
+        return dict(pairs)
+
+    path = LOCALES_DIR / f"{code}.json"
+    json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_check)
+    assert not duplicates, f"{code}.json has duplicate keys: {sorted(set(duplicates))}"
 
 
 def test_locale_files_have_exactly_the_same_keys():

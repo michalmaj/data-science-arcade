@@ -205,45 +205,92 @@ def test_trajectory_is_never_inferred_from_final_decision_alone():
     assert not any("recovered_via_revision" in o.text_key for o in evaluation.observations)
 
 
-# --- Mastery: a correct-sounding conclusion needs a real supporting fact --
+# --- Mastery: two separate judgments, each needing its OWN genuinely
+# relevant supporting fact - customer overlap justifies why unique
+# purchasers can't be summed, channel-volume differences justify why the
+# average value per conversion needs weighting. Accepting either fact as
+# interchangeable support for either claim would be exactly the
+# "correct claim + unrelated true fact" regression L03/L04/L11 all
+# needed a guard for.
+
+GOOD_MASTERY_RESULT = {
+    "mastery_purchaser_sum": "cant_sum_overlap",
+    "mastery_avg_value_method": "raw_or_weighted",
+    "mastery_supporting_evidence": ("channel_volumes_differ", "customers_overlap_channels"),
+}
 
 
-def test_mastery_requires_both_the_correct_interpretation_and_a_real_distinguishing_fact():
-    result = _result(
-        mastery_engaged=True,
-        mastery_result={"mastery_interpretation": "network_avg_needs_weighting", "mastery_supporting_evidence": ("channel_volumes_differ",)},
-    )
+def test_mastery_requires_both_correct_judgments_each_with_its_own_real_fact():
+    result = _result(mastery_engaged=True, mastery_result=GOOD_MASTERY_RESULT)
     assert _mastery_succeeded(result) is True
 
 
 def test_mastery_fails_when_the_only_cited_fact_is_that_the_averages_share_a_style():
     result = _result(
         mastery_engaged=True,
-        mastery_result={"mastery_interpretation": "network_avg_needs_weighting", "mastery_supporting_evidence": ("same_style_averages",)},
+        mastery_result={
+            "mastery_purchaser_sum": "cant_sum_overlap",
+            "mastery_avg_value_method": "raw_or_weighted",
+            "mastery_supporting_evidence": ("same_style_averages",),
+        },
     )
     assert _mastery_succeeded(result) is False
 
 
-def test_mastery_fails_when_the_interpretation_itself_is_wrong_even_with_a_real_fact_cited():
-    result = _result(
+def test_mastery_fails_when_either_judgment_itself_is_wrong_even_with_both_real_facts_cited():
+    wrong_purchaser_sum = _result(
         mastery_engaged=True,
-        mastery_result={"mastery_interpretation": "channels_directly_comparable", "mastery_supporting_evidence": ("channel_volumes_differ",)},
+        mastery_result={
+            "mastery_purchaser_sum": "sum_is_fine",
+            "mastery_avg_value_method": "raw_or_weighted",
+            "mastery_supporting_evidence": ("channel_volumes_differ", "customers_overlap_channels"),
+        },
     )
-    assert _mastery_succeeded(result) is False
+    assert _mastery_succeeded(wrong_purchaser_sum) is False
+
+    wrong_avg_value_method = _result(
+        mastery_engaged=True,
+        mastery_result={
+            "mastery_purchaser_sum": "cant_sum_overlap",
+            "mastery_avg_value_method": "mean_of_channel_averages",
+            "mastery_supporting_evidence": ("channel_volumes_differ", "customers_overlap_channels"),
+        },
+    )
+    assert _mastery_succeeded(wrong_avg_value_method) is False
+
+
+def test_mastery_fails_when_the_two_real_facts_are_cited_but_not_paired_to_their_own_claim():
+    # The exact bug this follow-up fixed: customer overlap doesn't justify
+    # weighting the average, and channel-volume differences don't justify
+    # why purchasers can't be summed - citing both facts is not enough if
+    # the specific judgment each one is meant to support is missing.
+    only_purchaser_sum_correct = _result(
+        mastery_engaged=True,
+        mastery_result={
+            "mastery_purchaser_sum": "cant_sum_overlap",
+            "mastery_avg_value_method": "mean_of_channel_averages",
+            "mastery_supporting_evidence": ("channel_volumes_differ", "customers_overlap_channels"),
+        },
+    )
+    assert _mastery_succeeded(only_purchaser_sum_correct) is False
+
+    only_avg_value_evidenced = _result(
+        mastery_engaged=True,
+        mastery_result={
+            "mastery_purchaser_sum": "cant_sum_overlap",
+            "mastery_avg_value_method": "raw_or_weighted",
+            "mastery_supporting_evidence": ("channel_volumes_differ",),
+        },
+    )
+    assert _mastery_succeeded(only_avg_value_evidenced) is False
 
 
 def test_mastery_success_observation_only_appears_when_mastery_was_engaged():
-    grounded_but_not_engaged = _result(
-        mastery_engaged=False,
-        mastery_result={"mastery_interpretation": "network_avg_needs_weighting", "mastery_supporting_evidence": ("channel_volumes_differ",)},
-    )
+    grounded_but_not_engaged = _result(mastery_engaged=False, mastery_result=GOOD_MASTERY_RESULT)
     evaluation = score_lesson_twelve(grounded_but_not_engaged, LESSON_12, hints_used=0)
     assert not any(o.text_key == "lesson.l12.feedback.mastery_transfer_succeeded" for o in evaluation.observations)
 
-    grounded_and_engaged = _result(
-        mastery_engaged=True,
-        mastery_result={"mastery_interpretation": "network_avg_needs_weighting", "mastery_supporting_evidence": ("channel_volumes_differ",)},
-    )
+    grounded_and_engaged = _result(mastery_engaged=True, mastery_result=GOOD_MASTERY_RESULT)
     evaluation = score_lesson_twelve(grounded_and_engaged, LESSON_12, hints_used=0)
     assert any(o.text_key == "lesson.l12.feedback.mastery_transfer_succeeded" for o in evaluation.observations)
 
