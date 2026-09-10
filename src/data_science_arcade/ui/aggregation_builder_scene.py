@@ -113,6 +113,8 @@ class AggregationBuilderScene(Scene):
         initial_group_by: str | None = None,
         initial_choices: dict[str, str] | None = None,
         guided: bool = True,
+        output_variable_name: str = "result",
+        mirror_action_key: str = "aggregation_pipeline",
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -122,6 +124,11 @@ class AggregationBuilderScene(Scene):
         self.on_complete = on_complete
         self.context = context
         self.guided = guided
+        # Real assignment target for the Mirror's pipeline line (e.g.
+        # "store_summary") so later actions can reference this table by
+        # name without hitting an undefined variable.
+        self.output_variable_name = output_variable_name
+        self.mirror_action_key = mirror_action_key
         self.step_index = 0
         self.group_by_choice: str | None = initial_group_by
         self.choices: dict[str, str] = dict(initial_choices) if initial_choices else {}
@@ -207,12 +214,12 @@ class AggregationBuilderScene(Scene):
     def _finish(self) -> None:
         group_by = self._selected_group_by()
         named = self._named_aggs()
-        lines = [f"orders.groupby('{group_by.column}', as_index=False).agg("]
+        lines = [f"{self.output_variable_name} = {self.dataset.name}.groupby('{group_by.column}', as_index=False).agg("]
         for slot_key, (column, func) in named.items():
             lines.append(f"    {slot_key}=('{column}', '{func}'),")
         lines.append(")")
         python_code = "\n".join(lines)
-        self.context.record_action(label_key=self.title_key, python_code=python_code, key="store_summary_pipeline")
+        self.context.record_action(label_key=self.title_key, python_code=python_code, key=self.mirror_action_key)
         self.on_complete(self.group_by_choice, dict(self.choices))
 
     def _next(self) -> None:
