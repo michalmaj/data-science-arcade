@@ -26,21 +26,24 @@ NAV_BUTTON_Y = 495
 
 
 class ChartDesignerScene(Scene):
-    """Build a chart for a stakeholder's question (spec §25 Lesson 14
-    'Chart Designer'): a fixed sequence of requests, each with its own
-    small category series, offers a few complete chart 'recipes' (chart
-    type + axis scale) as one combined pick - not five independent
-    sliders - and redraws the actual chart from real data the moment one
-    is chosen, rather than describing the effect in text alone. A zoomed
-    bar-chart scale visibly exaggerates the same real gap a zero-based
-    one shows honestly.
+    """Build a chart for a stakeholder's question: a fixed sequence of
+    requests, each with its own small category series, offers a few
+    complete chart 'recipes' (chart type + axis scale) as one combined
+    pick - not five independent sliders - and redraws the actual chart
+    from real data the moment one is chosen, rather than describing the
+    effect in text alone. A zoomed bar-chart scale visibly exaggerates
+    the same real gap a zero-based one shows honestly.
 
     A recipe can also override the request's own categories/values
-    entirely (spec §25 Lesson 28 'Chart Crime Lab'), for a flaw that
-    changes *what* gets charted rather than just how - a cherry-picked
-    date window or a rate computed against the wrong denominator - not
-    just how the same numbers get scaled. A recipe that doesn't override
-    them falls back to the request's, unchanged from Lesson 14's own use.
+    entirely, for a flaw that changes *what* gets charted rather than
+    just how - a cherry-picked date window or a rate computed against
+    the wrong denominator - not just how the same numbers get scaled.
+    A recipe that doesn't override them falls back to the request's own.
+
+    Used by Lesson 28 ("Chart Crime Lab") for exactly this reason - real
+    axis-scale and data-window/denominator manipulation are its own
+    territory, deliberately kept out of Lesson 14's own rebuilt
+    `ChartBuilderScene`, which has no such capability at all.
 
     guided=True also shows each request's hint; guided=False hides it,
     matching every other stage scene's guided/independent split."""
@@ -154,7 +157,7 @@ class ChartDesignerScene(Scene):
         loc = self.app.localization
         option = self._selected_option(request)
         if option is None:
-            draw_centered_text(surface, loc.t("lesson.l14.pick_a_chart_hint"), (CENTER_X, CHART_RECT.centery), 15, colors.BUTTON_TEXT_DISABLED)
+            draw_centered_text(surface, loc.t("chart_designer.pick_a_chart_hint"), (CENTER_X, CHART_RECT.centery), 15, colors.BUTTON_TEXT_DISABLED)
             return
 
         categories, raw_values = self._effective_series(request, option)
