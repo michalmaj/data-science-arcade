@@ -171,6 +171,21 @@ WHEN_THE_MIX_CHANGES = HandbookEntry(
     related_entry_ids=("observation_unit_and_grain",),
 )
 
+WHEN_A_MEASURE_BECOMES_A_TARGET = HandbookEntry(
+    id="when_a_measure_becomes_a_target",
+    title_key="handbook.article.when_a_measure_becomes_a_target.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.when_a_measure_becomes_a_target.body.1",
+        "handbook.article.when_a_measure_becomes_a_target.body.2",
+        "handbook.article.when_a_measure_becomes_a_target.body.3",
+        "handbook.article.when_a_measure_becomes_a_target.body.4",
+        "handbook.article.when_a_measure_becomes_a_target.body.5",
+        "handbook.article.when_a_measure_becomes_a_target.body.6",
+    ),
+    related_entry_ids=("metrics_need_definitions", "primary_metric", "guardrail_metric", "goodharts_law"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -184,6 +199,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     JOINS_HAVE_CARDINALITY,
     A_CHART_ENCODES_A_QUESTION,
     WHEN_THE_MIX_CHANGES,
+    WHEN_A_MEASURE_BECOMES_A_TARGET,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -260,6 +276,24 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.simpsons_paradox.term",
         definition_key="handbook.glossary.simpsons_paradox.definition",
         related_entry_id="when_the_mix_changes",
+    ),
+    GlossaryEntry(
+        id="primary_metric",
+        term_key="handbook.glossary.primary_metric.term",
+        definition_key="handbook.glossary.primary_metric.definition",
+        related_entry_id="when_a_measure_becomes_a_target",
+    ),
+    GlossaryEntry(
+        id="guardrail_metric",
+        term_key="handbook.glossary.guardrail_metric.term",
+        definition_key="handbook.glossary.guardrail_metric.definition",
+        related_entry_id="when_a_measure_becomes_a_target",
+    ),
+    GlossaryEntry(
+        id="goodharts_law",
+        term_key="handbook.glossary.goodharts_law.term",
+        definition_key="handbook.glossary.goodharts_law.definition",
+        related_entry_id="when_a_measure_becomes_a_target",
     ),
 )
 
