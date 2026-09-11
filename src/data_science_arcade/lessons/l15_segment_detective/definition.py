@@ -11,5 +11,6 @@ LESSON_15 = LessonDefinition(
         "lesson.l15.objective3",
     ),
     scoring_dimensions=(ScoreDimension.REASONING, ScoreDimension.EVIDENCE, ScoreDimension.OVERCONFIDENCE),
-    estimated_minutes=15,
+    estimated_minutes=24,
+    related_handbook_entry_id="when_the_mix_changes",
 )
