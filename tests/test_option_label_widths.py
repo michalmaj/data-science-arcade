@@ -173,8 +173,19 @@ from data_science_arcade.lessons.l14_chart_designer.scenario import (
     STORE_CONSEQUENCE_LINE_INTERPRET_OPTIONS as L14_STORE_CONSEQUENCE_LINE_INTERPRET_OPTIONS,
     STORE_OPTIONS as L14_STORE_OPTIONS,
 )
-from data_science_arcade.lessons.l15_segment_detective.requests import SEGMENT_REQUESTS as L15_SEGMENT_REQUESTS
-from data_science_arcade.lessons.l15_segment_detective.scenario import DECISION_FIELDS as L15_DECISION_FIELDS
+from data_science_arcade.lessons.l15_segment_detective.scenario import (
+    DECISION_FIELDS as L15_DECISION_FIELDS,
+    DEVICE_OPTION as L15_DEVICE_OPTION,
+    DEVICE_REVEAL_INTERPRET_OPTIONS as L15_DEVICE_REVEAL_INTERPRET_OPTIONS,
+    HEADLINE_REVISION_FIELD as L15_HEADLINE_REVISION_FIELD,
+    MASTERY_REVERSAL_JUDGMENT_FIELD as L15_MASTERY_REVERSAL_JUDGMENT_FIELD,
+    MASTERY_SUPPORTING_EVIDENCE_FIELD as L15_MASTERY_SUPPORTING_EVIDENCE_FIELD,
+    OVERALL_INTERPRET_OPTIONS as L15_OVERALL_INTERPRET_OPTIONS,
+    REGION_NULL_INTERPRET_OPTIONS as L15_REGION_NULL_INTERPRET_OPTIONS,
+    REGION_OPTION as L15_REGION_OPTION,
+    STANDARDIZED_INTERPRET_OPTIONS as L15_STANDARDIZED_INTERPRET_OPTIONS,
+    WEIGHTED_RECONSTRUCTION_INTERPRET_OPTIONS as L15_WEIGHTED_RECONSTRUCTION_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l16_metric_forge.requests import METRIC_REQUESTS as L16_METRIC_REQUESTS
 from data_science_arcade.lessons.l16_metric_forge.scenario import DECISION_FIELDS as L16_DECISION_FIELDS
 from data_science_arcade.lessons.l17_hypothesis_detective.scenario import DECISION_FIELDS as L17_DECISION_FIELDS
@@ -229,6 +240,7 @@ from data_science_arcade.ui.funnel_builder_scene import DEFINITION_OPTION_SIZE a
 from data_science_arcade.ui.join_builder_scene import OPTION_SIZE as JOIN_BUILDER_OPTION_SIZE
 from data_science_arcade.ui.pipeline_builder_scene import OPTION_SIZE as PIPELINE_OPTION_SIZE
 from data_science_arcade.ui.prediction_scene import DIRECTION_BUTTON_SIZE
+from data_science_arcade.ui.segment_mix_scene import PICKER_SIZE as SEGMENT_MIX_PICKER_SIZE
 from data_science_arcade.ui.segment_slicer_scene import OPTION_SIZE as SEGMENT_OPTION_SIZE
 from data_science_arcade.ui.source_board_scene import WIDE_HEADER_WIDTH
 from data_science_arcade.ui.workbench_scene import PICKER_OPTION_SIZE
@@ -313,6 +325,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L13_MASTERY_ROW_GROWTH_JUDGMENT_FIELD,
         *L14_DECISION_FIELDS,
         *L15_DECISION_FIELDS,
+        L15_HEADLINE_REVISION_FIELD,
+        L15_MASTERY_SUPPORTING_EVIDENCE_FIELD,
+        L15_MASTERY_REVERSAL_JUDGMENT_FIELD,
         *L16_DECISION_FIELDS,
         *L17_DECISION_FIELDS,
         *L18_DECISION_FIELDS,
@@ -385,10 +400,22 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for option in L30_DASHBOARD_CHART_REQUEST.options:
         checks.append((f"{L30_DASHBOARD_CHART_REQUEST.key}.{option.key}", option.label_key, chart_option_button_width))
 
+    segment_mix_picker_button_width = SEGMENT_MIX_PICKER_SIZE[0] - BUTTON_PADDING
+    for option in (L15_REGION_OPTION, L15_DEVICE_OPTION):
+        checks.append((f"segment_mix.dimension.{option.key}", option.label_key, segment_mix_picker_button_width))
+
+    comparison_reveal_option_button_width_l15 = COMPARISON_REVEAL_OPTION_SIZE[0] - BUTTON_PADDING
+    for options in (
+        L15_OVERALL_INTERPRET_OPTIONS,
+        L15_REGION_NULL_INTERPRET_OPTIONS,
+        L15_DEVICE_REVEAL_INTERPRET_OPTIONS,
+        L15_WEIGHTED_RECONSTRUCTION_INTERPRET_OPTIONS,
+        L15_STANDARDIZED_INTERPRET_OPTIONS,
+    ):
+        for option in options:
+            checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width_l15))
+
     segment_option_button_width = SEGMENT_OPTION_SIZE[0] - BUTTON_PADDING
-    for request in L15_SEGMENT_REQUESTS:
-        for option in request.options:
-            checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
     for request in L16_METRIC_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))

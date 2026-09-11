@@ -49,7 +49,6 @@ from data_science_arcade.lessons.l09_outlier_patrol.twist_data import ROUND2_ISS
 from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FIELDS as L10_DECISION_FIELDS
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_BATCH_ACTION_KEY as L10_CORRECT_BATCH_ACTION_KEY
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_ROUND1_KEY as L10_CORRECT_ROUND1_KEY
-from data_science_arcade.lessons.l15_segment_detective.requests import CORRECT_OPTION_BY_REQUEST as L15_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l15_segment_detective.scenario import DECISION_FIELDS as L15_DECISION_FIELDS
 from data_science_arcade.lessons.l16_metric_forge.requests import CORRECT_OPTION_BY_REQUEST as L16_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l16_metric_forge.scenario import DECISION_FIELDS as L16_DECISION_FIELDS
@@ -106,6 +105,7 @@ from data_science_arcade.ui.placeholder_scene import PlaceholderScene
 from data_science_arcade.ui.prediction_scene import PredictionScene
 from data_science_arcade.ui.resume_confirmation_scene import ResumeConfirmationScene
 from data_science_arcade.ui.sampling_allocator_scene import SamplingAllocatorScene
+from data_science_arcade.ui.segment_mix_scene import SegmentMixScene
 from data_science_arcade.ui.segment_slicer_scene import SegmentSlicerScene
 from data_science_arcade.ui.survey_builder_scene import SurveyBuilderScene
 from data_science_arcade.ui.timeseries_scene import TimeSeriesScene
@@ -1938,16 +1938,17 @@ def test_finishing_lesson_fourteen_marks_it_complete_and_unlocks_lesson_fifteen(
         pygame.quit()
 
 
-def _pick_every_l15_slice_correctly(scene: SegmentSlicerScene) -> None:
-    for _ in range(len(scene.requests)):
-        request = scene._current_request()
-        correct_key = L15_CORRECT_OPTION_BY_REQUEST[request.key]
-        index = next(i for i, option in enumerate(request.options) if option.key == correct_key)
+def _confirm_segment_mix(scene: SegmentMixScene, index: int = 0) -> None:
+    if len(scene.dimension_options) > 1:
         scene.buttons.buttons[index].on_activate()
-        scene.next_button.on_activate()
+    scene.finish_button.on_activate()
 
 
 def test_finishing_lesson_fifteen_marks_it_complete_and_unlocks_lesson_sixteen():
+    """Picks index-0 everywhere this smoke test can (device first, no
+    optional region look, any real decision option) - correctness isn't
+    the point here (see test_lesson15_scenario.py). This is a smoke test
+    for the real 10-stage flow finishing and unlocking Lesson 16."""
     app = App()
     app.init()
     try:
@@ -1958,12 +1959,49 @@ def test_finishing_lesson_fifteen_marks_it_complete_and_unlocks_lesson_sixteen()
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _pick_every_l15_slice_correctly(app.scenes.current)  # guided slices
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _pick_every_l15_slice_correctly(app.scenes.current)  # independent slices
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L15_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # overall_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        picker = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(picker, SegmentMixScene)  # dimension_investigation picker
+        _confirm_segment_mix(picker, index=1)  # device first
+
+        device_reveal = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(device_reveal, ComparisonRevealScene)
+        _confirm_reveal(device_reveal)
+
+        region_offer = _leaf_scene(app.scenes.current.inner)
+        assert isinstance(region_offer, OfferThenTaskScene)  # optional region offer - skipped
+        region_offer.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # weighted_reconstruction_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # standardized_comparison_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # headline_revision
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
