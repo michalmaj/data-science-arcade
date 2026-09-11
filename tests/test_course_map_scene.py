@@ -13,6 +13,7 @@ from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene
 from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
 from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene
+from data_science_arcade.ui.metric_contract_scene import MetricContractScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.workbench_scene import WorkbenchScene
 from data_science_arcade.lessons.l05_sampling_mission.scenario import _DesignThenAllocateScene as L05DesignThenAllocateScene
@@ -50,7 +51,6 @@ from data_science_arcade.lessons.l10_validation_gate.scenario import DECISION_FI
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_BATCH_ACTION_KEY as L10_CORRECT_BATCH_ACTION_KEY
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_ROUND1_KEY as L10_CORRECT_ROUND1_KEY
 from data_science_arcade.lessons.l15_segment_detective.scenario import DECISION_FIELDS as L15_DECISION_FIELDS
-from data_science_arcade.lessons.l16_metric_forge.requests import CORRECT_OPTION_BY_REQUEST as L16_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l16_metric_forge.scenario import DECISION_FIELDS as L16_DECISION_FIELDS
 from data_science_arcade.lessons.l17_hypothesis_detective.requests import CORRECT_DIRECTION_BY_REQUEST as L17_CORRECT_DIRECTION_BY_REQUEST
 from data_science_arcade.lessons.l17_hypothesis_detective.scenario import DECISION_FIELDS as L17_DECISION_FIELDS
@@ -2011,16 +2011,17 @@ def test_finishing_lesson_fifteen_marks_it_complete_and_unlocks_lesson_sixteen()
         pygame.quit()
 
 
-def _pick_every_l16_metric_correctly(scene: SegmentSlicerScene) -> None:
-    for _ in range(len(scene.requests)):
-        request = scene._current_request()
-        correct_key = L16_CORRECT_OPTION_BY_REQUEST[request.key]
-        index = next(i for i, option in enumerate(request.options) if option.key == correct_key)
-        scene.buttons.buttons[index].on_activate()
-        scene.next_button.on_activate()
+def _confirm_metric_contract(scene: MetricContractScene, index: int = 0) -> None:
+    scene.buttons.buttons[index].on_activate()
+    scene.finish_button.on_activate()
 
 
 def test_finishing_lesson_sixteen_marks_it_complete_and_unlocks_lesson_seventeen():
+    """Picks index-0 everywhere this smoke test can (eligible-population
+    definition, one guardrail, first interpretation at every reveal, any
+    real decision option) - correctness isn't the point here (see
+    test_lesson16_scenario.py). Smoke test for the real 11-stage flow
+    finishing and unlocking Lesson 17."""
     app = App()
     app.init()
     try:
@@ -2031,12 +2032,48 @@ def test_finishing_lesson_sixteen_marks_it_complete_and_unlocks_lesson_seventeen
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _pick_every_l16_metric_correctly(app.scenes.current)  # guided metrics
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _pick_every_l16_metric_correctly(app.scenes.current)  # independent metrics
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L16_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # raw_ticket_inspection
+        wb = app.scenes.current.inner
+        wb.inspection_buttons["one_row_per_ticket"].on_activate()
+        wb.continue_button.on_activate()
+
+        contract = _leaf_scene(app.scenes.current.inner)  # initial_contract
+        assert isinstance(contract, MetricContractScene)
+        _confirm_metric_contract(contract)
+        _fill_out(_leaf_scene(app.scenes.current.inner), (None,))  # guardrails
+
+        _confirm_reveal(_leaf_scene(app.scenes.current.inner))  # stress_test_a: primary reveal
+        _fill_out(_leaf_scene(app.scenes.current.inner), (None,))  # prior verdict
+        _confirm_reveal(_leaf_scene(app.scenes.current.inner))  # stress_test_a: guardrail reveal
+
+        _confirm_reveal(_leaf_scene(app.scenes.current.inner))  # stress_test_b: definition reveal
+        _confirm_reveal(_leaf_scene(app.scenes.current.inner))  # stress_test_b: backlog reveal
+
+        revise = _leaf_scene(app.scenes.current.inner)  # revise_contract
+        assert isinstance(revise, MetricContractScene)
+        _confirm_metric_contract(revise)
+        _fill_out(_leaf_scene(app.scenes.current.inner), (None,))  # guardrails revision
+
+        _confirm_reveal(app.scenes.current.inner)  # rerun_stress_test
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_metric_brief
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

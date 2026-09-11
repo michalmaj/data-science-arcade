@@ -186,8 +186,23 @@ from data_science_arcade.lessons.l15_segment_detective.scenario import (
     STANDARDIZED_INTERPRET_OPTIONS as L15_STANDARDIZED_INTERPRET_OPTIONS,
     WEIGHTED_RECONSTRUCTION_INTERPRET_OPTIONS as L15_WEIGHTED_RECONSTRUCTION_INTERPRET_OPTIONS,
 )
-from data_science_arcade.lessons.l16_metric_forge.requests import METRIC_REQUESTS as L16_METRIC_REQUESTS
-from data_science_arcade.lessons.l16_metric_forge.scenario import DECISION_FIELDS as L16_DECISION_FIELDS
+from data_science_arcade.lessons.l16_metric_forge.scenario import (
+    DECISION_FIELDS as L16_DECISION_FIELDS,
+    GUARDRAIL_FIELD as L16_GUARDRAIL_FIELD,
+    MASTERY_EVIDENCE_FIELD as L16_MASTERY_EVIDENCE_FIELD,
+    MASTERY_JUDGMENT_FIELD as L16_MASTERY_JUDGMENT_FIELD,
+    PRIOR_VERDICT_FIELD as L16_PRIOR_VERDICT_FIELD,
+    RERUN_INTERPRET_OPTIONS as L16_RERUN_INTERPRET_OPTIONS,
+    STRESS_A_GUARDRAIL_INTERPRET_OPTIONS as L16_STRESS_A_GUARDRAIL_INTERPRET_OPTIONS,
+    STRESS_A_PRIMARY_INTERPRET_OPTIONS as L16_STRESS_A_PRIMARY_INTERPRET_OPTIONS,
+    STRESS_B_BACKLOG_INTERPRET_OPTIONS as L16_STRESS_B_BACKLOG_INTERPRET_OPTIONS,
+    STRESS_B_DEFINITION_INTERPRET_OPTIONS as L16_STRESS_B_DEFINITION_INTERPRET_OPTIONS,
+    _build_candidates as l16_build_candidates,
+    EARLY as L16_EARLY,
+    EARLY_AS_OF_EXPR as L16_EARLY_AS_OF_EXPR,
+    HONEST as L16_HONEST,
+)
+from data_science_arcade.ui.metric_contract_scene import PICKER_SIZE as METRIC_CONTRACT_PICKER_SIZE
 from data_science_arcade.lessons.l17_hypothesis_detective.scenario import DECISION_FIELDS as L17_DECISION_FIELDS
 from data_science_arcade.lessons.l18_randomization_control_room.requests import ASSIGNMENT_REQUESTS as L18_ASSIGNMENT_REQUESTS
 from data_science_arcade.lessons.l18_randomization_control_room.scenario import DECISION_FIELDS as L18_DECISION_FIELDS
@@ -329,6 +344,10 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L15_MASTERY_SUPPORTING_EVIDENCE_FIELD,
         L15_MASTERY_REVERSAL_JUDGMENT_FIELD,
         *L16_DECISION_FIELDS,
+        L16_GUARDRAIL_FIELD,
+        L16_PRIOR_VERDICT_FIELD,
+        L16_MASTERY_JUDGMENT_FIELD,
+        L16_MASTERY_EVIDENCE_FIELD,
         *L17_DECISION_FIELDS,
         *L18_DECISION_FIELDS,
         *L19_DECISION_FIELDS,
@@ -416,9 +435,6 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width_l15))
 
     segment_option_button_width = SEGMENT_OPTION_SIZE[0] - BUTTON_PADDING
-    for request in L16_METRIC_REQUESTS:
-        for option in request.options:
-            checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
     for request in L18_ASSIGNMENT_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
@@ -429,9 +445,24 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
     # L09's own by-zone segment request is built live inside its stage
     # closure (its Segment rows depend on the real dataset), not exported
-    # as a module-level constant like L15/L16/L18's own requests - only
-    # its one static SliceOption label actually needs checking here.
+    # as a module-level constant like L15/L18's own requests - only its
+    # one static SliceOption label actually needs checking here.
     checks.append(("l09_segment.by_zone", "lesson.l09.segment.option.by_zone", segment_option_button_width))
+
+    metric_contract_picker_button_width = METRIC_CONTRACT_PICKER_SIZE[0] - BUTTON_PADDING
+    for option in l16_build_candidates(L16_HONEST, L16_EARLY, L16_EARLY_AS_OF_EXPR):
+        checks.append((f"metric_contract.{option.key}", option.label_key, metric_contract_picker_button_width))
+
+    comparison_reveal_option_button_width_l16 = COMPARISON_REVEAL_OPTION_SIZE[0] - BUTTON_PADDING
+    for options in (
+        L16_STRESS_A_PRIMARY_INTERPRET_OPTIONS,
+        L16_STRESS_A_GUARDRAIL_INTERPRET_OPTIONS,
+        L16_STRESS_B_DEFINITION_INTERPRET_OPTIONS,
+        L16_STRESS_B_BACKLOG_INTERPRET_OPTIONS,
+        L16_RERUN_INTERPRET_OPTIONS,
+    ):
+        for option in options:
+            checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width_l16))
 
     # The three PredictionScene direction buttons (Lesson 17) are a fixed
     # shared response scale, not per-request content, so they're checked
