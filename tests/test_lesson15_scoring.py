@@ -23,7 +23,7 @@ def _result(**overrides) -> LessonFifteenResult:
         prior_headline="need_to_check_composition_first",
         first_dimension="device",
         region_inspected=True,
-        revised_headline="need_to_check_composition_first",
+        revised_headline="overall_up_within_device_down",
         decision=dict(GOOD_DECISION),
         critical_evidence_present=ALL_CENTRAL_ROLES,
         mastery_engaged=False,
@@ -86,7 +86,7 @@ def test_overconfidence_scores_the_final_claim_not_the_prior_headline():
 
 
 def test_recalibration_bonus_fires_only_for_a_real_premature_to_correct_path():
-    app_result = _result(prior_headline="conversion_improved", revised_headline="need_to_check_composition_first")
+    app_result = _result(prior_headline="conversion_improved", revised_headline="overall_up_within_device_down")
     evaluation = score_lesson_fifteen(app_result, LESSON_15, hints_used=0)
     assert "lesson.l15.feedback.headline_recalibrated" in [o.text_key for o in evaluation.observations]
 
@@ -94,7 +94,7 @@ def test_recalibration_bonus_fires_only_for_a_real_premature_to_correct_path():
 def test_recalibration_bonus_does_not_fire_if_the_final_claim_is_wrong():
     result = _result(
         prior_headline="conversion_improved",
-        revised_headline="need_to_check_composition_first",
+        revised_headline="overall_up_within_device_down",
         decision={**GOOD_DECISION, "strongest_defensible_claim": "aggregate_number_is_wrong"},
     )
     evaluation = score_lesson_fifteen(result, LESSON_15, hints_used=0)
@@ -104,15 +104,39 @@ def test_recalibration_bonus_does_not_fire_if_the_final_claim_is_wrong():
 def test_recalibration_bonus_does_not_fire_for_a_student_who_started_correct():
     # Starting at the correct, neutral headline is not "premature" -
     # nothing to recalibrate away from.
-    result = _result(prior_headline="need_to_check_composition_first", revised_headline="need_to_check_composition_first")
+    result = _result(prior_headline="need_to_check_composition_first", revised_headline="overall_up_within_device_down")
     evaluation = score_lesson_fifteen(result, LESSON_15, hints_used=0)
     assert "lesson.l15.feedback.headline_recalibrated" not in [o.text_key for o in evaluation.observations]
 
 
 def test_a_student_who_starts_uncertain_and_stays_coherent_scores_full_marks():
-    result = _result(prior_headline="need_to_check_composition_first", revised_headline="need_to_check_composition_first")
+    result = _result(prior_headline="need_to_check_composition_first", revised_headline="overall_up_within_device_down")
     scores = _scores(result)
     assert scores[ScoreDimension.OVERCONFIDENCE] == 92.0
+
+
+def test_revision_field_never_offers_the_stage_two_neutral_cold_prior_option():
+    # P0 regression: the headline-revision field used to share its own
+    # option set with the cold prior reveal, so "need more context" - a
+    # defensible answer BEFORE investigation - stayed pickable as the
+    # supposedly "corrected" answer even after the student had already
+    # seen device rates/share, the region check, the weighted
+    # reconstruction, and the common-mix comparison. The revision field's
+    # own real options must never include that cold-prior key at all.
+    from data_science_arcade.lessons.l15_segment_detective.scenario import HEADLINE_REVISION_FIELD
+
+    revision_keys = {option.key for option in HEADLINE_REVISION_FIELD.options}
+    assert "need_to_check_composition_first" not in revision_keys
+    assert "overall_up_within_device_down" in revision_keys
+
+
+def test_recalibration_bonus_requires_the_real_substantive_revision_not_a_repeated_cold_read():
+    # A student who "revises" into one of the still-premature options
+    # (never having actually updated) gets no recalibration credit,
+    # regardless of what their prior was.
+    result = _result(prior_headline="conversion_improved", revised_headline="revised_conversion_improved")
+    evaluation = score_lesson_fifteen(result, LESSON_15, hints_used=0)
+    assert "lesson.l15.feedback.headline_recalibrated" not in [o.text_key for o in evaluation.observations]
 
 
 def test_mastery_requires_both_the_correct_judgment_and_the_real_distinguishing_fact():

@@ -113,13 +113,11 @@ REGION_OPTION = DimensionOption(
     evidence_keys=("lesson.l15.evidence.region_null",),
 )
 
-# --- Prior headline / revision options - shared keys between the
-# ComparisonRevealScene interpret step (stage 2) and the plain BriefField
-# re-ask (stage 6), so the same 3 real choices are asked twice with full
-# context the second time. The correct option's own label is worded
-# neutrally - it never names "mix," "composition," or "weights" before
-# investigation, matching the user's own explicit instruction not to
-# leak the central mechanism through this option's own text. ----------
+# --- Prior headline (stage 2, cold) - a real, neutral pre-investigation
+# read. The correct option's own label is worded neutrally - it never
+# names "mix," "composition," or "weights" before investigation,
+# matching the user's own explicit instruction not to leak the central
+# mechanism through this option's own text. ---------------------------
 
 _HEADLINE_OPTION_KEYS = ("conversion_improved", "conversion_worsened", "need_to_check_composition_first")
 
@@ -127,10 +125,24 @@ OVERALL_INTERPRET_OPTIONS = tuple(
     InterpretOption(key, f"lesson.l15.overall_reveal.interpret.option.{key}", evidence_key="lesson.l15.evidence.overall_change")
     for key in _HEADLINE_OPTION_KEYS
 )
+
+# --- Headline revision (stage 6, real re-ask) - deliberately a
+# SEPARATE, real option set from the cold prior above, never the same
+# 3 keys re-asked. "Need more context" was a defensible cold-prior
+# answer before investigation; by stage 6 the student has already seen
+# device rates/share, the region check, the weighted reconstruction, and
+# the common-mix comparison - restating "need more context" here would
+# be regressive, not a real revision. The correct option is now a
+# substantive, specific conclusion the investigation actually supports. -
+
 HEADLINE_REVISION_FIELD = BriefField(
     key="revised_headline",
     prompt_key="lesson.l15.headline_revision.prompt",
-    options=tuple(BriefOption(key, f"lesson.l15.overall_reveal.interpret.option.{key}") for key in _HEADLINE_OPTION_KEYS),
+    options=(
+        BriefOption("overall_up_within_device_down", "lesson.l15.headline_revision.option.overall_up_within_device_down"),
+        BriefOption("revised_conversion_improved", "lesson.l15.headline_revision.option.revised_conversion_improved"),
+        BriefOption("revised_conversion_worsened", "lesson.l15.headline_revision.option.revised_conversion_worsened"),
+    ),
 )
 
 # --- Stage-3 sub-reveal interpret options - no evidence_key on any of

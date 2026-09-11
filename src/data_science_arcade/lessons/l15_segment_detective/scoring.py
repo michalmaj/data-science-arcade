@@ -10,7 +10,7 @@ _CORRECT_STATEMENTS_RELATIONSHIP = "both_true_different_comparisons"
 _CORRECT_EXPLANATION = "mix_shifted_toward_higher_converting_group"
 _CORRECT_STANDARDIZED_INTERPRETATION = "no_within_device_gain_at_fixed_mix"
 _CORRECT_CLAIM = "names_both_facts_respects_causal_boundary"
-_CORRECT_REVISED_HEADLINE = "need_to_check_composition_first"
+_CORRECT_REVISED_HEADLINE = "overall_up_within_device_down"
 _PREMATURE_HEADLINES: frozenset[str] = frozenset({"conversion_improved", "conversion_worsened"})
 
 # Evidence, role-based (never "any N of M" - established L08-L14 discipline).
