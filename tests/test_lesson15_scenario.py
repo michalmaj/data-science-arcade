@@ -107,7 +107,7 @@ def _play_lesson_to_feedback(
     device_interpretation="device_explains_the_reversal",
     weighted_interpretation="aggregate_is_weighted_blend",
     standardized_interpretation="q2_rates_at_q1_mix_no_gain",
-    revised_headline="need_to_check_composition_first",
+    revised_headline="overall_up_within_device_down",
     decision=GOOD_DECISION,
     evidence_ids=None,
     mastery_engage: bool = False,
@@ -206,7 +206,7 @@ def test_the_full_lesson_plays_through_all_ten_stages_region_first():
         assert result.first_dimension == "region"
         assert result.region_inspected is True
         assert result.prior_headline == "need_to_check_composition_first"
-        assert result.revised_headline == "need_to_check_composition_first"
+        assert result.revised_headline == "overall_up_within_device_down"
         assert set(result.decision) == {field.key for field in DECISION_FIELDS} | {"evidence"}
         assert set(result.critical_evidence_present) == set(CRITICAL_EVIDENCE_KEYS)
         assert result.mastery_engaged is True
@@ -273,14 +273,14 @@ def test_headline_revision_is_a_real_separate_pick_from_the_prior_one():
         feedback = _play_lesson_to_feedback(
             app,
             prior_headline_interpretation="conversion_improved",
-            revised_headline="need_to_check_composition_first",
+            revised_headline="overall_up_within_device_down",
         )
         feedback.on_complete()
         _play_dialogue_to_the_end(app.scenes.current)
 
         result = finished_results[0]
         assert result.prior_headline == "conversion_improved"
-        assert result.revised_headline == "need_to_check_composition_first"
+        assert result.revised_headline == "overall_up_within_device_down"
     finally:
         pygame.quit()
 
