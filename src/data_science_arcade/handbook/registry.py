@@ -157,6 +157,20 @@ A_CHART_ENCODES_A_QUESTION = HandbookEntry(
     related_entry_ids=("a_summary_is_not_the_distribution",),
 )
 
+WHEN_THE_MIX_CHANGES = HandbookEntry(
+    id="when_the_mix_changes",
+    title_key="handbook.article.when_the_mix_changes.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.when_the_mix_changes.body.1",
+        "handbook.article.when_the_mix_changes.body.2",
+        "handbook.article.when_the_mix_changes.body.3",
+        "handbook.article.when_the_mix_changes.body.4",
+        "handbook.article.when_the_mix_changes.body.5",
+    ),
+    related_entry_ids=("observation_unit_and_grain",),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -169,6 +183,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     A_SUMMARY_IS_NOT_THE_DISTRIBUTION,
     JOINS_HAVE_CARDINALITY,
     A_CHART_ENCODES_A_QUESTION,
+    WHEN_THE_MIX_CHANGES,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -239,6 +254,12 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.cardinality.term",
         definition_key="handbook.glossary.cardinality.definition",
         related_entry_id="joins_have_cardinality",
+    ),
+    GlossaryEntry(
+        id="simpsons_paradox",
+        term_key="handbook.glossary.simpsons_paradox.term",
+        definition_key="handbook.glossary.simpsons_paradox.definition",
+        related_entry_id="when_the_mix_changes",
     ),
 )
 
