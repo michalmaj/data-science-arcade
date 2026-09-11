@@ -28,7 +28,7 @@ from data_science_arcade.data_engine.schema import ColumnSchema, Schema
 # not all) - the "same metric name, different real number, zero gaming"
 # beat: Definition A (eligible-population denominator) = 82.0%,
 # Definition B (closed-only denominator) = 86.7%, durable resolution rate
-# (mature cohort only, n=327) = 83.5%. Nobody's lying; B's own denominator
+# (mature cohort only, n=298) = 82.6%. Nobody's lying; B's own denominator
 # just quietly excludes whatever hasn't closed yet.
 #
 # Two real, independently re-simulated stress tests, both starting from
@@ -37,11 +37,15 @@ from data_science_arcade.data_engine.schema import ColumnSchema, Schema
 # shared timeline (stress test 2 does not happen "after" stress test 1).
 #
 #   Stress Test A - Close Fast (numerator/event gaming): those 70 tickets
-#   are rushed closed at +20h instead of +120h, without being durably
-#   fixed; 56 of the 70 (80%) genuinely reopen 3 days later. Both
-#   Definition A and B read 96.0% (the denominator stops mattering once
-#   nothing is left open) - durable resolution barely moves (82.0% ->
-#   84.8%) while reopen rate is the real signal (0.0% -> 11.2%).
+#   are rushed closed at +20h instead of +120h. 56 of the 70 (80%)
+#   genuinely reopen 3 days later - confirmed not durably fixed. The
+#   remaining 14 (20%) don't reopen within the observed 7-day window -
+#   a real outcome the durable definition's own operational bar actually
+#   counts as met, not a hidden ground truth contradicting the metric.
+#   Both Definition A and B read 96.0% (the denominator stops mattering
+#   once nothing is left open) - durable resolution moves only 82.0% ->
+#   84.8% (real, but far short of the headline's fake +14.0pp) while
+#   reopen rate is the real signal (0.0% -> 11.2%).
 #
 #   Stress Test B - Leave Hard Tickets Open (denominator/selection
 #   gaming): those same 70 tickets are instead left open indefinitely
@@ -52,10 +56,11 @@ from data_science_arcade.data_engine.schema import ColumnSchema, Schema
 #   needs.
 #
 # Durable resolution rate (Definition A's own population denominator,
-# restricted to the mature cohort, requiring 24h close AND no reopen
-# within 7 days) resists BOTH: 84.8% under Stress Test A (a real, small
-# +2.8pp move, not the headline's fake +14pp) and 82.0% (flat) under
-# Stress Test B.
+# restricted to the mature cohort - see FULL_OBSERVATION_WINDOW below -
+# requiring 24h close AND no reopen within 7 days) avoids the fake
+# headline under BOTH: only 84.8% under Stress Test A (the real, small
+# +2.8pp move a genuinely durable outcome produces, not the headline's
+# fake +14.0pp) and exactly 82.0% (flat) under Stress Test B.
 
 N_TICKETS = 500
 BLOCK_SIZE = 50
@@ -74,8 +79,16 @@ STRESS_SUBSET_SIZE = 70
 STRESS_A_REOPEN_COUNT = 56  # 80% of the 70-ticket subset
 STRESS_A_REOPEN_DELAY = pd.Timedelta(days=3)
 
-MATURITY_WINDOW = pd.Timedelta(days=7)
+REOPEN_WINDOW = pd.Timedelta(days=7)
 RESOLUTION_WINDOW = pd.Timedelta(hours=24)
+FULL_OBSERVATION_WINDOW = RESOLUTION_WINDOW + REOPEN_WINDOW
+"""A ticket only becomes eligible for durable-resolution evaluation once
+BOTH its own 24h resolution window AND a full, real 7-day reopen window
+have had time to elapse - not just 7 days since opening. A ticket opened
+7 days 12 hours ago that closed at hour 23 has only had ~6.5 real days of
+its own reopen window observed by now; counting it as mature this early
+was a real bug (fixed here) that could call a ticket durable up to a full
+day before its own real reopen window had actually finished."""
 
 TICKETS_SCHEMA = Schema(
     columns=(
@@ -218,14 +231,17 @@ def definition_b_rate(frame: pd.DataFrame, as_of: pd.Timestamp) -> float:
 
 def mature_mask(frame: pd.DataFrame, as_of: pd.Timestamp) -> pd.Series:
     """A ticket is eligible for durable-resolution evaluation once it has
-    been open at least 7 days before `as_of` - old enough to have had its
-    real reopen window elapse. An immature ticket is neither a durable
-    success nor a durable failure yet; it simply isn't counted."""
-    return _opened_by_asof(frame, as_of) & (frame["opened_at"] <= as_of - MATURITY_WINDOW)
+    been open at least `FULL_OBSERVATION_WINDOW` (8 days: the 24h
+    resolution window plus a full 7-day reopen window) before `as_of` -
+    old enough that its own real reopen window has genuinely elapsed,
+    however late within its own 24h window it happened to close. An
+    immature ticket is neither a durable success nor a durable failure
+    yet; it simply isn't counted."""
+    return _opened_by_asof(frame, as_of) & (frame["opened_at"] <= as_of - FULL_OBSERVATION_WINDOW)
 
 
 def _reopened_within_window(frame: pd.DataFrame, as_of: pd.Timestamp) -> pd.Series:
-    return frame["reopened_at"].notna() & (frame["reopened_at"] <= as_of) & ((frame["reopened_at"] - frame["closed_at"]) <= MATURITY_WINDOW)
+    return frame["reopened_at"].notna() & (frame["reopened_at"] <= as_of) & ((frame["reopened_at"] - frame["closed_at"]) <= REOPEN_WINDOW)
 
 
 def durable_resolution_rate(frame: pd.DataFrame, as_of: pd.Timestamp) -> float:
