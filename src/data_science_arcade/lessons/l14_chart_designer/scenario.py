@@ -6,6 +6,7 @@ from data_science_arcade.lessons.l14_chart_designer.orders import (
     DAILY_ORDER_COUNTS,
     DELIVERY_BIN_COUNTS,
     DELIVERY_BIN_EDGES,
+    DELIVERY_BIN_RANGE_LABELS,
     STORE_IDS,
     STORE_RETURN_RATES,
     generate_orders,
@@ -80,6 +81,7 @@ STORE_OPTIONS = (
         labels=STORE_IDS_SORTED_DESC,
         values=STORE_RATES_SORTED_DESC,
         value_format=_pct_format,
+        mirror_extra_code="returns_by_store = returns_by_store.sort_values(ascending=False)",
     ),
     ChartFormOption(
         "line",
@@ -120,18 +122,19 @@ DATES_OPTIONS = (
     ),
 )
 
-# Delivery-time distribution: histogram is the real best fit. The only
-# real, safe alternative at this same 260-row scope is a bar of
-# store-level averages - a genuinely different, real, small (4-category)
-# chart that answers a comparison question, not the frequency/shape
-# question actually asked. Never a raw-value bar/line: that would need
-# one label per observation, which this scene structurally never offers
-# (see ChartBuilderScene's own docstring).
+# Delivery-time distribution: histogram is the real best fit. The
+# alternative is a frequency polygon over the SAME real bins and the
+# SAME real counts the histogram itself uses - never a different
+# aggregate or a different grain (a store-level-average bar, say),
+# which would confound the chart-FORM question with a changed
+# analytical question and let a student be "wrong" for picking a
+# different estimand rather than a weaker visual encoding. Both options
+# here answer the exact same "how are delivery times distributed"
+# question, from the exact same (bin, count) series - only the
+# connecting geometry (bars vs. a line) differs.
 
-_STORE_AVG_DELIVERY_MINUTES = tuple(
-    float(_MODULE_ORDERS.frame.groupby("store_id")["delivery_minutes"].mean()[store_id]) for store_id in STORE_IDS
-)
 _DELIVERY_MINUTES_RAW = tuple(float(value) for value in _MODULE_ORDERS.frame["delivery_minutes"])
+_DELIVERY_BIN_COUNTS_FLOAT = tuple(float(count) for count in DELIVERY_BIN_COUNTS)
 
 DISTRIBUTION_OPTIONS = (
     ChartFormOption(
@@ -143,66 +146,127 @@ DISTRIBUTION_OPTIONS = (
         bin_edges=DELIVERY_BIN_EDGES,
     ),
     ChartFormOption(
-        "bar_store_averages",
-        "lesson.l14.builder.distribution.option.bar_store_averages",
-        "bar",
-        "store_id vs avg delivery_minutes",
-        labels=STORE_IDS,
-        values=_STORE_AVG_DELIVERY_MINUTES,
-        value_format=lambda v: f"{v:.0f} min",
+        "frequency_polygon",
+        "lesson.l14.builder.distribution.option.frequency_polygon",
+        "line",
+        "delivery_minutes frequency, same bins, connected by a line",
+        labels=DELIVERY_BIN_RANGE_LABELS,
+        values=_DELIVERY_BIN_COUNTS_FLOAT,
     ),
 )
 
-# --- Reveal interpret options - same evidence_key on every option, none
-# of these three facts are path-aware (they're true regardless of which
-# chart form was actually picked), applying the L11-follow-up lesson. --
+# --- Reveal interpret options - path-aware: the real consequence
+# actually visible on screen (what got rendered) depends on which chart
+# form the student actually picked, so the framing/interpretation choices
+# must too - a bar-path student is never asked to interpret a line's own
+# false-continuity problem, and vice versa. Same evidence_key on every
+# option within a given path (the underlying fact stays true regardless
+# of which interpretation was picked), applying the L11-follow-up lesson.
 
-STORE_CONSEQUENCE_INTERPRET_OPTIONS = (
+STORE_CONSEQUENCE_LINE_INTERPRET_OPTIONS = (
     InterpretOption(
         "implies_false_continuity",
-        "lesson.l14.store_consequence.interpret.option.implies_false_continuity",
+        "lesson.l14.store_consequence.line_path.interpret.option.implies_false_continuity",
         evidence_key="lesson.l14.evidence.store_categories",
     ),
     InterpretOption(
         "shows_real_trend",
-        "lesson.l14.store_consequence.interpret.option.shows_real_trend",
+        "lesson.l14.store_consequence.line_path.interpret.option.shows_real_trend",
         evidence_key="lesson.l14.evidence.store_categories",
     ),
     InterpretOption(
-        "doesnt_matter", "lesson.l14.store_consequence.interpret.option.doesnt_matter", evidence_key="lesson.l14.evidence.store_categories"
+        "doesnt_matter",
+        "lesson.l14.store_consequence.line_path.interpret.option.doesnt_matter",
+        evidence_key="lesson.l14.evidence.store_categories",
     ),
 )
 
-DATES_CONSEQUENCE_INTERPRET_OPTIONS = (
+STORE_CONSEQUENCE_BAR_INTERPRET_OPTIONS = (
+    InterpretOption(
+        "bars_correctly_separate_categories",
+        "lesson.l14.store_consequence.bar_path.interpret.option.bars_correctly_separate_categories",
+        evidence_key="lesson.l14.evidence.store_categories",
+    ),
+    InterpretOption(
+        "bars_still_imply_continuity",
+        "lesson.l14.store_consequence.bar_path.interpret.option.bars_still_imply_continuity",
+        evidence_key="lesson.l14.evidence.store_categories",
+    ),
+    InterpretOption(
+        "form_doesnt_matter",
+        "lesson.l14.store_consequence.bar_path.interpret.option.form_doesnt_matter",
+        evidence_key="lesson.l14.evidence.store_categories",
+    ),
+)
+
+DATES_CONSEQUENCE_LINE_INTERPRET_OPTIONS = (
     InterpretOption(
         "real_chronological_meaning",
-        "lesson.l14.dates_consequence.interpret.option.real_chronological_meaning",
+        "lesson.l14.dates_consequence.line_path.interpret.option.real_chronological_meaning",
         evidence_key="lesson.l14.evidence.date_order",
     ),
     InterpretOption(
-        "order_doesnt_matter", "lesson.l14.dates_consequence.interpret.option.order_doesnt_matter", evidence_key="lesson.l14.evidence.date_order"
+        "order_doesnt_matter",
+        "lesson.l14.dates_consequence.line_path.interpret.option.order_doesnt_matter",
+        evidence_key="lesson.l14.evidence.date_order",
     ),
     InterpretOption(
         "only_bars_are_honest",
-        "lesson.l14.dates_consequence.interpret.option.only_bars_are_honest",
+        "lesson.l14.dates_consequence.line_path.interpret.option.only_bars_are_honest",
         evidence_key="lesson.l14.evidence.date_order",
     ),
 )
 
-DISTRIBUTION_CONSEQUENCE_INTERPRET_OPTIONS = (
+DATES_CONSEQUENCE_BAR_INTERPRET_OPTIONS = (
+    InterpretOption(
+        "honest_but_understates_progression",
+        "lesson.l14.dates_consequence.bar_path.interpret.option.honest_but_understates_progression",
+        evidence_key="lesson.l14.evidence.date_order",
+    ),
+    InterpretOption(
+        "bars_are_always_better",
+        "lesson.l14.dates_consequence.bar_path.interpret.option.bars_are_always_better",
+        evidence_key="lesson.l14.evidence.date_order",
+    ),
+    InterpretOption(
+        "form_doesnt_matter",
+        "lesson.l14.dates_consequence.bar_path.interpret.option.form_doesnt_matter",
+        evidence_key="lesson.l14.evidence.date_order",
+    ),
+)
+
+DISTRIBUTION_CONSEQUENCE_HISTOGRAM_INTERPRET_OPTIONS = (
     InterpretOption(
         "bar_height_is_frequency",
-        "lesson.l14.distribution_consequence.interpret.option.bar_height_is_frequency",
+        "lesson.l14.distribution_consequence.histogram_path.interpret.option.bar_height_is_frequency",
         evidence_key="lesson.l14.evidence.histogram_binning",
     ),
     InterpretOption(
         "bar_height_is_a_value",
-        "lesson.l14.distribution_consequence.interpret.option.bar_height_is_a_value",
+        "lesson.l14.distribution_consequence.histogram_path.interpret.option.bar_height_is_a_value",
         evidence_key="lesson.l14.evidence.histogram_binning",
     ),
     InterpretOption(
         "bins_are_arbitrary",
-        "lesson.l14.distribution_consequence.interpret.option.bins_are_arbitrary",
+        "lesson.l14.distribution_consequence.histogram_path.interpret.option.bins_are_arbitrary",
+        evidence_key="lesson.l14.evidence.histogram_binning",
+    ),
+)
+
+DISTRIBUTION_CONSEQUENCE_POLYGON_INTERPRET_OPTIONS = (
+    InterpretOption(
+        "line_implies_values_between_bins",
+        "lesson.l14.distribution_consequence.polygon_path.interpret.option.line_implies_values_between_bins",
+        evidence_key="lesson.l14.evidence.histogram_binning",
+    ),
+    InterpretOption(
+        "same_shape_no_real_difference",
+        "lesson.l14.distribution_consequence.polygon_path.interpret.option.same_shape_no_real_difference",
+        evidence_key="lesson.l14.evidence.histogram_binning",
+    ),
+    InterpretOption(
+        "polygon_is_always_wrong",
+        "lesson.l14.distribution_consequence.polygon_path.interpret.option.polygon_is_always_wrong",
         evidence_key="lesson.l14.evidence.histogram_binning",
     ),
 )
@@ -249,7 +313,7 @@ CHART_FORM_FOR_DISTRIBUTION_FIELD = BriefField(
     prompt_key="lesson.l14.decision.chart_form_for_distribution.prompt",
     options=(
         BriefOption("histogram", "lesson.l14.decision.chart_form_for_distribution.option.histogram"),
-        BriefOption("bar_store_averages", "lesson.l14.decision.chart_form_for_distribution.option.bar_store_averages"),
+        BriefOption("frequency_polygon", "lesson.l14.decision.chart_form_for_distribution.option.frequency_polygon"),
     ),
 )
 COMMUNICATION_PRINCIPLE_FIELD = BriefField(
@@ -354,14 +418,20 @@ def build_lesson_fourteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         )
 
     def store_consequence_reveal(advance):
+        is_line = collected["chart_choice_stores"] == "line"
+
         def on_complete(_interpretation):
             _sync_context_into_collected()
             advance()
 
         return ComparisonRevealScene(
             app,
-            title_key="lesson.l14.store_consequence.title",
-            narrative_keys=("dialogue.l14_store_consequence.line1", "dialogue.l14_store_consequence.line2"),
+            title_key="lesson.l14.store_consequence.line_path.title" if is_line else "lesson.l14.store_consequence.bar_path.title",
+            narrative_keys=(
+                ("dialogue.l14_store_consequence.line_path.line1", "dialogue.l14_store_consequence.line_path.line2")
+                if is_line
+                else ("dialogue.l14_store_consequence.bar_path.line1", "dialogue.l14_store_consequence.bar_path.line2")
+            ),
             comparisons=(
                 ComparisonValue(
                     "lesson.l14.store_consequence.highest_label",
@@ -376,8 +446,12 @@ def build_lesson_fourteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                     value_format=_pct_format,
                 ),
             ),
-            interpret_prompt_key="lesson.l14.store_consequence.interpret_prompt",
-            interpret_options=STORE_CONSEQUENCE_INTERPRET_OPTIONS,
+            interpret_prompt_key=(
+                "lesson.l14.store_consequence.line_path.interpret_prompt"
+                if is_line
+                else "lesson.l14.store_consequence.bar_path.interpret_prompt"
+            ),
+            interpret_options=STORE_CONSEQUENCE_LINE_INTERPRET_OPTIONS if is_line else STORE_CONSEQUENCE_BAR_INTERPRET_OPTIONS,
             on_complete=on_complete,
             context=context,
             comparisons_are_evidence=False,
@@ -411,14 +485,20 @@ def build_lesson_fourteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         )
 
     def dates_consequence_reveal(advance):
+        is_line = collected["chart_choice_dates"] == "line"
+
         def on_complete(_interpretation):
             _sync_context_into_collected()
             advance()
 
         return ComparisonRevealScene(
             app,
-            title_key="lesson.l14.dates_consequence.title",
-            narrative_keys=("dialogue.l14_dates_consequence.line1",),
+            title_key="lesson.l14.dates_consequence.line_path.title" if is_line else "lesson.l14.dates_consequence.bar_path.title",
+            narrative_keys=(
+                ("dialogue.l14_dates_consequence.line_path.line1",)
+                if is_line
+                else ("dialogue.l14_dates_consequence.bar_path.line1",)
+            ),
             comparisons=(
                 ComparisonValue(
                     "lesson.l14.dates_consequence.first_day_label",
@@ -433,8 +513,12 @@ def build_lesson_fourteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                     value_format=lambda v: f"{v:,.0f}",
                 ),
             ),
-            interpret_prompt_key="lesson.l14.dates_consequence.interpret_prompt",
-            interpret_options=DATES_CONSEQUENCE_INTERPRET_OPTIONS,
+            interpret_prompt_key=(
+                "lesson.l14.dates_consequence.line_path.interpret_prompt"
+                if is_line
+                else "lesson.l14.dates_consequence.bar_path.interpret_prompt"
+            ),
+            interpret_options=DATES_CONSEQUENCE_LINE_INTERPRET_OPTIONS if is_line else DATES_CONSEQUENCE_BAR_INTERPRET_OPTIONS,
             on_complete=on_complete,
             context=context,
             comparisons_are_evidence=False,
@@ -474,14 +558,24 @@ def build_lesson_fourteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         )
 
     def distribution_consequence_reveal(advance):
+        is_histogram = collected["chart_choice_distribution"] == "histogram"
+
         def on_complete(_interpretation):
             _sync_context_into_collected()
             advance()
 
         return ComparisonRevealScene(
             app,
-            title_key="lesson.l14.distribution_consequence.title",
-            narrative_keys=("dialogue.l14_distribution_consequence.line1",),
+            title_key=(
+                "lesson.l14.distribution_consequence.histogram_path.title"
+                if is_histogram
+                else "lesson.l14.distribution_consequence.polygon_path.title"
+            ),
+            narrative_keys=(
+                ("dialogue.l14_distribution_consequence.histogram_path.line1",)
+                if is_histogram
+                else ("dialogue.l14_distribution_consequence.polygon_path.line1",)
+            ),
             comparisons=(
                 ComparisonValue(
                     "lesson.l14.distribution_consequence.busiest_bin_label",
@@ -496,8 +590,16 @@ def build_lesson_fourteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                     value_format=lambda v: f"{v:,.0f}",
                 ),
             ),
-            interpret_prompt_key="lesson.l14.distribution_consequence.interpret_prompt",
-            interpret_options=DISTRIBUTION_CONSEQUENCE_INTERPRET_OPTIONS,
+            interpret_prompt_key=(
+                "lesson.l14.distribution_consequence.histogram_path.interpret_prompt"
+                if is_histogram
+                else "lesson.l14.distribution_consequence.polygon_path.interpret_prompt"
+            ),
+            interpret_options=(
+                DISTRIBUTION_CONSEQUENCE_HISTOGRAM_INTERPRET_OPTIONS
+                if is_histogram
+                else DISTRIBUTION_CONSEQUENCE_POLYGON_INTERPRET_OPTIONS
+            ),
             on_complete=on_complete,
             context=context,
             comparisons_are_evidence=False,

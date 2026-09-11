@@ -7,8 +7,8 @@ import pygame
 import pytest
 
 from data_science_arcade.app.game import App
-from data_science_arcade.lessons.l14_chart_designer.orders import generate_orders
-from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS, build_lesson_fourteen_runner
+from data_science_arcade.lessons.l14_chart_designer.orders import DELIVERY_BIN_COUNTS, DELIVERY_BIN_RANGE_LABELS, generate_orders
+from data_science_arcade.lessons.l14_chart_designer.scenario import DECISION_FIELDS, DISTRIBUTION_OPTIONS, build_lesson_fourteen_runner
 from data_science_arcade.lessons.l14_chart_designer.scoring import CRITICAL_EVIDENCE_KEYS, LessonFourteenResult
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.chart_builder_scene import ChartBuilderScene
@@ -100,11 +100,11 @@ def _play_lesson_to_feedback(
     app,
     *,
     stores_choice="bar_natural_order",
-    stores_consequence_interpretation="implies_false_continuity",
+    stores_consequence_interpretation="bars_correctly_separate_categories",
     dates_choice="bar_chronological",
-    dates_consequence_interpretation="real_chronological_meaning",
-    distribution_choice="bar_store_averages",
-    distribution_consequence_interpretation="bar_height_is_frequency",
+    dates_consequence_interpretation="honest_but_understates_progression",
+    distribution_choice="frequency_polygon",
+    distribution_consequence_interpretation="line_implies_values_between_bins",
     revision_engage: bool = False,
     revised_stores_choice=None,
     revised_dates_choice=None,
@@ -197,8 +197,8 @@ def test_the_full_lesson_plays_through_all_twelve_stages_to_a_result():
         assert result.chart_choice_stores == "bar_natural_order"
         assert result.chart_choice_dates_first == "bar_chronological"
         assert result.chart_choice_dates == "bar_chronological"
-        assert result.chart_choice_distribution_first == "bar_store_averages"
-        assert result.chart_choice_distribution == "bar_store_averages"
+        assert result.chart_choice_distribution_first == "frequency_polygon"
+        assert result.chart_choice_distribution == "frequency_polygon"
         assert set(result.decision) == {field.key for field in DECISION_FIELDS} | {"evidence"}
         assert set(result.critical_evidence_present) == set(CRITICAL_EVIDENCE_KEYS)
         assert result.mastery_engaged is True
@@ -241,6 +241,7 @@ def test_the_consolidated_revision_lets_all_three_charts_be_re_edited():
         feedback = _play_lesson_to_feedback(
             app,
             stores_choice="line",
+            stores_consequence_interpretation="implies_false_continuity",
             revision_engage=True,
             revised_stores_choice="bar_sorted_desc",
             revised_dates_choice="line",
@@ -254,7 +255,7 @@ def test_the_consolidated_revision_lets_all_three_charts_be_re_edited():
         assert result.chart_choice_stores == "bar_sorted_desc"
         assert result.chart_choice_dates_first == "bar_chronological"
         assert result.chart_choice_dates == "line"
-        assert result.chart_choice_distribution_first == "bar_store_averages"
+        assert result.chart_choice_distribution_first == "frequency_polygon"
         assert result.chart_choice_distribution == "histogram"
     finally:
         pygame.quit()
@@ -285,6 +286,63 @@ def test_every_decision_field_has_at_least_two_options(field):
     assert len(field.options) >= 2
 
 
+def test_distribution_options_plot_the_same_real_bin_series_no_grain_confound():
+    # Regression: the distribution ask's two options must isolate visual
+    # encoding alone - a decoy that changes grain (e.g. a store-level
+    # average) would let a student be "wrong" for answering a different
+    # question, not for a weaker chart form.
+    histogram_option = next(o for o in DISTRIBUTION_OPTIONS if o.key == "histogram")
+    polygon_option = next(o for o in DISTRIBUTION_OPTIONS if o.key == "frequency_polygon")
+    assert polygon_option.labels == DELIVERY_BIN_RANGE_LABELS
+    assert polygon_option.values == tuple(float(c) for c in DELIVERY_BIN_COUNTS)
+    assert histogram_option.bin_edges is not None
+    assert len(polygon_option.labels) == len(histogram_option.bin_edges) - 1
+
+
+def test_consequence_reveal_is_path_aware_on_the_line_path():
+    # Regression: each reveal's own title/interpret options must reflect
+    # what actually got rendered - a line-path student is never asked to
+    # interpret a bar's own category-comparison fit, and vice versa. Two
+    # separate test functions (not two App() instances in one function) -
+    # each gets its own fresh, isolated save file from conftest.py's
+    # per-test tmp_path fixture; sharing one within a single function
+    # would resume the second App() straight past its own briefing into
+    # whatever stage the first one's own checkpoint last advanced to.
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_fourteen_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+
+        _play_chart_builder(app.scenes.current.inner, "line")  # store_attempt: LINE path
+        reveal = app.scenes.current.inner
+        assert isinstance(reveal, ComparisonRevealScene)
+        line_path_keys = {option.key for option in reveal.interpret_options}
+        assert "implies_false_continuity" in line_path_keys
+        assert "bars_correctly_separate_categories" not in line_path_keys
+    finally:
+        pygame.quit()
+
+
+def test_consequence_reveal_is_path_aware_on_the_bar_path():
+    app = _init_app()
+    try:
+        runner, _ = build_lesson_fourteen_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+
+        _play_chart_builder(app.scenes.current.inner, "bar_natural_order")  # store_attempt: BAR path
+        reveal = app.scenes.current.inner
+        assert isinstance(reveal, ComparisonRevealScene)
+        bar_path_keys = {option.key for option in reveal.interpret_options}
+        assert "bars_correctly_separate_categories" in bar_path_keys
+        assert "implies_false_continuity" not in bar_path_keys
+    finally:
+        pygame.quit()
+
+
 def test_evidence_is_available_after_a_wrong_interpretation_at_every_reveal():
     app = _init_app()
     try:
@@ -294,9 +352,9 @@ def test_evidence_is_available_after_a_wrong_interpretation_at_every_reveal():
 
         _play_lesson_to_feedback(
             app,
-            stores_consequence_interpretation="doesnt_matter",
-            dates_consequence_interpretation="order_doesnt_matter",
-            distribution_consequence_interpretation="bar_height_is_a_value",
+            stores_consequence_interpretation="form_doesnt_matter",
+            dates_consequence_interpretation="bars_are_always_better",
+            distribution_consequence_interpretation="polygon_is_always_wrong",
         )
 
         restored_context = LessonContext()
@@ -333,6 +391,37 @@ def test_the_happy_path_python_mirror_executes_top_to_bottom_against_real_orders
         assert round(float(namespace["returns_by_store"]["S01"]), 1) == 15.0
         assert len(namespace["daily_orders"]) == 14
         assert namespace["hist_counts"].sum() == 260
+    finally:
+        pygame.quit()
+
+
+def test_the_sorted_bar_choice_records_its_own_sort_in_the_mirror():
+    # Regression: bar_sorted_desc RENDERS sorted values, so its own Mirror
+    # action must include the real sort_values() that actually produced
+    # them - never silently showing natural-order data prep for a chart
+    # that visibly isn't in natural order.
+    app = _init_app()
+    try:
+        runner, collected = build_lesson_fourteen_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_lesson_to_feedback(
+            app,
+            stores_choice="bar_sorted_desc",
+            stores_consequence_interpretation="bars_correctly_separate_categories",
+        )
+
+        restored_context = LessonContext()
+        restored_context.restore_from_dict(collected["analytical_context"])
+        mirror = restored_context.python_mirror()
+
+        assert "returns_by_store = returns_by_store.sort_values(ascending=False)" in mirror
+
+        namespace: dict = {"orders": generate_orders().frame}
+        exec(mirror, namespace)
+
+        sorted_rates = namespace["returns_by_store"]
+        assert list(sorted_rates.index) == sorted(sorted_rates.index, key=lambda store: -sorted_rates[store])
     finally:
         pygame.quit()
 

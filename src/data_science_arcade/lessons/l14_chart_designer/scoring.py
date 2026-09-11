@@ -7,12 +7,29 @@ from data_science_arcade.lessons.framework.evaluation import FeedbackObservation
 # Tiered, not binary - real practice isn't a binary quiz. Each ask's own
 # real chart-form options score 2 (best fit), 1 (defensible but less
 # aligned - never treated as a full error), or 0 (answers a different
-# question / semantically risky for this specific ask).
+# question / semantically risky for this specific ask). The distribution
+# ask has no 0-point tier: both its real options plot the exact same
+# (bin, count) series - a frequency polygon is a real, defensible-but-
+# weaker encoding of the same distribution, never a wrong estimand.
 _STORES_FORM_POINTS: dict[str, int] = {"bar_sorted_desc": 2, "bar_natural_order": 1, "line": 0}
 _DATES_FORM_POINTS: dict[str, int] = {"line": 2, "bar_chronological": 1}
-_DISTRIBUTION_FORM_POINTS: dict[str, int] = {"histogram": 2, "bar_store_averages": 0}
+_DISTRIBUTION_FORM_POINTS: dict[str, int] = {"histogram": 2, "frequency_polygon": 1}
 
 _CORRECT_STORES_FORM = "bar_sorted_desc"
+"""METHOD's own best-fit tier for the store ask - sorted-highest-first is
+the closest real alignment to a "which stores are higher" ranking ask.
+Deliberately NOT the same thing REASONING checks below - ordering is a
+tiebreaker within "pick a bar chart," not part of understanding that a
+bar chart (in either real order) is the right FORM for comparing
+categories."""
+_STORES_BAR_FORMS: frozenset[str] = frozenset({"bar_sorted_desc", "bar_natural_order"})
+"""Either real bar chart is a correct FORM understanding for the store
+ask - `bars compare magnitude between discrete categories` is equally
+true regardless of which real order the bars are drawn in. A normative
+check that required the specific sorted variant would be smuggling a
+real ordering requirement into a check that only asks about form; if
+ordering should be its own normative requirement, it needs its own
+explicit ask/rationale pair, not a hidden tie-in here."""
 _CORRECT_STORES_RATIONALE = "bars_compare_magnitude"
 _CORRECT_DATES_FORM = "line"
 _CORRECT_DATES_RATIONALE = "real_time_order_shows_change"
@@ -115,8 +132,13 @@ def _score_method(result: LessonFourteenResult) -> tuple[float, FeedbackObservat
 
 
 def _stores_normative_understanding(result: LessonFourteenResult) -> bool:
+    """Checks FORM understanding only - either real bar chart (sorted or
+    natural order) paired with the real "bars compare magnitude" reason
+    counts, since ordering is a separate METHOD-tier concern (see
+    `_STORES_BAR_FORMS`'s own docstring), not part of what this check is
+    named for."""
     d = result.decision
-    return d.get("chart_form_for_stores") == _CORRECT_STORES_FORM and d.get("rationale_for_stores_form") == _CORRECT_STORES_RATIONALE
+    return d.get("chart_form_for_stores") in _STORES_BAR_FORMS and d.get("rationale_for_stores_form") == _CORRECT_STORES_RATIONALE
 
 
 def _dates_normative_understanding(result: LessonFourteenResult) -> bool:
