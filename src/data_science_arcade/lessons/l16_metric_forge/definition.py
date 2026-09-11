@@ -10,6 +10,7 @@ LESSON_16 = LessonDefinition(
         "lesson.l16.objective2",
         "lesson.l16.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.REASONING, ScoreDimension.OVERCONFIDENCE),
-    estimated_minutes=15,
+    scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.REASONING, ScoreDimension.EVIDENCE, ScoreDimension.OVERCONFIDENCE),
+    estimated_minutes=29,
+    related_handbook_entry_id="when_a_measure_becomes_a_target",
 )
