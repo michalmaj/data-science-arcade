@@ -305,14 +305,17 @@ def test_the_happy_path_python_mirror_executes_top_to_bottom():
         assert "aged_backlog_after = " in mirror
         assert "revised_stress_a_rate = " in mirror
         assert "revised_stress_b_rate = " in mirror
+        # Regression: stress_a_tickets/stress_b_tickets used to appear
+        # "magically" - injected directly into the test's own namespace
+        # rather than derived by any real, visible code in the mirror
+        # itself (the same failure class L11's own hidden segment column
+        # was fixed for). Both must now be real derivations.
+        assert "stress_a_tickets = tickets.copy()" in mirror
+        assert "stress_b_tickets = tickets.copy()" in mirror
+        assert "difficulty" not in mirror  # never the hidden column - only an observable rule
 
         tickets = d.honest_tickets()
-        namespace: dict = {
-            "tickets": tickets,
-            "stress_a_tickets": d.apply_stress_test_a(tickets),
-            "stress_b_tickets": d.apply_stress_test_b(tickets),
-            "pd": pd,
-        }
+        namespace: dict = {"tickets": tickets, "pd": pd}
         exec(mirror, namespace)
 
         assert round(float(namespace["durable_resolution_rate"]) * 100, 1) in (82.0, 84.8)
