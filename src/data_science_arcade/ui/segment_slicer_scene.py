@@ -28,20 +28,21 @@ NAV_BUTTON_Y = 460
 
 class SegmentSlicerScene(Scene):
     """A fixed sequence of requests, each offering a few options; picking
-    one shows a real before/after table for that option's own rows -
-    originally built to slice a company-wide metric by a chosen dimension
-    (spec §25 Lesson 15 'Segment Detective', where each row is a
-    demographic segment like device or region), reused as-is for Lesson 16
-    'Metric Forge' (where each row is a tracked metric - primary or
-    guardrail - instead of a segment), and reused again for Lesson 18
-    'Randomization Control Room' (where the two columns are Treatment/
-    Control balance instead of a before/after contrast - see flag_check,
-    and where value_format needs to render a plain count, a percentage,
-    and a day count as different rows of the *same* table, hence it
-    receiving the Segment being formatted rather than a bare float).
-    "Segment" in the framework dataclasses (`lessons/framework/segment.py`)
-    means "a row this table compares," not specifically a demographic
-    slice.
+    one shows a real before/after table for that option's own rows. Real
+    current uses: Lesson 07 'Missing Data Clinic' and Lesson 09 'Outlier
+    Patrol' (a real before/after investigation over a chosen slice),
+    Lesson 16 'Metric Forge' (where each row is a tracked metric - primary
+    or guardrail - instead of a segment), and Lesson 18 'Randomization
+    Control Room' (where the two columns are Treatment/Control balance
+    instead of a before/after contrast - see flag_check, and where
+    value_format needs to render a plain count, a percentage, and a day
+    count as different rows of the *same* table, hence it receiving the
+    Segment being formatted rather than a bare float). Lesson 15 ('Segment
+    Detective') no longer uses this scene - its own real rate+share
+    investigation needed a different table shape entirely (see
+    `ui/segment_mix_scene.py`), not a before/after-only pair. "Segment" in
+    the framework dataclasses (`lessons/framework/segment.py`) means "a
+    row this table compares," not specifically a demographic slice.
 
     guided=True also shows each request's hint; guided=False hides it,
     matching every other stage scene's guided/independent split."""
@@ -53,10 +54,10 @@ class SegmentSlicerScene(Scene):
         requests: tuple[SegmentRequest, ...],
         on_complete: Callable[[SegmentChoices], None],
         guided: bool = True,
-        row_column_label_key: str = "lesson.l15.segment_column_label",
-        before_column_label_key: str = "lesson.l15.before_column_label",
-        after_column_label_key: str = "lesson.l15.after_column_label",
-        pick_hint_key: str = "lesson.l15.pick_a_slice_hint",
+        row_column_label_key: str = "segment_slicer.segment_column_label",
+        before_column_label_key: str = "segment_slicer.before_column_label",
+        after_column_label_key: str = "segment_slicer.after_column_label",
+        pick_hint_key: str = "segment_slicer.pick_a_slice_hint",
         value_format: Callable[[Segment, float], str] = lambda segment, value: f"{value:.0%}",
         flag_check: Callable[[float, float], bool] = lambda before, after: after < before,
     ) -> None:
