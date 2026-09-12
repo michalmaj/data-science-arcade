@@ -46,19 +46,34 @@ PILOT_SCHEMA = Schema(
     )
 )
 
+BLINDED_ROSTER_SCHEMA = Schema(
+    columns=(
+        ColumnSchema("customer_id", "object"),
+        ColumnSchema("variant", "object", description="'control' or 'one_click'"),
+        ColumnSchema("device", "object", description="'app' or 'web'"),
+    )
+)
+
+
+def _evenly_distributed_flags(n: int, k: int) -> list[bool]:
+    """k True values spread as evenly as possible across n slots (a
+    standard integer-spread/Bresenham-style construction: flag i is True
+    exactly when floor((i+1)k/n) != floor(ik/n), which telescopes to
+    exactly k True values regardless of divisibility). Used instead of
+    "the first k rows are True" so that even a genuinely blinded row
+    order never leaves the first several rows of a device/variant slice
+    looking like a systematically biased sample."""
+    return [((i + 1) * k) // n != (i * k) // n for i in range(n)]
+
 
 def _variant_rows(variant: str, n_app_repeat: int, n_web_repeat: int, start_id: int) -> tuple[list[dict], int]:
     rows: list[dict] = []
     customer_id = start_id
-    for i in range(APP_PER_VARIANT):
-        rows.append(
-            {"customer_id": f"C-{customer_id:04d}", "variant": variant, "device": "app", "repeat_purchase_14d": i < n_app_repeat}
-        )
+    for flag in _evenly_distributed_flags(APP_PER_VARIANT, n_app_repeat):
+        rows.append({"customer_id": f"C-{customer_id:04d}", "variant": variant, "device": "app", "repeat_purchase_14d": flag})
         customer_id += 1
-    for i in range(WEB_PER_VARIANT):
-        rows.append(
-            {"customer_id": f"C-{customer_id:04d}", "variant": variant, "device": "web", "repeat_purchase_14d": i < n_web_repeat}
-        )
+    for flag in _evenly_distributed_flags(WEB_PER_VARIANT, n_web_repeat):
+        rows.append({"customer_id": f"C-{customer_id:04d}", "variant": variant, "device": "web", "repeat_purchase_14d": flag})
         customer_id += 1
     return rows, customer_id
 
@@ -70,13 +85,28 @@ def _pilot_rows() -> list[dict]:
 
 
 def generate_pilot() -> Dataset:
-    """The player-facing pilot feed - real, clean, no data-quality issues
-    (this is a pre-specification lesson, not a cleaning one). Assignment
-    is taken as validly supplied throughout this lesson - L18 is where
-    random assignment itself gets examined."""
+    """The full player-facing pilot feed, outcome included - real, clean,
+    no data-quality issues (this is a pre-specification lesson, not a
+    cleaning one). Never constructed as a player-facing scene until after
+    the hypothesis plan is locked - see generate_blinded_roster() for the
+    pre-lock view. Assignment is taken as validly supplied throughout this
+    lesson - L18 is where random assignment itself gets examined."""
     frame = pd.DataFrame(_pilot_rows())
     step = PipelineStep("collected", python_code="pilot = pd.read_csv('novamart_one_click_pilot.csv')")
     return Dataset(name="pilot", frame=frame, schema=PILOT_SCHEMA, history=(step,))
+
+
+def generate_blinded_roster() -> Dataset:
+    """The pre-lock view: real pre-treatment roster fields only -
+    customer_id, variant, device - with repeat_purchase_14d intentionally
+    absent. The hypothesis plan must be locked before this lesson's own
+    outcome column becomes visible anywhere; this is the only dataset any
+    scene shows before that lock."""
+    frame = pd.DataFrame(_pilot_rows())[["customer_id", "variant", "device"]]
+    step = PipelineStep(
+        "roster", python_code="roster = pd.read_csv('novamart_one_click_pilot_roster.csv')  # outcome sealed until after lock"
+    )
+    return Dataset(name="roster", frame=frame, schema=BLINDED_ROSTER_SCHEMA, history=(step,))
 
 
 def primary_rate(frame: pd.DataFrame, variant: str) -> float:

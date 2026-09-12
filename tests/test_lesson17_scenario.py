@@ -40,6 +40,7 @@ GOOD_DECISION = {
     "next_step": "form_new_hypothesis_prespecify_test_on_new_data",
 }
 GOOD_MASTERY_JUDGMENT = "not_borne_out_overall_late_rate_increased"
+GOOD_MASTERY_URBAN_STATUS = "post_hoc_exploratory_worth_new_test"
 GOOD_MASTERY_EVIDENCE = ("overall_late_rate_increased",)
 
 
@@ -97,11 +98,14 @@ def _play_decision_builder(scene: DecisionBuilderScene, *, decision_keys: dict, 
         scene.next_button.on_activate()
 
 
-def _play_mastery_select(scene: BriefBuilderScene, judgment_key: str, evidence_keys: tuple[str, ...]) -> None:
-    single_field = scene.fields[0]
-    scene.buttons.buttons[_option_index(single_field, judgment_key)].on_activate()
+def _play_mastery_select(scene: BriefBuilderScene, judgment_key: str, urban_status_key: str, evidence_keys: tuple[str, ...]) -> None:
+    judgment_field = scene.fields[0]
+    scene.buttons.buttons[_option_index(judgment_field, judgment_key)].on_activate()
     scene.next_button.on_activate()
-    multi_field = scene.fields[1]
+    urban_status_field = scene.fields[1]
+    scene.buttons.buttons[_option_index(urban_status_field, urban_status_key)].on_activate()
+    scene.next_button.on_activate()
+    multi_field = scene.fields[2]
     for key in evidence_keys:
         scene.buttons.buttons[_option_index(multi_field, key)].on_activate()
     scene.next_button.on_activate()
@@ -119,13 +123,15 @@ def _play_lesson_to_feedback(
     evidence_ids=None,
     mastery_engage: bool = False,
     mastery_judgment=GOOD_MASTERY_JUDGMENT,
+    mastery_urban_status=GOOD_MASTERY_URBAN_STATUS,
     mastery_evidence=GOOD_MASTERY_EVIDENCE,
 ) -> LessonFeedbackScene:
     assert isinstance(app.scenes.current.inner, DialogueScene)  # briefing
     _play_dialogue_to_the_end(app.scenes.current)
 
-    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # raw_pilot_inspection
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # blinded_roster_inspection
     wb = app.scenes.current.inner
+    assert "repeat_purchase_14d" not in wb.dataset.frame.columns
     wb.inspection_buttons["one_row_per_customer"].on_activate()
     wb.continue_button.on_activate()
 
@@ -147,6 +153,11 @@ def _play_lesson_to_feedback(
     assert isinstance(app.scenes.current.inner, DialogueScene)  # plan_locked_confirmation
     _play_dialogue_to_the_end(app.scenes.current)
 
+    assert isinstance(app.scenes.current.inner, WorkbenchScene)  # full_pilot_reveal
+    full_wb = app.scenes.current.inner
+    assert "repeat_purchase_14d" in full_wb.dataset.frame.columns
+    full_wb.continue_button.on_activate()
+
     primary = app.scenes.current.inner  # primary_reveal
     assert isinstance(primary, ComparisonRevealScene)
     _play_reveal(primary, primary_interpretation)
@@ -167,7 +178,7 @@ def _play_lesson_to_feedback(
         mastery_offer.buttons.buttons[0].on_activate()
         select_scene = _leaf_scene(mastery_offer)
         assert isinstance(select_scene, BriefBuilderScene)
-        _play_mastery_select(select_scene, mastery_judgment, mastery_evidence)
+        _play_mastery_select(select_scene, mastery_judgment, mastery_urban_status, mastery_evidence)
     else:
         mastery_offer.buttons.buttons[1].on_activate()
 
@@ -175,7 +186,7 @@ def _play_lesson_to_feedback(
     return app.scenes.current.inner
 
 
-def test_the_full_lesson_plays_through_all_eleven_stages_with_a_correct_plan():
+def test_the_full_lesson_plays_through_all_twelve_stages_with_a_correct_plan():
     app = _init_app()
     try:
         finished_results = []
@@ -199,6 +210,7 @@ def test_the_full_lesson_plays_through_all_eleven_stages_with_a_correct_plan():
         assert result.mastery_engaged is True
         assert result.mastery_result == {
             "mastery_route_judgment": GOOD_MASTERY_JUDGMENT,
+            "mastery_urban_status": GOOD_MASTERY_URBAN_STATUS,
             "mastery_supporting_evidence": GOOD_MASTERY_EVIDENCE,
         }
         assert collected is not None
@@ -260,6 +272,7 @@ def test_no_locked_action_exists_before_lock_and_exactly_one_after_that_never_ch
 
         # Play the rest of the lesson - the locked action must never change again.
         _play_dialogue_to_the_end(app.scenes.current)  # plan_locked_confirmation
+        app.scenes.current.inner.continue_button.on_activate()  # full_pilot_reveal
         _play_reveal(app.scenes.current.inner, "observed_in_predicted_direction")
         _play_reveal(app.scenes.current.inner, "a_real_pattern_worth_a_closer_look")
         _play_dialogue_to_the_end(app.scenes.current)  # provenance
@@ -272,6 +285,36 @@ def test_no_locked_action_exists_before_lock_and_exactly_one_after_that_never_ch
         assert len(final_locked_actions) == 1
         assert final_locked_actions[0].id == locked_id
         assert final_locked_actions[0].python_code == locked_code
+    finally:
+        pygame.quit()
+
+
+def test_no_outcome_values_or_aggregates_exist_anywhere_before_the_lock():
+    app = _init_app()
+    try:
+        runner, collected = build_lesson_seventeen_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing
+        wb = app.scenes.current.inner
+        assert isinstance(wb, WorkbenchScene)
+        assert "repeat_purchase_14d" not in wb.dataset.frame.columns
+        wb.inspection_buttons["one_row_per_customer"].on_activate()
+        wb.continue_button.on_activate()
+
+        plan_scene = _leaf_scene(app.scenes.current.inner)
+        _play_plan(plan_scene, GOOD_PLAN)
+        offer = _leaf_scene(app.scenes.current.inner)
+        offer.buttons.buttons[1].on_activate()  # skip revision, lock as-is
+
+        # Right after lock: the locked action's own Python Mirror is
+        # provenance-only - no outcome computation exists anywhere yet.
+        restored = LessonContext()
+        restored.restore_from_dict(collected["analytical_context"])
+        mirror_at_lock_time = restored.python_mirror()
+        assert "mean()" not in mirror_at_lock_time
+        assert "groupby" not in mirror_at_lock_time
     finally:
         pygame.quit()
 
@@ -347,6 +390,19 @@ def test_the_happy_path_python_mirror_executes_top_to_bottom():
 
         assert "PRE-SPECIFIED BEFORE RESULTS" in mirror
         assert "device_rates = " in mirror
+
+        # The lock action itself carries no computation - "primary =" and
+        # "groupby" first appear only in primary_reveal's own action, which
+        # must come after the plan block and before the exploratory device
+        # computation: PLAN -> primary computation -> EXPLORATORY device
+        # computation.
+        plan_index = mirror.index("PRE-SPECIFIED BEFORE RESULTS")
+        primary_index = mirror.index("primary = pilot.groupby")
+        device_index = mirror.index("device_rates = ")
+        assert plan_index < primary_index < device_index
+        plan_block = mirror[plan_index:primary_index]
+        assert "groupby" not in plan_block
+        assert "mean()" not in plan_block
 
         namespace: dict = {"pilot": d.generate_pilot().frame, "pd": pd}
         exec(mirror, namespace)

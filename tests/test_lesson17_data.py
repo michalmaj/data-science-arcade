@@ -46,6 +46,25 @@ def test_deliveries_route_composition_is_identical_across_both_periods():
     assert counts.loc["before", "rural"] == counts.loc["after", "rural"] == 400
 
 
+def test_blinded_roster_has_no_outcome_column_and_matches_the_real_roster_rows():
+    roster = d.generate_blinded_roster().frame
+    assert list(roster.columns) == ["customer_id", "variant", "device"]
+    assert "repeat_purchase_14d" not in roster.columns
+    assert len(roster) == 1200
+    pilot = d.generate_pilot().frame
+    assert list(roster["customer_id"]) == list(pilot["customer_id"])
+
+
+def test_pilot_row_order_is_not_a_biased_block_of_successes_then_failures():
+    # The first several rows of any one device/variant slice must not all
+    # share the same outcome - a naive "first k rows are True" generator
+    # would make even a raw head() preview an unrepresentative sample.
+    pilot = d.generate_pilot().frame
+    control_app = pilot[(pilot["variant"] == "control") & (pilot["device"] == "app")]
+    first_eight = control_app["repeat_purchase_14d"].head(8).tolist()
+    assert len(set(first_eight)) == 2
+
+
 def test_deliveries_route_split_reconciles_to_the_real_verified_numbers():
     deliveries = d.generate_deliveries()
     assert _pct(d.route_late_rate(deliveries, "urban", "before")) == 15.0

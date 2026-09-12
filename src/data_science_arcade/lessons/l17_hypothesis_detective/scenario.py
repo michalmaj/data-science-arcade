@@ -43,6 +43,7 @@ LOCK_CONFIRMATION_DIALOGUE = Dialogue(
     lines=(
         DialogueLine(speaker=MENTOR, text_key="dialogue.l17_lock.line1"),
         DialogueLine(speaker=MENTOR, text_key="dialogue.l17_lock.line2"),
+        DialogueLine(speaker=MENTOR, text_key="dialogue.l17_lock.line3"),
     )
 )
 PROVENANCE_DIALOGUE = Dialogue(lines=(DialogueLine(speaker=PRODUCT_MANAGER, text_key="dialogue.l17_provenance.line1"),))
@@ -64,7 +65,12 @@ APP_ONE_CLICK_PCT = d.device_rate(PILOT, "app", "one_click") * 100
 WEB_CONTROL_PCT = d.device_rate(PILOT, "web", "control") * 100
 WEB_ONE_CLICK_PCT = d.device_rate(PILOT, "web", "one_click") * 100
 
-# --- Raw pilot inspection - grain, before anything else --------------------
+# --- Blinded roster inspection - grain, before anything else. The
+# hypothesis plan must be locked before any real outcome value is visible
+# anywhere, so this is a real, deliberately blinded view: customer_id,
+# variant, device - no repeat_purchase_14d column at all (see
+# data.generate_blinded_roster). The full pilot, outcome included, is
+# only shown once via full_pilot_reveal, after the lock. -------------------
 
 INSPECTION_PROMPT = InspectionPrompt(
     prompt_key="lesson.l17.inspection.prompt",
@@ -161,14 +167,18 @@ def _protocol_check_line_keys(plan: dict) -> tuple[str, ...]:
 
 
 def _plan_mirror_code(plan: dict) -> str:
+    """Provenance only - no outcome computation. The lock action's whole
+    job is to prove WHEN the plan existed, never to compute anything from
+    the outcome column (which isn't even visible yet at lock time - see
+    generate_blinded_roster). primary_reveal's own ComparisonValue.
+    python_code is what first computes `primary`, after the lock."""
     return (
         "# PRE-SPECIFIED BEFORE RESULTS\n"
         f"# Population: {plan.get('target_population')}\n"
         f"# Outcome: {plan.get('primary_outcome')}\n"
         f"# Window: {plan.get('observation_window')}\n"
         f"# Direction: one_click vs control -> {plan.get('predicted_direction')}\n"
-        "# Planned subgroup analyses: none\n"
-        "primary = pilot.groupby('variant')['repeat_purchase_14d'].mean()"
+        "# Planned subgroup analyses: none"
     )
 
 
@@ -261,6 +271,15 @@ MASTERY_JUDGMENT_FIELD = BriefField(
         BriefOption("cant_tell_without_a_significance_test", "lesson.l17.mastery.option.judgment.cant_tell_without_a_significance_test"),
     ),
 )
+MASTERY_URBAN_STATUS_FIELD = BriefField(
+    key="mastery_urban_status",
+    prompt_key="lesson.l17.mastery.field.urban_status.prompt",
+    options=(
+        BriefOption("post_hoc_exploratory_worth_new_test", "lesson.l17.mastery.option.urban_status.post_hoc_exploratory_worth_new_test"),
+        BriefOption("confirmed_planner_works_in_urban", "lesson.l17.mastery.option.urban_status.confirmed_planner_works_in_urban"),
+        BriefOption("irrelevant_ignore_it", "lesson.l17.mastery.option.urban_status.irrelevant_ignore_it"),
+    ),
+)
 MASTERY_EVIDENCE_FIELD = MultiChoiceField(
     key="mastery_supporting_evidence",
     prompt_key="lesson.l17.mastery.field.evidence.prompt",
@@ -304,13 +323,13 @@ def build_lesson_seventeen_runner(app, on_finished) -> tuple[LessonRunner, dict]
     def briefing(advance):
         return DialogueScene(app, BRIEFING_DIALOGUE, on_complete=advance)
 
-    def raw_pilot_inspection(advance):
+    def blinded_roster_inspection(advance):
         def on_complete(_resolution):
             advance()
 
         return WorkbenchScene(
             app,
-            d.generate_pilot(),
+            d.generate_blinded_roster(),
             issues=(),
             on_complete=on_complete,
             inspection_prompt=INSPECTION_PROMPT,
@@ -364,6 +383,18 @@ def build_lesson_seventeen_runner(app, on_finished) -> tuple[LessonRunner, dict]
 
     def plan_locked_confirmation(advance):
         return DialogueScene(app, LOCK_CONFIRMATION_DIALOGUE, on_complete=advance)
+
+    def full_pilot_reveal(advance):
+        def on_complete(_resolution):
+            advance()
+
+        return WorkbenchScene(
+            app,
+            d.generate_pilot(),
+            issues=(),
+            on_complete=on_complete,
+            visible_tabs=(WorkbenchTab.DATA, WorkbenchTab.PYTHON),
+        )
 
     # --- Reveals ---
 
@@ -466,7 +497,13 @@ def build_lesson_seventeen_runner(app, on_finished) -> tuple[LessonRunner, dict]
 
     def mastery_challenge(advance):
         def build_task(on_task_complete):
-            return BriefBuilderScene(app, "lesson.l17.mastery.title", (MASTERY_JUDGMENT_FIELD, MASTERY_EVIDENCE_FIELD), on_task_complete, guided=False)
+            return BriefBuilderScene(
+                app,
+                "lesson.l17.mastery.title",
+                (MASTERY_JUDGMENT_FIELD, MASTERY_URBAN_STATUS_FIELD, MASTERY_EVIDENCE_FIELD),
+                on_task_complete,
+                guided=False,
+            )
 
         def on_complete(engaged, result):
             collected["mastery_engaged"] = engaged
@@ -513,9 +550,10 @@ def build_lesson_seventeen_runner(app, on_finished) -> tuple[LessonRunner, dict]
 
     stages = [
         briefing,
-        raw_pilot_inspection,
+        blinded_roster_inspection,
         hypothesis_plan_and_check,
         plan_locked_confirmation,
+        full_pilot_reveal,
         primary_reveal,
         device_pattern_reveal,
         device_provenance_reveal,

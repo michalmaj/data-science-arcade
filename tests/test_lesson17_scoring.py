@@ -158,27 +158,43 @@ def test_evidence_is_role_based_missing_one_real_role_costs_real_credit():
     assert _scores(missing_one)[ScoreDimension.EVIDENCE] < _scores(full)[ScoreDimension.EVIDENCE]
 
 
-def test_mastery_requires_both_the_correct_judgment_and_the_real_distinguishing_fact():
+def test_mastery_requires_the_correct_judgment_urban_status_and_the_real_distinguishing_fact():
     judgment_only = _result(
         mastery_engaged=True,
         mastery_result={
             "mastery_route_judgment": "not_borne_out_overall_late_rate_increased",
+            "mastery_urban_status": "post_hoc_exploratory_worth_new_test",
             "mastery_supporting_evidence": ("urban_late_rate_improved",),
         },
     )
-    both_right = _result(
+    # Overall judgment and evidence both correct, but the student never
+    # got the urban pattern's own status right - skipping straight from
+    # "overall not borne out" to evidence isn't enough; this is exactly
+    # the half of the transfer this correction closes.
+    urban_status_wrong = _result(
         mastery_engaged=True,
         mastery_result={
             "mastery_route_judgment": "not_borne_out_overall_late_rate_increased",
+            "mastery_urban_status": "confirmed_planner_works_in_urban",
+            "mastery_supporting_evidence": ("overall_late_rate_increased",),
+        },
+    )
+    all_correct = _result(
+        mastery_engaged=True,
+        mastery_result={
+            "mastery_route_judgment": "not_borne_out_overall_late_rate_increased",
+            "mastery_urban_status": "post_hoc_exploratory_worth_new_test",
             "mastery_supporting_evidence": ("overall_late_rate_increased",),
         },
     )
     evaluation_judgment_only = score_lesson_seventeen(judgment_only, LESSON_17, hints_used=0)
-    evaluation_both = score_lesson_seventeen(both_right, LESSON_17, hints_used=0)
+    evaluation_urban_status_wrong = score_lesson_seventeen(urban_status_wrong, LESSON_17, hints_used=0)
+    evaluation_all_correct = score_lesson_seventeen(all_correct, LESSON_17, hints_used=0)
 
     mastery_key = "lesson.l17.feedback.mastery_transfer_succeeded"
     assert mastery_key not in [o.text_key for o in evaluation_judgment_only.observations]
-    assert mastery_key in [o.text_key for o in evaluation_both.observations]
+    assert mastery_key not in [o.text_key for o in evaluation_urban_status_wrong.observations]
+    assert mastery_key in [o.text_key for o in evaluation_all_correct.observations]
 
 
 def test_scoring_dimensions_are_exactly_method_reasoning_evidence_uncertainty():
