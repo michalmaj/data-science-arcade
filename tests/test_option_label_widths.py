@@ -203,7 +203,14 @@ from data_science_arcade.lessons.l16_metric_forge.scenario import (
     HONEST as L16_HONEST,
 )
 from data_science_arcade.ui.metric_contract_scene import PICKER_SIZE as METRIC_CONTRACT_PICKER_SIZE
-from data_science_arcade.lessons.l17_hypothesis_detective.scenario import DECISION_FIELDS as L17_DECISION_FIELDS
+from data_science_arcade.lessons.l17_hypothesis_detective.scenario import (
+    DECISION_FIELDS as L17_DECISION_FIELDS,
+    DEVICE_PATTERN_INTERPRET_OPTIONS as L17_DEVICE_PATTERN_INTERPRET_OPTIONS,
+    HYPOTHESIS_PLAN_FIELDS as L17_HYPOTHESIS_PLAN_FIELDS,
+    MASTERY_EVIDENCE_FIELD as L17_MASTERY_EVIDENCE_FIELD,
+    MASTERY_JUDGMENT_FIELD as L17_MASTERY_JUDGMENT_FIELD,
+    PRIMARY_INTERPRET_OPTIONS as L17_PRIMARY_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l18_randomization_control_room.requests import ASSIGNMENT_REQUESTS as L18_ASSIGNMENT_REQUESTS
 from data_science_arcade.lessons.l18_randomization_control_room.scenario import DECISION_FIELDS as L18_DECISION_FIELDS
 from data_science_arcade.lessons.l19_power_plant.scenario import DECISION_FIELDS as L19_DECISION_FIELDS
@@ -254,7 +261,6 @@ from data_science_arcade.ui.timeseries_scene import LENS_OPTION_SIZE as TIMESERI
 from data_science_arcade.ui.funnel_builder_scene import DEFINITION_OPTION_SIZE as FUNNEL_DEFINITION_OPTION_SIZE
 from data_science_arcade.ui.join_builder_scene import OPTION_SIZE as JOIN_BUILDER_OPTION_SIZE
 from data_science_arcade.ui.pipeline_builder_scene import OPTION_SIZE as PIPELINE_OPTION_SIZE
-from data_science_arcade.ui.prediction_scene import DIRECTION_BUTTON_SIZE
 from data_science_arcade.ui.segment_mix_scene import PICKER_SIZE as SEGMENT_MIX_PICKER_SIZE
 from data_science_arcade.ui.segment_slicer_scene import OPTION_SIZE as SEGMENT_OPTION_SIZE
 from data_science_arcade.ui.source_board_scene import WIDE_HEADER_WIDTH
@@ -348,7 +354,10 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L16_PRIOR_VERDICT_FIELD,
         L16_MASTERY_JUDGMENT_FIELD,
         L16_MASTERY_EVIDENCE_FIELD,
+        *L17_HYPOTHESIS_PLAN_FIELDS,
         *L17_DECISION_FIELDS,
+        L17_MASTERY_JUDGMENT_FIELD,
+        L17_MASTERY_EVIDENCE_FIELD,
         *L18_DECISION_FIELDS,
         *L19_DECISION_FIELDS,
         *L20_DECISION_FIELDS,
@@ -464,12 +473,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width_l16))
 
-    # The three PredictionScene direction buttons (Lesson 17) are a fixed
-    # shared response scale, not per-request content, so they're checked
-    # once here rather than per-request like every other scene's options.
-    direction_button_width = DIRECTION_BUTTON_SIZE[0] - BUTTON_PADDING
-    for direction in ("increase", "decrease", "no_change"):
-        checks.append((f"prediction.direction.{direction}", f"prediction.direction.{direction}", direction_button_width))
+    for options in (L17_PRIMARY_INTERPRET_OPTIONS, L17_DEVICE_PATTERN_INTERPRET_OPTIONS):
+        for option in options:
+            checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width_l16))
 
     # The two CheckpointMonitorScene nav buttons (Lesson 20) are fixed
     # scene chrome, not per-request content, so they're checked once here.

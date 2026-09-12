@@ -46,12 +46,12 @@ MultiChoiceField this scene ever rendered, not by reasoning about it."""
 
 
 class BriefBuilderScene(Scene):
-    """The step-by-step 'build a structured analytical brief' wizard (spec
-    §25 Lesson 01's core mechanic, kept generic so any lesson can reuse it):
-    one field per screen, pick an option (doesn't auto-advance - has to be
-    confirmed with Next, same as picking the wrong option and changing your
-    mind should be cheap), Back/Next between fields. on_complete fires once
-    every field has a choice.
+    """The step-by-step 'build a structured analytical brief' wizard, kept
+    generic so any lesson can reuse it: one field per screen, pick an
+    option (doesn't auto-advance - has to be confirmed with Next, same as
+    picking the wrong option and changing your mind should be cheap),
+    Back/Next between fields. on_complete fires once every field has a
+    choice.
 
     `fields` is `tuple[BriefField | MultiChoiceField, ...]` - most fields
     are still BriefField's plain single-select, but a MultiChoiceField
@@ -66,9 +66,18 @@ class BriefBuilderScene(Scene):
     DecisionBuilderScene keeps its one EvidenceField's selection in a
     separate list because it always has exactly one, known in advance.
 
-    guided=True also shows each field's explanatory hint text (spec Act 3
-    'receive explanatory feedback'); guided=False hides it (Act 4 'less
-    guidance').
+    guided=True also shows each field's explanatory hint text; guided=False
+    hides it, matching every other stage scene's own guided/independent
+    split.
+
+    `initial_choices`, when given, seeds `self.choices` with a prior pass's
+    picks - a revision is just constructing this scene again, pre-filled,
+    matching `ChartBuilderScene`/`JoinBuilderScene`/`MetricContractScene`'s
+    own already-established `initial_choice` pattern (and
+    `AggregationBuilderScene`'s own multi-field `initial_choices`), never a
+    bespoke partial-resume mechanism. Every existing caller omits this
+    (defaults to `None`, i.e. `self.choices` starts empty exactly as
+    before) and is completely unaffected.
 
     `tiered_hint_keys`, when given, maps a field's key to 1-3 hint tiers
     (HintController's own Direction->Concept->Procedure shape) - upgrading
@@ -89,6 +98,7 @@ class BriefBuilderScene(Scene):
         on_complete: Callable[[AnalyticalBrief], None],
         guided: bool = True,
         tiered_hint_keys: dict[str, tuple[str, ...]] | None = None,
+        initial_choices: AnalyticalBrief | None = None,
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -96,7 +106,7 @@ class BriefBuilderScene(Scene):
         self.on_complete = on_complete
         self.guided = guided
         self.field_index = 0
-        self.choices: AnalyticalBrief = {}
+        self.choices: AnalyticalBrief = dict(initial_choices) if initial_choices else {}
         # Which fields *will* get a HintController is fully known from
         # tiered_hint_keys alone - _option_spacing/_hint_button_topleft
         # check this, not self._hint_controllers, since they're needed to

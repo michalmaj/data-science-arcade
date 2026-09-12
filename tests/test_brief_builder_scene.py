@@ -316,3 +316,64 @@ def test_guided_false_hides_the_tiered_hint_controller_entirely():
         scene.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(0, 0)))
     finally:
         pygame.quit()
+
+
+def test_no_initial_choices_behaves_exactly_as_before():
+    app = _init_app()
+    try:
+        scene = BriefBuilderScene(app, "app.title", FIELDS, on_complete=lambda brief: None)
+        assert scene.choices == {}
+        assert scene.next_button.enabled is False
+    finally:
+        pygame.quit()
+
+
+def test_initial_choices_seeds_a_plain_brief_field_as_already_selected():
+    app = _init_app()
+    try:
+        scene = BriefBuilderScene(app, "app.title", FIELDS, on_complete=lambda brief: None, initial_choices={"color": "red"})
+        assert scene.choices["color"] == "red"
+        assert scene.next_button.enabled is True  # seeded choice already satisfies the field
+    finally:
+        pygame.quit()
+
+
+def test_initial_choices_seeds_a_multi_choice_field_as_already_selected():
+    app = _init_app()
+    try:
+        scene = BriefBuilderScene(
+            app, "app.title", (TOPPINGS_FIELD,), on_complete=lambda brief: None, initial_choices={"toppings": ("t0", "t1")}
+        )
+        assert scene.choices["toppings"] == ("t0", "t1")
+        assert scene.next_button.enabled is True  # 2 of 2 minimum, already seeded
+    finally:
+        pygame.quit()
+
+
+def test_seeded_choice_can_still_be_changed():
+    app = _init_app()
+    try:
+        collected = []
+        scene = BriefBuilderScene(
+            app, "app.title", FIELDS, on_complete=lambda brief: collected.append(brief), initial_choices={"color": "red"}
+        )
+        scene.buttons.buttons[1].on_activate()  # color=blue, overwrites the seed
+        assert scene.choices["color"] == "blue"
+
+        scene.next_button.on_activate()
+        scene.buttons.buttons[0].on_activate()  # size=small
+        scene.next_button.on_activate()
+        assert collected == [{"color": "blue", "size": "small"}]
+    finally:
+        pygame.quit()
+
+
+def test_initial_choices_does_not_mutate_the_caller_owned_dict():
+    app = _init_app()
+    try:
+        seed = {"color": "red"}
+        scene = BriefBuilderScene(app, "app.title", FIELDS, on_complete=lambda brief: None, initial_choices=seed)
+        scene.buttons.buttons[1].on_activate()  # color=blue
+        assert seed == {"color": "red"}  # the caller's own dict is untouched
+    finally:
+        pygame.quit()
