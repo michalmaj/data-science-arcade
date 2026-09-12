@@ -169,6 +169,43 @@ STRATIFIED_RANDOM_MIRROR = (
     "    roster.loc[order[:half], \"group\"] = \"treatment\""
 )
 
+# --- Contrast-safe mirror variants - the mandatory mechanism-contrast
+# beat (scenario.py) must never let its own counterexample code overwrite
+# `roster["group"]`, which has to keep meaning the FINAL EXECUTED design
+# top-to-bottom through the whole recorded Mirror. These write to a
+# separate `contrast` frame instead - a real bug this fixes: exec'ing the
+# full recorded Mirror used to leave `roster["group"]` as whichever
+# design was shown LAST (the counterexample), silently contradicting
+# "your final design is locked in." ----------------------------------
+
+ID_PARITY_CONTRAST_MIRROR = (
+    "contrast = roster.copy()\n"
+    "contrast[\"group\"] = np.where(\n"
+    "    contrast[\"customer_id_num\"] % 2 == 0,\n"
+    "    \"treatment\",\n"
+    "    \"control\",\n"
+    ")"
+)
+
+SIMPLE_RANDOM_CONTRAST_MIRROR = (
+    "contrast = roster.copy()\n"
+    "rng = np.random.default_rng(42)\n"
+    "order = rng.permutation(contrast.index.to_numpy())\n"
+    "contrast[\"group\"] = \"control\"\n"
+    "contrast.loc[order[:600], \"group\"] = \"treatment\""
+)
+
+STRATIFIED_RANDOM_CONTRAST_MIRROR = (
+    "contrast = roster.copy()\n"
+    "rng = np.random.default_rng(42)\n"
+    "contrast[\"group\"] = \"control\"\n"
+    "for platform in [\"ios\", \"android\"]:\n"
+    "    pool = contrast.index[contrast[\"platform\"] == platform].to_numpy()\n"
+    "    order = rng.permutation(pool)\n"
+    "    half = len(order) // 2\n"
+    "    contrast.loc[order[:half], \"group\"] = \"treatment\""
+)
+
 DESIGN_FUNCTIONS = {
     ID_PARITY: assign_by_id_parity,
     SIMPLE_RANDOM: assign_simple_random,
@@ -178,6 +215,11 @@ DESIGN_MIRROR = {
     ID_PARITY: ID_PARITY_MIRROR,
     SIMPLE_RANDOM: SIMPLE_RANDOM_MIRROR,
     STRATIFIED_RANDOM: STRATIFIED_RANDOM_MIRROR,
+}
+CONTRAST_DESIGN_MIRROR = {
+    ID_PARITY: ID_PARITY_CONTRAST_MIRROR,
+    SIMPLE_RANDOM: SIMPLE_RANDOM_CONTRAST_MIRROR,
+    STRATIFIED_RANDOM: STRATIFIED_RANDOM_CONTRAST_MIRROR,
 }
 
 

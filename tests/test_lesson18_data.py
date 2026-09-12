@@ -89,6 +89,20 @@ def test_stratified_random_platform_pools_reconcile_to_240_360():
     assert android_control == 360
 
 
+def test_contrast_mirror_writes_to_a_separate_frame_never_to_roster():
+    # The real bug the user found: the mandatory mechanism-contrast beat
+    # must never reuse DESIGN_MIRROR's own "roster['group'] = ..." code,
+    # since that would let a counterexample shown after the final audit
+    # silently overwrite what roster['group'] means. CONTRAST_DESIGN_MIRROR
+    # must target its own `contrast` frame instead.
+    for key in (d.ID_PARITY, d.SIMPLE_RANDOM, d.STRATIFIED_RANDOM):
+        contrast_code = d.CONTRAST_DESIGN_MIRROR[key]
+        assert "contrast = roster.copy()" in contrast_code
+        assert "roster[\"group\"]" not in contrast_code
+        assert "roster.loc[" not in contrast_code
+        assert "contrast[\"group\"]" in contrast_code or "contrast.loc[" in contrast_code
+
+
 def test_packaging_mastery_dataset_reconciles_to_the_real_verified_numbers():
     frame = d.generate_packaging_experiment()
     assert len(frame) == 900

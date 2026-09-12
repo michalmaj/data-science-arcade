@@ -355,6 +355,57 @@ def test_the_happy_path_python_mirror_executes_top_to_bottom():
         pygame.quit()
 
 
+@pytest.mark.parametrize(
+    "final_design,counterexample_design",
+    [(d.ID_PARITY, d.SIMPLE_RANDOM), (d.SIMPLE_RANDOM, d.ID_PARITY), (d.STRATIFIED_RANDOM, d.ID_PARITY)],
+)
+def test_mirror_top_to_bottom_never_lets_the_contrast_overwrite_the_final_executed_assignment(final_design, counterexample_design):
+    """The real bug the user found in PR #87: the mandatory mechanism-
+    contrast beat used to reuse DESIGN_MIRROR (the same "roster['group']
+    = ..." snippet as the final audit itself), so exec'ing the full
+    recorded Mirror top-to-bottom left roster['group'] as whichever
+    design was shown LAST (the counterexample) - silently contradicting
+    "your final design is locked in." CONTRAST_DESIGN_MIRROR now writes
+    to a separate `contrast` frame instead; roster['group'] must still
+    reflect the real final executed design after the full mirror runs,
+    and `contrast['group']` must independently reflect the
+    counterexample - checked on platform COMPOSITION, not just counts,
+    since a naive count-only check can't tell parity and stratified
+    apart (both give exact 600/600)."""
+    import numpy as np
+
+    app = _init_app()
+    try:
+        runner, collected = build_lesson_eighteen_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+        _play_lesson_to_feedback(app, initial_design=final_design)
+
+        restored = LessonContext()
+        restored.restore_from_dict(collected["analytical_context"])
+        mirror = restored.python_mirror()
+
+        namespace: dict = {"roster": d.generate_roster().frame, "pd": pd, "np": np}
+        exec(mirror, namespace)
+
+        real_roster = d.generate_roster().frame
+        expected_final_group = d.execute_design(final_design, real_roster)
+        expected_final_audit = d.audit_values(real_roster, expected_final_group)
+        expected_contrast_group = d.execute_design(counterexample_design, real_roster)
+        expected_contrast_audit = d.audit_values(real_roster, expected_contrast_group)
+
+        final_roster = namespace["roster"]
+        final_ios_treatment = (final_roster[final_roster["group"] == "treatment"]["platform"] == "ios").mean()
+        assert round(final_ios_treatment, 3) == round(expected_final_audit["ios_share_treatment"], 3)
+
+        assert "contrast" in namespace, "the contrast beat's own code must define its own `contrast` frame"
+        contrast = namespace["contrast"]
+        contrast_ios_treatment = (contrast[contrast["group"] == "treatment"]["platform"] == "ios").mean()
+        assert round(contrast_ios_treatment, 3) == round(expected_contrast_audit["ios_share_treatment"], 3)
+    finally:
+        pygame.quit()
+
+
 def test_evidence_is_available_for_the_full_role_set():
     app = _init_app()
     try:

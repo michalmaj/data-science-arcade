@@ -417,7 +417,7 @@ def build_lesson_eighteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             mechanism_description_key=MECHANISM_DESCRIPTION_KEYS[counterexample_key],
             rows=_build_audit_rows(audit),
             mirror_action_label_key="lesson.l18.contrast.action_label",
-            mirror_python_code=d.DESIGN_MIRROR[counterexample_key],
+            mirror_python_code=d.CONTRAST_DESIGN_MIRROR[counterexample_key],
             context=context,
             record_key="mechanism_contrast",
             on_complete=on_complete,
