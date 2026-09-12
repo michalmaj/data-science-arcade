@@ -2088,7 +2088,7 @@ def test_finishing_lesson_seventeen_marks_it_complete_and_unlocks_lesson_eightee
     field happens to be index 0 in every field, one real reveal
     interpretation, any real decision option) - correctness isn't the
     point here (see test_lesson17_scenario.py). Smoke test for the real
-    11-stage flow finishing and unlocking Lesson 18."""
+    12-stage flow finishing and unlocking Lesson 18."""
     app = App()
     app.init()
     try:
@@ -2100,7 +2100,7 @@ def test_finishing_lesson_seventeen_marks_it_complete_and_unlocks_lesson_eightee
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
 
-        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # raw_pilot_inspection
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # blinded_roster_inspection
         wb = app.scenes.current.inner
         wb.inspection_buttons["one_row_per_customer"].on_activate()
         wb.continue_button.on_activate()
@@ -2111,6 +2111,9 @@ def test_finishing_lesson_seventeen_marks_it_complete_and_unlocks_lesson_eightee
         offer.buttons.buttons[1].on_activate()  # skip -> lock
 
         _play_dialogue_to_the_end(app.scenes.current)  # plan_locked_confirmation
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # full_pilot_reveal
+        app.scenes.current.inner.continue_button.on_activate()
 
         _confirm_reveal(app.scenes.current.inner)  # primary_reveal
         _confirm_reveal(app.scenes.current.inner)  # device_pattern_reveal
