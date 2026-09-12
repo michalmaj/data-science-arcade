@@ -201,6 +201,21 @@ A_HYPOTHESIS_HAS_A_TIMESTAMP = HandbookEntry(
     related_entry_ids=("hypothesis", "pre_specification", "exploratory_analysis", "post_hoc_analysis"),
 )
 
+RANDOMIZATION_IS_A_MECHANISM = HandbookEntry(
+    id="randomization_is_a_mechanism",
+    title_key="handbook.article.randomization_is_a_mechanism.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.randomization_is_a_mechanism.body.1",
+        "handbook.article.randomization_is_a_mechanism.body.2",
+        "handbook.article.randomization_is_a_mechanism.body.3",
+        "handbook.article.randomization_is_a_mechanism.body.4",
+        "handbook.article.randomization_is_a_mechanism.body.5",
+        "handbook.article.randomization_is_a_mechanism.body.6",
+    ),
+    related_entry_ids=("random_assignment", "stratified_randomization", "covariate_balance"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -216,6 +231,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     WHEN_THE_MIX_CHANGES,
     WHEN_A_MEASURE_BECOMES_A_TARGET,
     A_HYPOTHESIS_HAS_A_TIMESTAMP,
+    RANDOMIZATION_IS_A_MECHANISM,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -334,6 +350,24 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.post_hoc_analysis.term",
         definition_key="handbook.glossary.post_hoc_analysis.definition",
         related_entry_id="a_hypothesis_has_a_timestamp",
+    ),
+    GlossaryEntry(
+        id="random_assignment",
+        term_key="handbook.glossary.random_assignment.term",
+        definition_key="handbook.glossary.random_assignment.definition",
+        related_entry_id="randomization_is_a_mechanism",
+    ),
+    GlossaryEntry(
+        id="stratified_randomization",
+        term_key="handbook.glossary.stratified_randomization.term",
+        definition_key="handbook.glossary.stratified_randomization.definition",
+        related_entry_id="randomization_is_a_mechanism",
+    ),
+    GlossaryEntry(
+        id="covariate_balance",
+        term_key="handbook.glossary.covariate_balance.term",
+        definition_key="handbook.glossary.covariate_balance.definition",
+        related_entry_id="randomization_is_a_mechanism",
     ),
 )
 
