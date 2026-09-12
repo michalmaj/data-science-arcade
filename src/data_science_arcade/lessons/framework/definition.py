@@ -4,8 +4,8 @@ from enum import Enum
 
 
 class ScoreDimension(Enum):
-    """Cross-course scoring dimensions (spec §20). A lesson uses whichever
-    subset actually matters for it - not every dimension in every lesson."""
+    """Cross-course scoring dimensions. A lesson uses whichever subset
+    actually matters for it - not every dimension in every lesson."""
 
     DATA_QUALITY = "data_quality"
     METHOD = "method"
@@ -19,10 +19,8 @@ class ScoreDimension(Enum):
 
 @dataclass(frozen=True)
 class LessonDefinition:
-    """Static metadata about a lesson (spec §27/§28's lesson.yaml, as a
-    Python dataclass rather than literal YAML - nothing else in this
-    project parses YAML, and the spec explicitly says not to treat that
-    example schema as a frozen API)."""
+    """Static metadata about a lesson, as a Python dataclass rather than
+    literal YAML - nothing else in this project parses YAML."""
 
     id: str
     chapter: int
@@ -46,7 +44,11 @@ class LessonDefinition:
     """A lesson-specific replacement for evaluation.py's default_scorer,
     same (result, definition, hints_used) -> LessonEvaluation shape -
     course_map_scene.py's _start_lesson uses `definition.scorer or
-    default_scorer`, so leaving this None (every lesson but one, today)
-    is exactly today's behavior. Typed loosely (object, not
-    LessonEvaluation) to avoid a circular import - evaluation.py already
-    imports LessonDefinition from this module."""
+    default_scorer` for the evaluation it actually persists, so leaving
+    this None silently falls back to the generic completed/incomplete
+    score even for a lesson whose own scenario.py already computes and
+    displays a real content-aware evaluation inline. Every lesson with a
+    dedicated score_lesson_* function must set this - a regression test
+    (test_lesson_scoring_persistence.py) enforces it. Typed loosely
+    (object, not LessonEvaluation) to avoid a circular import -
+    evaluation.py already imports LessonDefinition from this module."""

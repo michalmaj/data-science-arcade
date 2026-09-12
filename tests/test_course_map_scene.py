@@ -92,6 +92,7 @@ from data_science_arcade.ui.chart_designer_scene import ChartDesignerScene
 from data_science_arcade.ui.checkpoint_monitor_scene import CheckpointMonitorScene
 from data_science_arcade.ui.cohort_matrix_scene import CohortMatrixScene
 from data_science_arcade.ui.correlation_scene import CorrelationScene
+import data_science_arcade.ui.course_map_scene as course_map_scene_module
 from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.distribution_explorer_scene import DistributionExplorerScene
@@ -2144,6 +2145,33 @@ def test_finishing_lesson_seventeen_marks_it_complete_and_unlocks_lesson_eightee
         assert app.progress.state_of(18) == LessonState.UNLOCKED
     finally:
         pygame.quit()
+
+
+def test_persisted_evaluation_uses_each_lessons_own_scorer_not_the_default_fallback(monkeypatch) -> None:
+    """The real bug this regression targets: _start_lesson's own `scorer =
+    runner.definition.scorer or default_scorer` silently falls back to
+    default_scorer for the SAVED evaluation whenever a lesson's own
+    LessonDefinition never wires `scorer=score_lesson_*`, even though its
+    scenario.py feedback stage already shows a real, content-aware one.
+    L09-L17 all had exactly this bug before their definitions were fixed
+    to set `scorer=`. Spies on the module-level `default_scorer` name
+    _start_lesson actually calls and reuses two of this file's own
+    full-playthrough smoke tests (L09, the first lesson that had the bug;
+    L17, the most recent one) - proving the real per-lesson scorer is what
+    actually gets persisted, not just that a lesson finishes."""
+    calls = []
+    original = course_map_scene_module.default_scorer
+
+    def spy(*args, **kwargs):
+        calls.append(args)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(course_map_scene_module, "default_scorer", spy)
+
+    test_finishing_lesson_nine_marks_it_complete_and_unlocks_lesson_ten()
+    test_finishing_lesson_seventeen_marks_it_complete_and_unlocks_lesson_eighteen()
+
+    assert calls == [], "default_scorer was called for a lesson that has its own dedicated scorer wired"
 
 
 def _pick_every_l18_rule_correctly(scene: SegmentSlicerScene) -> None:

@@ -1,4 +1,5 @@
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
+from data_science_arcade.lessons.l15_segment_detective.scoring import score_lesson_fifteen
 
 LESSON_15 = LessonDefinition(
     id="ds15_segment_detective",
@@ -13,4 +14,5 @@ LESSON_15 = LessonDefinition(
     scoring_dimensions=(ScoreDimension.REASONING, ScoreDimension.EVIDENCE, ScoreDimension.OVERCONFIDENCE),
     estimated_minutes=24,
     related_handbook_entry_id="when_the_mix_changes",
+    scorer=score_lesson_fifteen,
 )

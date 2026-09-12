@@ -1,4 +1,5 @@
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
+from data_science_arcade.lessons.l12_groupby_kitchen.scoring import score_lesson_twelve
 
 LESSON_12 = LessonDefinition(
     id="ds12_groupby_kitchen",
@@ -17,4 +18,5 @@ LESSON_12 = LessonDefinition(
     ),
     estimated_minutes=24,
     related_handbook_entry_id="observation_unit_and_grain",
+    scorer=score_lesson_twelve,
 )

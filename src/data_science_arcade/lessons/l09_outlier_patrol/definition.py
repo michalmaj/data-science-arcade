@@ -1,4 +1,5 @@
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
+from data_science_arcade.lessons.l09_outlier_patrol.scoring import score_lesson_nine
 
 LESSON_09 = LessonDefinition(
     id="ds09_outlier_patrol",
@@ -19,4 +20,5 @@ LESSON_09 = LessonDefinition(
     ),
     estimated_minutes=26,
     related_handbook_entry_id="outlier_is_a_flag_not_a_verdict",
+    scorer=score_lesson_nine,
 )
