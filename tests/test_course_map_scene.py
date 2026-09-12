@@ -6,7 +6,6 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import pygame
 
 from data_science_arcade.app.game import App
-from data_science_arcade.lessons.framework.prediction import DIRECTIONS as L17_DIRECTIONS
 from data_science_arcade.lessons.l01_question_first.definition import LESSON_01
 from data_science_arcade.lessons.l01_question_first.scenario import build_lesson_one_runner
 from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
@@ -52,8 +51,10 @@ from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_B
 from data_science_arcade.lessons.l10_validation_gate.twist_data import CORRECT_ROUND1_KEY as L10_CORRECT_ROUND1_KEY
 from data_science_arcade.lessons.l15_segment_detective.scenario import DECISION_FIELDS as L15_DECISION_FIELDS
 from data_science_arcade.lessons.l16_metric_forge.scenario import DECISION_FIELDS as L16_DECISION_FIELDS
-from data_science_arcade.lessons.l17_hypothesis_detective.requests import CORRECT_DIRECTION_BY_REQUEST as L17_CORRECT_DIRECTION_BY_REQUEST
-from data_science_arcade.lessons.l17_hypothesis_detective.scenario import DECISION_FIELDS as L17_DECISION_FIELDS
+from data_science_arcade.lessons.l17_hypothesis_detective.scenario import (
+    DECISION_FIELDS as L17_DECISION_FIELDS,
+    HYPOTHESIS_PLAN_FIELDS as L17_HYPOTHESIS_PLAN_FIELDS,
+)
 from data_science_arcade.lessons.l18_randomization_control_room.requests import CORRECT_RULE_BY_REQUEST as L18_CORRECT_RULE_BY_REQUEST
 from data_science_arcade.lessons.l18_randomization_control_room.scenario import DECISION_FIELDS as L18_DECISION_FIELDS
 from data_science_arcade.lessons.l19_power_plant.experiments import SAMPLING_GROUPS as L19_SAMPLING_GROUPS
@@ -102,7 +103,6 @@ from data_science_arcade.ui.join_builder_scene import JoinBuilderScene
 from data_science_arcade.ui.mission_briefing_scene import MissionBriefingScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
-from data_science_arcade.ui.prediction_scene import PredictionScene
 from data_science_arcade.ui.resume_confirmation_scene import ResumeConfirmationScene
 from data_science_arcade.ui.sampling_allocator_scene import SamplingAllocatorScene
 from data_science_arcade.ui.segment_mix_scene import SegmentMixScene
@@ -2083,17 +2083,12 @@ def test_finishing_lesson_sixteen_marks_it_complete_and_unlocks_lesson_seventeen
         pygame.quit()
 
 
-def _predict_every_l17_request_correctly(scene: PredictionScene) -> None:
-    for _ in range(len(scene.requests)):
-        request = scene._current_request()
-        correct_direction = L17_CORRECT_DIRECTION_BY_REQUEST[request.key]
-        index = L17_DIRECTIONS.index(correct_direction)
-        scene.buttons.buttons[index].on_activate()
-        scene.action_button.on_activate()  # reveal
-        scene.action_button.on_activate()  # next/finish
-
-
 def test_finishing_lesson_seventeen_marks_it_complete_and_unlocks_lesson_eighteen():
+    """Picks index-0 everywhere this smoke test can (the correct plan
+    field happens to be index 0 in every field, one real reveal
+    interpretation, any real decision option) - correctness isn't the
+    point here (see test_lesson17_scenario.py). Smoke test for the real
+    11-stage flow finishing and unlocking Lesson 18."""
     app = App()
     app.init()
     try:
@@ -2104,12 +2099,41 @@ def test_finishing_lesson_seventeen_marks_it_complete_and_unlocks_lesson_eightee
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _predict_every_l17_request_correctly(app.scenes.current)  # guided predictions
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _predict_every_l17_request_correctly(app.scenes.current)  # independent predictions
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L17_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # raw_pilot_inspection
+        wb = app.scenes.current.inner
+        wb.inspection_buttons["one_row_per_customer"].on_activate()
+        wb.continue_button.on_activate()
+
+        plan = _leaf_scene(app.scenes.current.inner)  # hypothesis_plan_and_check
+        _fill_out(plan, L17_HYPOTHESIS_PLAN_FIELDS)  # 4 fields, correct option is index 0 in each
+        offer = _leaf_scene(app.scenes.current.inner)
+        offer.buttons.buttons[1].on_activate()  # skip -> lock
+
+        _play_dialogue_to_the_end(app.scenes.current)  # plan_locked_confirmation
+
+        _confirm_reveal(app.scenes.current.inner)  # primary_reveal
+        _confirm_reveal(app.scenes.current.inner)  # device_pattern_reveal
+
+        _play_dialogue_to_the_end(app.scenes.current)  # device_provenance_reveal
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_hypothesis_brief
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
