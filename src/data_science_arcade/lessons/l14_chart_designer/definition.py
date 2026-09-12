@@ -1,4 +1,5 @@
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
+from data_science_arcade.lessons.l14_chart_designer.scoring import score_lesson_fourteen
 
 LESSON_14 = LessonDefinition(
     id="ds14_chart_designer",
@@ -13,4 +14,5 @@ LESSON_14 = LessonDefinition(
     scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.REASONING, ScoreDimension.EVIDENCE, ScoreDimension.COMMUNICATION),
     estimated_minutes=22,
     related_handbook_entry_id="a_chart_encodes_a_question",
+    scorer=score_lesson_fourteen,
 )

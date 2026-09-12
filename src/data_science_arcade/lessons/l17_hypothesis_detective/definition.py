@@ -1,4 +1,5 @@
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
+from data_science_arcade.lessons.l17_hypothesis_detective.scoring import score_lesson_seventeen
 
 LESSON_17 = LessonDefinition(
     id="ds17_hypothesis_detective",
@@ -13,4 +14,5 @@ LESSON_17 = LessonDefinition(
     scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.REASONING, ScoreDimension.EVIDENCE, ScoreDimension.UNCERTAINTY),
     estimated_minutes=22,
     related_handbook_entry_id="a_hypothesis_has_a_timestamp",
+    scorer=score_lesson_seventeen,
 )

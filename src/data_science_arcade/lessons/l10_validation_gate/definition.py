@@ -1,4 +1,5 @@
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
+from data_science_arcade.lessons.l10_validation_gate.scoring import score_lesson_ten
 
 LESSON_10 = LessonDefinition(
     id="ds10_validation_gate",
@@ -20,4 +21,5 @@ LESSON_10 = LessonDefinition(
     ),
     estimated_minutes=29,
     related_handbook_entry_id="schema_is_a_contract",
+    scorer=score_lesson_ten,
 )
