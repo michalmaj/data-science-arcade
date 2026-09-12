@@ -78,7 +78,62 @@ def test_mature_mask_excludes_tickets_that_havent_had_their_full_reopen_window()
     mask = d.mature_mask(frame, as_of)
     assert mask.sum() < len(frame)
     immature = frame.loc[~mask & (frame["opened_at"] <= as_of)]
-    assert (immature["opened_at"] > as_of - pd.Timedelta(days=7)).all()
+    assert (immature["opened_at"] > as_of - d.FULL_OBSERVATION_WINDOW).all()
+
+
+def test_maturity_requires_the_full_resolution_plus_reopen_window_not_just_7_days():
+    # Regression: a ticket opened 7 days 12 hours ago that closed at hour
+    # 23 has only had ~6.5 real days of its own reopen window observed -
+    # counting it mature off "opened >= 7 days ago" alone was a real bug
+    # (it could call a ticket durable almost a full day before its own
+    # real reopen window had actually elapsed).
+    frame = d.honest_tickets()
+    as_of = frame["opened_at"].max()
+    boundary_open = as_of - pd.Timedelta(days=7, hours=12)
+    boundary_row = pd.DataFrame(
+        [
+            {
+                "ticket_id": "T-BOUNDARY",
+                "opened_at": boundary_open,
+                "closed_at": boundary_open + pd.Timedelta(hours=23),
+                "reopened_at": pd.NaT,
+            }
+        ]
+    )
+    test_frame = pd.concat([frame, boundary_row], ignore_index=True)
+    mask = d.mature_mask(test_frame, as_of)
+    assert mask.iloc[-1] == False  # noqa: E712 - opened >7d but <8d ago, not yet eligible
+
+    long_enough_open = as_of - pd.Timedelta(days=8, hours=1)
+    mature_row = pd.DataFrame(
+        [
+            {
+                "ticket_id": "T-MATURE",
+                "opened_at": long_enough_open,
+                "closed_at": long_enough_open + pd.Timedelta(hours=23),
+                "reopened_at": pd.NaT,
+            }
+        ]
+    )
+    test_frame_2 = pd.concat([frame, mature_row], ignore_index=True)
+    mask_2 = d.mature_mask(test_frame_2, as_of)
+    assert mask_2.iloc[-1] == True  # noqa: E712 - genuinely opened >= 8 days ago
+
+
+def test_an_immature_ticket_never_counts_as_a_durable_success_before_its_window_ends():
+    # "Not reopened yet" must never silently mean success while a
+    # ticket's own real reopen window is still running.
+    frame = d.honest_tickets()
+    as_of = frame["opened_at"].max()
+    boundary_open = as_of - pd.Timedelta(days=7, hours=12)
+    boundary_row = pd.DataFrame(
+        [{"ticket_id": "T-BOUNDARY", "opened_at": boundary_open, "closed_at": boundary_open + pd.Timedelta(hours=23), "reopened_at": pd.NaT}]
+    )
+    test_frame = pd.concat([frame, boundary_row], ignore_index=True)
+
+    rate_including_boundary = d.durable_resolution_rate(test_frame, as_of)
+    rate_excluding_boundary = d.durable_resolution_rate(frame, as_of)
+    assert rate_including_boundary == rate_excluding_boundary  # the immature row contributes to neither side
 
 
 def test_honest_picker_productivity_is_real_and_row_level_verified():

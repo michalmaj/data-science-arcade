@@ -116,7 +116,7 @@ def _mirror_durable(as_of_expr: str, frame_var: str = "tickets") -> str:
         f"opened_by_asof = {frame_var}['opened_at'] <= as_of\n"
         f"closed_by_asof = {frame_var}['closed_at'].notna() & ({frame_var}['closed_at'] <= as_of)\n"
         f"resolved_24h = closed_by_asof & (({frame_var}['closed_at'] - {frame_var}['opened_at']) <= pd.Timedelta(hours=24))\n"
-        f"mature = opened_by_asof & ({frame_var}['opened_at'] <= as_of - pd.Timedelta(days=7))\n"
+        f"mature = opened_by_asof & ({frame_var}['opened_at'] <= as_of - pd.Timedelta(days=8))  # 24h resolution + 7d reopen window\n"
         f"reopened = {frame_var}['reopened_at'].notna() & ({frame_var}['reopened_at'] <= as_of) & "
         f"(({frame_var}['reopened_at'] - {frame_var}['closed_at']) <= pd.Timedelta(days=7))\n"
         "durable = resolved_24h & ~reopened\n"
@@ -144,6 +144,39 @@ def _mirror_for_chosen(chosen: str, as_of_expr: str, frame_var: str, result_name
     particular student's own choice happens to produce."""
     body = _MIRROR_BUILDERS[chosen](as_of_expr, frame_var=frame_var)
     return f"{body}\n{result_name} = {_MIRROR_FINAL_VAR[chosen]}"
+
+
+def _stress_frames_preamble() -> str:
+    """Real, self-contained pandas deriving `stress_a_tickets` and
+    `stress_b_tickets` from `tickets` alone - recorded once, as the first
+    real action of the stress-test stage, so neither frame ever appears
+    "magically" later in the Mirror (the same failure class L11's own
+    hidden segment column had to be fixed for).
+
+    The real 70-ticket subset both stress tests independently
+    re-simulate is identified via a genuinely player-visible rule -
+    tickets that honestly took longer than 24h to resolve - never the
+    hidden `difficulty` column `tickets` itself never exposes."""
+    return (
+        "hard_tickets = tickets[(tickets['closed_at'] - tickets['opened_at']) > pd.Timedelta(hours=24)]\n"
+        "stress_subset_ids = hard_tickets.sort_values('ticket_id')['ticket_id'].head(70)\n"
+        "\n"
+        "# Stress Test A - Close Fast: rush-close the subset; 56 of the 70\n"
+        "# (80%) genuinely reopen 3 days after their own rushed close.\n"
+        "stress_a_tickets = tickets.copy()\n"
+        "rushed = stress_a_tickets['ticket_id'].isin(stress_subset_ids)\n"
+        "stress_a_tickets.loc[rushed, 'closed_at'] = stress_a_tickets.loc[rushed, 'opened_at'] + pd.Timedelta(hours=20)\n"
+        "reopened_ids = stress_subset_ids.head(56)\n"
+        "reopened_mask = stress_a_tickets['ticket_id'].isin(reopened_ids)\n"
+        "stress_a_tickets.loc[reopened_mask, 'reopened_at'] = stress_a_tickets.loc[reopened_mask, 'closed_at'] + pd.Timedelta(days=3)\n"
+        "\n"
+        "# Stress Test B - Leave Hard Tickets Open: an INDEPENDENT re-simulation\n"
+        "# from the same honest baseline and the same real subset - not a\n"
+        "# continuation of Stress Test A.\n"
+        "stress_b_tickets = tickets.copy()\n"
+        "left_open = stress_b_tickets['ticket_id'].isin(stress_subset_ids)\n"
+        "stress_b_tickets.loc[left_open, 'closed_at'] = pd.NaT"
+    )
 
 
 def _build_candidates(frame, as_of, as_of_expr: str) -> tuple[MetricDefinitionOption, ...]:
@@ -416,7 +449,11 @@ def build_lesson_sixteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                 ComparisonValue(
                     "lesson.l16.stress_a_primary.before_label",
                     before,
-                    python_code=f"before_rate = {before / 100:.4f}  # honest, full-maturity baseline",
+                    python_code=(
+                        _stress_frames_preamble()
+                        + "\n\n"
+                        + _mirror_for_chosen(chosen, MATURE_AS_OF_EXPR, "tickets", "honest_baseline_rate")
+                    ),
                     value_format=_pct,
                 ),
                 ComparisonValue(
@@ -595,7 +632,7 @@ def build_lesson_sixteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         return ComparisonRevealScene(
             app,
             title_key="lesson.l16.rerun.title",
-            narrative_keys=("dialogue.l16_rerun.line1",),
+            narrative_keys=("dialogue.l16_rerun.line1", "dialogue.l16_rerun.line2"),
             comparisons=(
                 ComparisonValue(
                     "lesson.l16.rerun.stress_a_label",
