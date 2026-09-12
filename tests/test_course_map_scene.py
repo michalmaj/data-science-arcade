@@ -55,8 +55,6 @@ from data_science_arcade.lessons.l17_hypothesis_detective.scenario import (
     DECISION_FIELDS as L17_DECISION_FIELDS,
     HYPOTHESIS_PLAN_FIELDS as L17_HYPOTHESIS_PLAN_FIELDS,
 )
-from data_science_arcade.lessons.l18_randomization_control_room.requests import CORRECT_RULE_BY_REQUEST as L18_CORRECT_RULE_BY_REQUEST
-from data_science_arcade.lessons.l18_randomization_control_room.scenario import DECISION_FIELDS as L18_DECISION_FIELDS
 from data_science_arcade.lessons.l19_power_plant.experiments import SAMPLING_GROUPS as L19_SAMPLING_GROUPS
 from data_science_arcade.lessons.l19_power_plant.experiments import STEP as L19_STEP
 from data_science_arcade.lessons.l19_power_plant.experiments import TOTAL_WEEKS as L19_TOTAL_WEEKS
@@ -2174,16 +2172,12 @@ def test_persisted_evaluation_uses_each_lessons_own_scorer_not_the_default_fallb
     assert calls == [], "default_scorer was called for a lesson that has its own dedicated scorer wired"
 
 
-def _pick_every_l18_rule_correctly(scene: SegmentSlicerScene) -> None:
-    for _ in range(len(scene.requests)):
-        request = scene._current_request()
-        correct_key = L18_CORRECT_RULE_BY_REQUEST[request.key]
-        index = next(i for i, option in enumerate(request.options) if option.key == correct_key)
-        scene.buttons.buttons[index].on_activate()
-        scene.next_button.on_activate()
-
-
 def test_finishing_lesson_eighteen_marks_it_complete_and_unlocks_lesson_nineteen():
+    """Picks index-0 everywhere this smoke test can (the correct plan
+    field happens to be index 0 for the stratified path, one real
+    revision skipped) - correctness isn't the point here (see
+    test_lesson18_scenario.py). Smoke test for the real 9-stage flow
+    finishing and unlocking Lesson 19."""
     app = App()
     app.init()
     try:
@@ -2194,12 +2188,44 @@ def test_finishing_lesson_eighteen_marks_it_complete_and_unlocks_lesson_nineteen
         click_through_mission_briefing(app)
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _pick_every_l18_rule_correctly(app.scenes.current)  # guided rules
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _pick_every_l18_rule_correctly(app.scenes.current)  # independent rules
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L18_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, WorkbenchScene)  # roster_inspection
+        wb = app.scenes.current.inner
+        wb.inspection_buttons["one_row_per_customer"].on_activate()
+        wb.continue_button.on_activate()
+
+        pick_scene = _leaf_scene(app.scenes.current.inner)  # design_pick_and_audit: initial pick
+        pick_scene.buttons.buttons[0].on_activate()  # index 0 = id_parity
+        pick_scene.next_button.on_activate()
+
+        initial_audit = _leaf_scene(app.scenes.current.inner)
+        initial_audit.continue_button.on_activate()
+
+        offer = _leaf_scene(app.scenes.current.inner)
+        offer.buttons.buttons[1].on_activate()  # keep parity as final - skip revision
+
+        contrast = app.scenes.current.inner  # mechanism_contrast
+        contrast.continue_button.on_activate()
+
+        _play_dialogue_to_the_end(app.scenes.current)  # final_design_announcement
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_randomization_brief
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

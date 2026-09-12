@@ -212,8 +212,13 @@ from data_science_arcade.lessons.l17_hypothesis_detective.scenario import (
     MASTERY_URBAN_STATUS_FIELD as L17_MASTERY_URBAN_STATUS_FIELD,
     PRIMARY_INTERPRET_OPTIONS as L17_PRIMARY_INTERPRET_OPTIONS,
 )
-from data_science_arcade.lessons.l18_randomization_control_room.requests import ASSIGNMENT_REQUESTS as L18_ASSIGNMENT_REQUESTS
-from data_science_arcade.lessons.l18_randomization_control_room.scenario import DECISION_FIELDS as L18_DECISION_FIELDS
+from data_science_arcade.lessons.l18_randomization_control_room.scenario import (
+    DECISION_FIELDS as L18_DECISION_FIELDS,
+    DESIGN_CHOICE_FIELD as L18_DESIGN_CHOICE_FIELD,
+    MASTERY_EVIDENCE_FIELD as L18_MASTERY_EVIDENCE_FIELD,
+    MASTERY_IMBALANCE_MEANING_FIELD as L18_MASTERY_IMBALANCE_MEANING_FIELD,
+    MASTERY_MECHANISM_JUDGMENT_FIELD as L18_MASTERY_MECHANISM_JUDGMENT_FIELD,
+)
 from data_science_arcade.lessons.l19_power_plant.scenario import DECISION_FIELDS as L19_DECISION_FIELDS
 from data_science_arcade.lessons.l20_ab_test_commander.scenario import DECISION_FIELDS as L20_DECISION_FIELDS
 from data_science_arcade.lessons.l21_funnel_factory.requests import FUNNEL_REQUESTS as L21_FUNNEL_REQUESTS
@@ -360,7 +365,11 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L17_MASTERY_JUDGMENT_FIELD,
         L17_MASTERY_URBAN_STATUS_FIELD,
         L17_MASTERY_EVIDENCE_FIELD,
+        L18_DESIGN_CHOICE_FIELD,
         *L18_DECISION_FIELDS,
+        L18_MASTERY_MECHANISM_JUDGMENT_FIELD,
+        L18_MASTERY_IMBALANCE_MEANING_FIELD,
+        L18_MASTERY_EVIDENCE_FIELD,
         *L19_DECISION_FIELDS,
         *L20_DECISION_FIELDS,
         *L21_DECISION_FIELDS,
@@ -446,9 +455,6 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width_l15))
 
     segment_option_button_width = SEGMENT_OPTION_SIZE[0] - BUTTON_PADDING
-    for request in L18_ASSIGNMENT_REQUESTS:
-        for option in request.options:
-            checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
     for option in L30_REGIONAL_BREAKDOWN_REQUEST.options:
         checks.append((f"{L30_REGIONAL_BREAKDOWN_REQUEST.key}.{option.key}", option.label_key, segment_option_button_width))
     for request in _l07_build_investigation_requests(l07_generate_orders()):
@@ -456,7 +462,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
     # L09's own by-zone segment request is built live inside its stage
     # closure (its Segment rows depend on the real dataset), not exported
-    # as a module-level constant like L15/L18's own requests - only its
+    # as a module-level constant like L15's own requests - only its
     # one static SliceOption label actually needs checking here.
     checks.append(("l09_segment.by_zone", "lesson.l09.segment.option.by_zone", segment_option_button_width))
 
