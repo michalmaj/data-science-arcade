@@ -141,15 +141,20 @@ def _score_evidence(result: LessonSeventeenResult) -> tuple[float, FeedbackObser
 
 
 def _mastery_succeeded(result: LessonSeventeenResult) -> bool:
-    """Transfer requires BOTH the correct planned-result judgment (the
+    """Transfer requires the correct planned-result judgment (the
     pre-specified hypothesis was NOT borne out by the observed overall
-    result) AND the real, distinguishing fact that the overall late rate
-    itself increased - never accepting the tempting urban pattern alone as
-    proof the hypothesis worked."""
+    result), the correct status of the tempting urban pattern (real, but
+    post hoc and exploratory - not proof the planner "works in urban"),
+    AND the real, distinguishing evidence that the overall late rate
+    itself increased. A student who only judges the overall result and
+    never engages with the urban pattern's own status hasn't finished the
+    transfer - the urban half is exactly the part that mirrors this
+    lesson's own device split."""
     judgment_correct = result.mastery_result.get("mastery_route_judgment") == "not_borne_out_overall_late_rate_increased"
+    urban_status_correct = result.mastery_result.get("mastery_urban_status") == "post_hoc_exploratory_worth_new_test"
     supporting = set(result.mastery_result.get("mastery_supporting_evidence", ()))
     real_distinguishing_fact = "overall_late_rate_increased" in supporting
-    return judgment_correct and real_distinguishing_fact
+    return judgment_correct and urban_status_correct and real_distinguishing_fact
 
 
 def score_lesson_seventeen(result: LessonSeventeenResult, definition: LessonDefinition, hints_used: int) -> LessonEvaluation:
