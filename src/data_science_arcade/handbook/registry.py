@@ -231,6 +231,21 @@ POWER_IS_A_DESIGN_PROPERTY = HandbookEntry(
     related_entry_ids=("statistical_power", "minimum_detectable_effect", "practical_significance", "confidence_interval"),
 )
 
+AN_EXPERIMENT_NEEDS_A_DECISION_RULE = HandbookEntry(
+    id="an_experiment_needs_a_decision_rule",
+    title_key="handbook.article.an_experiment_needs_a_decision_rule.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.an_experiment_needs_a_decision_rule.body.1",
+        "handbook.article.an_experiment_needs_a_decision_rule.body.2",
+        "handbook.article.an_experiment_needs_a_decision_rule.body.3",
+        "handbook.article.an_experiment_needs_a_decision_rule.body.4",
+        "handbook.article.an_experiment_needs_a_decision_rule.body.5",
+        "handbook.article.an_experiment_needs_a_decision_rule.body.6",
+    ),
+    related_entry_ids=("hypothesis", "pre_specification", "guardrail_metric", "statistical_power", "confidence_interval", "practical_significance"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -248,6 +263,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     A_HYPOTHESIS_HAS_A_TIMESTAMP,
     RANDOMIZATION_IS_A_MECHANISM,
     POWER_IS_A_DESIGN_PROPERTY,
+    AN_EXPERIMENT_NEEDS_A_DECISION_RULE,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -408,6 +424,12 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.confidence_interval.term",
         definition_key="handbook.glossary.confidence_interval.definition",
         related_entry_id="power_is_a_design_property",
+    ),
+    GlossaryEntry(
+        id="stopping_rule",
+        term_key="handbook.glossary.stopping_rule.term",
+        definition_key="handbook.glossary.stopping_rule.definition",
+        related_entry_id="an_experiment_needs_a_decision_rule",
     ),
 )
 

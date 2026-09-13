@@ -229,7 +229,14 @@ from data_science_arcade.lessons.l19_power_plant.scenario import (
     UNDERPOWERED_INTERPRET_OPTIONS as L19_UNDERPOWERED_INTERPRET_OPTIONS,
     HIGH_N_INTERPRET_OPTIONS as L19_HIGH_N_INTERPRET_OPTIONS,
 )
-from data_science_arcade.lessons.l20_ab_test_commander.scenario import DECISION_FIELDS as L20_DECISION_FIELDS
+from data_science_arcade.lessons.l20_ab_test_commander.scenario import (
+    CONTRAST_INTERPRET_OPTIONS as L20_CONTRAST_INTERPRET_OPTIONS,
+    DECISION_FIELDS as L20_DECISION_FIELDS,
+    MASTERY_CONTRAST_FIELD as L20_MASTERY_CONTRAST_FIELD,
+    MASTERY_EVIDENCE_FIELD as L20_MASTERY_EVIDENCE_FIELD,
+    MASTERY_STOPPING_JUDGMENT_FIELD as L20_MASTERY_STOPPING_JUDGMENT_FIELD,
+    RECOMMENDATION_OPTIONS as L20_RECOMMENDATION_OPTIONS,
+)
 from data_science_arcade.lessons.l21_funnel_factory.requests import FUNNEL_REQUESTS as L21_FUNNEL_REQUESTS
 from data_science_arcade.lessons.l21_funnel_factory.scenario import DECISION_FIELDS as L21_DECISION_FIELDS
 from data_science_arcade.lessons.l22_cohort_observatory.requests import COHORT_REQUESTS as L22_COHORT_REQUESTS
@@ -264,9 +271,12 @@ from data_science_arcade.ui.button import BUTTON_TEXT_SIZE
 from data_science_arcade.ui.chart_builder_scene import OPTION_SIZE as CHART_BUILDER_OPTION_SIZE
 from data_science_arcade.ui.chart_designer_scene import OPTION_SIZE as CHART_OPTION_SIZE
 from data_science_arcade.ui.composite_scene import OFFER_BUTTON_SIZE
-from data_science_arcade.ui.checkpoint_monitor_scene import NAV_BUTTON_SIZE as CHECKPOINT_NAV_BUTTON_SIZE
 from data_science_arcade.ui.cohort_matrix_scene import COMPARISON_OPTION_SIZE as COHORT_COMPARISON_OPTION_SIZE
 from data_science_arcade.ui.comparison_reveal_scene import OPTION_SIZE as COMPARISON_REVEAL_OPTION_SIZE
+from data_science_arcade.ui.experiment_monitor_scene import (
+    CONTINUE_BUTTON_SIZE as EXPERIMENT_MONITOR_CONTINUE_BUTTON_SIZE,
+    OPTION_SIZE as EXPERIMENT_MONITOR_OPTION_SIZE,
+)
 from data_science_arcade.ui.api_console_scene import CONTINUATION_OPTION_SIZE
 from data_science_arcade.ui.mastery_challenge_scene import OPTION_SIZE as MASTERY_OPTION_SIZE
 from data_science_arcade.ui.finding_picker_scene import OPTION_SIZE as FINDING_OPTION_SIZE
@@ -385,6 +395,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L19_MASTERY_RESULT_INTERPRETATION_FIELD,
         L19_MASTERY_EVIDENCE_FIELD,
         *L20_DECISION_FIELDS,
+        L20_MASTERY_STOPPING_JUDGMENT_FIELD,
+        L20_MASTERY_CONTRAST_FIELD,
+        L20_MASTERY_EVIDENCE_FIELD,
         *L21_DECISION_FIELDS,
         *L22_DECISION_FIELDS,
         *L23_DECISION_FIELDS,
@@ -498,11 +511,10 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width_l16))
 
-    # The two CheckpointMonitorScene nav buttons (Lesson 20) are fixed
-    # scene chrome, not per-request content, so they're checked once here.
-    checkpoint_nav_button_width = CHECKPOINT_NAV_BUTTON_SIZE[0] - BUTTON_PADDING
-    for key in ("checkpoint.stop_button", "checkpoint.continue_button"):
-        checks.append((key, key, checkpoint_nav_button_width))
+    # ExperimentMonitorScene's own final-checkpoint continue button (Lesson
+    # 20) is fixed scene chrome, not per-request content.
+    experiment_monitor_continue_button_width = EXPERIMENT_MONITOR_CONTINUE_BUTTON_SIZE[0] - BUTTON_PADDING
+    checks.append(("monitor.continue_to_brief", "lesson.l20.monitor.continue_to_brief", experiment_monitor_continue_button_width))
 
     # OfferThenTaskScene's own engage/skip buttons are fixed chrome, not
     # per-request content - the generic mastery.* pair every mastery-style
@@ -626,9 +638,14 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L19_POWER_REVEAL_INTERPRET_OPTIONS,
         L19_UNDERPOWERED_INTERPRET_OPTIONS,
         L19_HIGH_N_INTERPRET_OPTIONS,
+        L20_CONTRAST_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
+
+    experiment_monitor_option_button_width = EXPERIMENT_MONITOR_OPTION_SIZE[0] - BUTTON_PADDING
+    for option in L20_RECOMMENDATION_OPTIONS:
+        checks.append((f"monitor_recommendation.{option.key}", option.label_key, experiment_monitor_option_button_width))
 
     mastery_option_button_width = MASTERY_OPTION_SIZE[0] - BUTTON_PADDING
     for options in (

@@ -85,13 +85,13 @@ from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.chart_builder_scene import ChartBuilderScene
 from data_science_arcade.ui.chart_designer_scene import ChartDesignerScene
-from data_science_arcade.ui.checkpoint_monitor_scene import CheckpointMonitorScene
 from data_science_arcade.ui.cohort_matrix_scene import CohortMatrixScene
 from data_science_arcade.ui.correlation_scene import CorrelationScene
 import data_science_arcade.ui.course_map_scene as course_map_scene_module
 from data_science_arcade.ui.course_map_scene import CourseMapScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.distribution_explorer_scene import DistributionExplorerScene
+from data_science_arcade.ui.experiment_monitor_scene import ExperimentMonitorScene
 from data_science_arcade.ui.finding_picker_scene import FindingPickerScene
 from data_science_arcade.ui.flow_builder_scene import FlowBuilderScene
 from data_science_arcade.ui.funnel_builder_scene import FunnelBuilderScene
@@ -2296,10 +2296,19 @@ def test_finishing_lesson_nineteen_marks_it_complete_and_unlocks_lesson_twenty()
         pygame.quit()
 
 
-def _keep_running_l20_to_the_end(scene: CheckpointMonitorScene) -> None:
-    while not scene._is_last_checkpoint():
+def _keep_running_l20_to_the_end(scene: ExperimentMonitorScene) -> None:
+    """Every checkpoint is visited regardless of path - a recommendation
+    choice never branches flow (see ExperimentMonitorScene's own
+    docstring). Picks index-0 ("ship now") at every non-final checkpoint,
+    matching this smoke test's own "index-0 everywhere it can" idiom -
+    correctness isn't the point here (see test_lesson20_scenario.py)."""
+    while True:
+        if len(scene.buttons.buttons) > 1:
+            scene.buttons.buttons[0].on_activate()  # a recommendation option, if this checkpoint has one
+        is_final = scene._current_checkpoint().is_final
         scene.continue_button.on_activate()
-    scene.stop_button.on_activate()  # relabeled "Finish" on the last checkpoint
+        if is_final:
+            return
 
 
 def test_finishing_lesson_twenty_marks_it_complete_and_unlocks_lesson_twenty_one():
@@ -2314,11 +2323,28 @@ def test_finishing_lesson_twenty_marks_it_complete_and_unlocks_lesson_twenty_one
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _keep_running_l20_to_the_end(app.scenes.current)  # guided monitoring
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _keep_running_l20_to_the_end(app.scenes.current)  # independent monitoring
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L20_DECISION_FIELDS)  # decision
+        _keep_running_l20_to_the_end(app.scenes.current)  # experiment_monitoring
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # week3_vs_week7_contrast_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision_brief
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
