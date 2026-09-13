@@ -216,6 +216,21 @@ RANDOMIZATION_IS_A_MECHANISM = HandbookEntry(
     related_entry_ids=("random_assignment", "stratified_randomization", "covariate_balance"),
 )
 
+POWER_IS_A_DESIGN_PROPERTY = HandbookEntry(
+    id="power_is_a_design_property",
+    title_key="handbook.article.power_is_a_design_property.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.power_is_a_design_property.body.1",
+        "handbook.article.power_is_a_design_property.body.2",
+        "handbook.article.power_is_a_design_property.body.3",
+        "handbook.article.power_is_a_design_property.body.4",
+        "handbook.article.power_is_a_design_property.body.5",
+        "handbook.article.power_is_a_design_property.body.6",
+    ),
+    related_entry_ids=("statistical_power", "minimum_detectable_effect", "practical_significance", "confidence_interval"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -232,6 +247,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     WHEN_A_MEASURE_BECOMES_A_TARGET,
     A_HYPOTHESIS_HAS_A_TIMESTAMP,
     RANDOMIZATION_IS_A_MECHANISM,
+    POWER_IS_A_DESIGN_PROPERTY,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -368,6 +384,30 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.covariate_balance.term",
         definition_key="handbook.glossary.covariate_balance.definition",
         related_entry_id="randomization_is_a_mechanism",
+    ),
+    GlossaryEntry(
+        id="statistical_power",
+        term_key="handbook.glossary.statistical_power.term",
+        definition_key="handbook.glossary.statistical_power.definition",
+        related_entry_id="power_is_a_design_property",
+    ),
+    GlossaryEntry(
+        id="minimum_detectable_effect",
+        term_key="handbook.glossary.minimum_detectable_effect.term",
+        definition_key="handbook.glossary.minimum_detectable_effect.definition",
+        related_entry_id="power_is_a_design_property",
+    ),
+    GlossaryEntry(
+        id="practical_significance",
+        term_key="handbook.glossary.practical_significance.term",
+        definition_key="handbook.glossary.practical_significance.definition",
+        related_entry_id="power_is_a_design_property",
+    ),
+    GlossaryEntry(
+        id="confidence_interval",
+        term_key="handbook.glossary.confidence_interval.term",
+        definition_key="handbook.glossary.confidence_interval.definition",
+        related_entry_id="power_is_a_design_property",
     ),
 )
 
