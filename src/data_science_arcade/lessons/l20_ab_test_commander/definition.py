@@ -1,4 +1,5 @@
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
+from data_science_arcade.lessons.l20_ab_test_commander.scoring import score_lesson_twenty
 
 LESSON_20 = LessonDefinition(
     id="ds20_ab_test_commander",
@@ -10,6 +11,8 @@ LESSON_20 = LessonDefinition(
         "lesson.l20.objective2",
         "lesson.l20.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.METHOD, ScoreDimension.UNCERTAINTY, ScoreDimension.OVERCONFIDENCE),
-    estimated_minutes=15,
+    scoring_dimensions=(ScoreDimension.REASONING, ScoreDimension.EVIDENCE, ScoreDimension.UNCERTAINTY, ScoreDimension.OVERCONFIDENCE),
+    estimated_minutes=21,
+    related_handbook_entry_id="an_experiment_needs_a_decision_rule",
+    scorer=score_lesson_twenty,
 )
