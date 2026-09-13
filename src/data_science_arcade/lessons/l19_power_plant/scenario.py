@@ -7,6 +7,7 @@ from data_science_arcade.lessons.l19_power_plant.scoring import (
     CRITICAL_EVIDENCE_KEYS,
     FINAL_PLAN_SENSITIVITY_EVIDENCE_KEY,
     PRECISE_TINY_EFFECT_EVIDENCE_KEY,
+    REFERENCE_ADEQUATE_DESIGN_EVIDENCE_KEY,
     REFERENCE_INADEQUATE_DESIGN_EVIDENCE_KEY,
     UNDERPOWERED_CALIBRATION_EVIDENCE_KEY,
     LessonNineteenResult,
@@ -73,7 +74,7 @@ POWER_REVEAL_COMPARISONS = (
         value_format=_pct_about,
     ),
     ComparisonValue(
-        "lesson.l19.power_reveal.design_b_label",
+        REFERENCE_ADEQUATE_DESIGN_EVIDENCE_KEY,
         d.REFERENCE_DESIGN_B_DETECTION_RATE * 100,
         python_code=d.REFERENCE_DESIGN_B_MIRROR,
         value_format=_pct_about,
@@ -176,7 +177,7 @@ PRECISE_SMALL_EFFECT_INTERPRETATION_FIELD = BriefField(
         BriefOption("narrow_interval_means_the_effect_is_zero", "lesson.l19.decision.precise_small_effect_interpretation.option.narrow_interval_means_the_effect_is_zero"),
     ),
 )
-DECISION_EVIDENCE_FIELD = EvidenceField(key="evidence", prompt_key="lesson.l19.decision.evidence.prompt", min_count=3, max_count=4)
+DECISION_EVIDENCE_FIELD = EvidenceField(key="evidence", prompt_key="lesson.l19.decision.evidence.prompt", min_count=3, max_count=5)
 DECISION_FIELDS: tuple[BriefField, ...] = (
     FINAL_DESIGN_CLASSIFICATION_FIELD,
     SAMPLE_SIZE_EFFECT_FIELD,

@@ -3,6 +3,10 @@ from data_science_arcade.lessons.l19_power_plant.definition import LESSON_19
 from data_science_arcade.lessons.l19_power_plant.scoring import (
     CRITICAL_EVIDENCE_KEYS,
     METHOD_SCORE_BY_WEEKS,
+    POWER_PROBABILITY_PAIR_KEYS,
+    FINAL_PLAN_SENSITIVITY_EVIDENCE_KEY,
+    PRECISE_TINY_EFFECT_EVIDENCE_KEY,
+    UNDERPOWERED_CALIBRATION_EVIDENCE_KEY,
     LessonNineteenResult,
     score_lesson_nineteen,
 )
@@ -129,6 +133,32 @@ def test_evidence_is_role_based_missing_one_real_role_costs_real_credit():
     missing_one = _result(critical_evidence_present=CRITICAL_EVIDENCE_KEYS[:3])
     full = _result(critical_evidence_present=CRITICAL_EVIDENCE_KEYS)
     assert _scores(missing_one)[ScoreDimension.EVIDENCE] < _scores(full)[ScoreDimension.EVIDENCE]
+
+
+def test_power_probability_pair_role_requires_both_detection_rate_facts():
+    """The 'what 80% power means' role lives in the CONTRAST between the
+    4-week and 7-week detection rates - citing only one must not grant
+    full role credit, and this must hold regardless of which Final Brief
+    interpretation was chosen (fact-seen, not correct-interpretation,
+    discipline)."""
+    other_roles_only = (
+        FINAL_PLAN_SENSITIVITY_EVIDENCE_KEY,
+        UNDERPOWERED_CALIBRATION_EVIDENCE_KEY,
+        PRECISE_TINY_EFFECT_EVIDENCE_KEY,
+    )
+    a_key, b_key = POWER_PROBABILITY_PAIR_KEYS
+
+    a_only = _result(critical_evidence_present=(*other_roles_only, a_key))
+    a_and_b = _result(critical_evidence_present=(*other_roles_only, a_key, b_key))
+
+    scores_a_only = _scores(a_only)
+    scores_a_and_b = _scores(a_and_b)
+
+    # A alone: 3 of 4 roles complete (the pair role is NOT complete).
+    assert scores_a_only[ScoreDimension.EVIDENCE] == {4: 95.0, 3: 74.0, 2: 50.0, 1: 25.0, 0: 10.0}[3]
+    # A+B: all 4 roles complete.
+    assert scores_a_and_b[ScoreDimension.EVIDENCE] == {4: 95.0, 3: 74.0, 2: 50.0, 1: 25.0, 0: 10.0}[4]
+    assert scores_a_only[ScoreDimension.EVIDENCE] < scores_a_and_b[ScoreDimension.EVIDENCE]
 
 
 def test_mastery_requires_the_correct_judgment_interpretation_and_both_evidence_facts():

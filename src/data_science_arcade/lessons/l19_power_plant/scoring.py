@@ -47,18 +47,35 @@ _CORRECT_PRECISE_SMALL_EFFECT_INTERPRETATION = "precisely_estimated_small_effect
 
 # --- Evidence, role-based (never "any N of M"). The power-as-probability
 # reveal's own two comparison values (4-week and 7-week detection rate)
-# both become real, numbered EvidenceItems - only the 4-week one is a
-# required role here (the "reference inadequate design" fact); the
-# 7-week one stays real, citable, optional evidence. --------------------
+# both become real, numbered EvidenceItems, but they ground a SINGLE role
+# ("what 80% power means") - the pedagogical point lives in the CONTRAST
+# between them, so citing only one is not enough for that role's credit.
+# The other 3 roles each still need exactly one real fact. ---------------
 
 FINAL_PLAN_SENSITIVITY_EVIDENCE_KEY = "lesson.l19.evidence.final_plan_sensitivity"
 REFERENCE_INADEQUATE_DESIGN_EVIDENCE_KEY = "lesson.l19.evidence.reference_design_a_detection_rate"
+REFERENCE_ADEQUATE_DESIGN_EVIDENCE_KEY = "lesson.l19.evidence.reference_design_b_detection_rate"
 UNDERPOWERED_CALIBRATION_EVIDENCE_KEY = "lesson.l19.evidence.underpowered_calibration_result"
 PRECISE_TINY_EFFECT_EVIDENCE_KEY = "lesson.l19.evidence.precise_tiny_effect_calibration_result"
 
+POWER_PROBABILITY_PAIR_KEYS: tuple[str, str] = (
+    REFERENCE_INADEQUATE_DESIGN_EVIDENCE_KEY,
+    REFERENCE_ADEQUATE_DESIGN_EVIDENCE_KEY,
+)
+
+# Every individually-citable evidence key (5 real facts) - used by
+# scenario.py to detect which facts a student selected. This has 5
+# entries but only 4 SCORED ROLES: the pair above counts as a single
+# role, and only when BOTH its keys are present (see _score_evidence).
 CRITICAL_EVIDENCE_KEYS: tuple[str, ...] = (
     FINAL_PLAN_SENSITIVITY_EVIDENCE_KEY,
-    REFERENCE_INADEQUATE_DESIGN_EVIDENCE_KEY,
+    *POWER_PROBABILITY_PAIR_KEYS,
+    UNDERPOWERED_CALIBRATION_EVIDENCE_KEY,
+    PRECISE_TINY_EFFECT_EVIDENCE_KEY,
+)
+
+_SINGLE_FACT_ROLE_KEYS: tuple[str, ...] = (
+    FINAL_PLAN_SENSITIVITY_EVIDENCE_KEY,
     UNDERPOWERED_CALIBRATION_EVIDENCE_KEY,
     PRECISE_TINY_EFFECT_EVIDENCE_KEY,
 )
@@ -154,7 +171,8 @@ def _score_uncertainty(result: LessonNineteenResult) -> tuple[float, FeedbackObs
 
 def _score_evidence(result: LessonNineteenResult) -> tuple[float, FeedbackObservation | None]:
     present = set(result.critical_evidence_present)
-    roles_present = sum(1 for key in CRITICAL_EVIDENCE_KEYS if key in present)
+    power_pair_role_complete = all(key in present for key in POWER_PROBABILITY_PAIR_KEYS)
+    roles_present = sum(1 for key in _SINGLE_FACT_ROLE_KEYS if key in present) + (1 if power_pair_role_complete else 0)
     score = {4: 95.0, 3: 74.0, 2: 50.0, 1: 25.0, 0: 10.0}[roles_present]
     if roles_present < 4:
         return score, FeedbackObservation("lesson.l19.feedback.evidence_missing_a_real_role", ScoreDimension.EVIDENCE)
