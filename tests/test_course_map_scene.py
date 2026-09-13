@@ -55,10 +55,8 @@ from data_science_arcade.lessons.l17_hypothesis_detective.scenario import (
     DECISION_FIELDS as L17_DECISION_FIELDS,
     HYPOTHESIS_PLAN_FIELDS as L17_HYPOTHESIS_PLAN_FIELDS,
 )
-from data_science_arcade.lessons.l19_power_plant.experiments import SAMPLING_GROUPS as L19_SAMPLING_GROUPS
-from data_science_arcade.lessons.l19_power_plant.experiments import STEP as L19_STEP
-from data_science_arcade.lessons.l19_power_plant.experiments import TOTAL_WEEKS as L19_TOTAL_WEEKS
 from data_science_arcade.lessons.l19_power_plant.scenario import DECISION_FIELDS as L19_DECISION_FIELDS
+from data_science_arcade.ui.power_planner_scene import PowerPlannerScene
 from data_science_arcade.lessons.l20_ab_test_commander.scenario import DECISION_FIELDS as L20_DECISION_FIELDS
 from data_science_arcade.lessons.l21_funnel_factory.requests import CORRECT_DEFINITION_BY_REQUEST as L21_CORRECT_DEFINITION_BY_REQUEST
 from data_science_arcade.lessons.l21_funnel_factory.scenario import DECISION_FIELDS as L21_DECISION_FIELDS
@@ -103,7 +101,6 @@ from data_science_arcade.ui.mission_briefing_scene import MissionBriefingScene
 from data_science_arcade.ui.pipeline_builder_scene import PipelineBuilderScene
 from data_science_arcade.ui.placeholder_scene import PlaceholderScene
 from data_science_arcade.ui.resume_confirmation_scene import ResumeConfirmationScene
-from data_science_arcade.ui.sampling_allocator_scene import SamplingAllocatorScene
 from data_science_arcade.ui.segment_mix_scene import SegmentMixScene
 from data_science_arcade.ui.segment_slicer_scene import SegmentSlicerScene
 from data_science_arcade.ui.survey_builder_scene import SurveyBuilderScene
@@ -2235,15 +2232,17 @@ def test_finishing_lesson_eighteen_marks_it_complete_and_unlocks_lesson_nineteen
         pygame.quit()
 
 
-def _spend_the_whole_l19_budget_evenly(scene: SamplingAllocatorScene) -> None:
-    even_split = L19_TOTAL_WEEKS // len(L19_SAMPLING_GROUPS)
-    for group in L19_SAMPLING_GROUPS:
-        for _ in range(even_split // L19_STEP):
-            scene.plus_buttons[group.key].on_activate()
-    scene.confirm_button.on_activate()
+def _l19_option_index(field_or_options, option_key: str) -> int:
+    options = field_or_options.options if hasattr(field_or_options, "options") else field_or_options
+    return next(i for i, option in enumerate(options) if option.key == option_key)
 
 
 def test_finishing_lesson_nineteen_marks_it_complete_and_unlocks_lesson_twenty():
+    """Picks index-0 everywhere this smoke test can (a 7-week cold pick,
+    kept as final with no revision, index-0 on every Final Brief field) -
+    correctness isn't the point here (see test_lesson19_scenario.py).
+    Smoke test for the real 11-stage flow finishing and unlocking
+    Lesson 20."""
     app = App()
     app.init()
     try:
@@ -2255,11 +2254,39 @@ def test_finishing_lesson_nineteen_marks_it_complete_and_unlocks_lesson_twenty()
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _spend_the_whole_l19_budget_evenly(app.scenes.current)  # guided allocation
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _spend_the_whole_l19_budget_evenly(app.scenes.current)  # independent allocation
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L19_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, BriefBuilderScene)  # cold_duration_pick
+        cold_pick = app.scenes.current.inner
+        cold_pick.buttons.buttons[_l19_option_index(cold_pick.fields[0], "7")].on_activate()
+        cold_pick.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, PowerPlannerScene)  # power_planning
+        app.scenes.current.inner.confirm_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # power_as_probability_reveal
+        _confirm_reveal(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # underpowered_calibration_reveal
+        _confirm_reveal(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # precise_small_effect_calibration_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_power_brief
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
