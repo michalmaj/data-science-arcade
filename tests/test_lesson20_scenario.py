@@ -13,6 +13,8 @@ from data_science_arcade.lessons.l20_ab_test_commander.scenario import DECISION_
 from data_science_arcade.lessons.l20_ab_test_commander.scoring import (
     CRITICAL_EVIDENCE_KEYS,
     DECISION_PROTOCOL_EVIDENCE_KEY,
+    WEEK3_PRIMARY_READING_EVIDENCE_KEY,
+    WEEK7_PRIMARY_PASS_EVIDENCE_KEY,
     LessonTwentyResult,
 )
 from data_science_arcade.ui.brief_builder_scene import BriefBuilderScene
@@ -208,6 +210,103 @@ def test_evidence_is_available_regardless_of_the_contrast_reveal_interpretation(
         evidence_label_keys = {item.label_key for item in restored_context.evidence}
         for critical_key in CRITICAL_EVIDENCE_KEYS:
             assert critical_key in evidence_label_keys
+    finally:
+        pygame.quit()
+
+
+def test_week7_primary_pass_evidence_carries_its_own_ci_and_comes_from_the_week7_checkpoint():
+    """The strict primary contract requires the ENTIRE CI to clear +1.5pp -
+    a bare point estimate (e.g. '+2.75pp') can't support that claim on its
+    own, since a passing point estimate can coexist with a CI lower bound
+    below the threshold. The week-7 primary Evidence must carry its own
+    real CI, and must be recorded by ExperimentMonitorScene's own week-7
+    checkpoint action, never by the (informational-only) contrast reveal."""
+    app = _init_app()
+    try:
+        runner, collected = build_lesson_twenty_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+
+        _play_lesson_to_feedback(app)
+
+        restored_context = LessonContext()
+        restored_context.restore_from_dict(collected["analytical_context"])
+
+        matches = [item for item in restored_context.evidence if item.label_key == WEEK7_PRIMARY_PASS_EVIDENCE_KEY]
+        assert len(matches) == 1, "the contrast reveal must not record a second, duplicate EvidenceItem"
+        item = matches[0]
+
+        dataset = d.generate_checkout_experiment()
+        expected_diff, expected_lo, expected_hi = d.diff_and_ci_at_checkpoint(dataset, d.PLANNED_END_WEEK, d.PRIMARY)
+        assert item.detail is not None
+        assert f"{expected_diff * 100:+.2f}pp" in item.detail
+        assert f"{expected_lo * 100:+.2f}pp" in item.detail
+        assert f"{expected_hi * 100:+.2f}pp" in item.detail
+
+        source_action = next(a for a in restored_context.actions if a.id == item.source_action_id)
+        assert source_action.key == "week7_checkpoint_read"
+    finally:
+        pygame.quit()
+
+
+def test_week3_primary_reading_evidence_carries_its_own_ci_and_comes_from_the_week3_checkpoint():
+    app = _init_app()
+    try:
+        runner, collected = build_lesson_twenty_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+
+        _play_lesson_to_feedback(app)
+
+        restored_context = LessonContext()
+        restored_context.restore_from_dict(collected["analytical_context"])
+
+        matches = [item for item in restored_context.evidence if item.label_key == WEEK3_PRIMARY_READING_EVIDENCE_KEY]
+        assert len(matches) == 1, "the contrast reveal must not record a second, duplicate EvidenceItem"
+        item = matches[0]
+
+        dataset = d.generate_checkout_experiment()
+        expected_diff, expected_lo, expected_hi = d.diff_and_ci_at_checkpoint(dataset, 3, d.PRIMARY)
+        assert item.detail is not None
+        assert f"{expected_diff * 100:+.2f}pp" in item.detail
+        assert f"{expected_lo * 100:+.2f}pp" in item.detail
+        assert f"{expected_hi * 100:+.2f}pp" in item.detail
+
+        source_action = next(a for a in restored_context.actions if a.id == item.source_action_id)
+        assert source_action.key == "week3_checkpoint_read"
+    finally:
+        pygame.quit()
+
+
+def test_contrast_reveal_records_no_evidence_of_its_own():
+    """comparisons_are_evidence=False on the contrast reveal - it stays a
+    real AnalyticalAction/Python Mirror contribution and an interpretive
+    beat, but the two primary facts it displays are already real Evidence
+    from the monitor checkpoints, in a strictly better (CI-bearing) form."""
+    app = _init_app()
+    try:
+        runner, collected = build_lesson_twenty_runner(app, on_finished=lambda result: None)
+        runner.start()
+        click_through_mission_briefing(app)
+
+        assert isinstance(app.scenes.current.inner, DialogueScene)  # briefing
+        _play_dialogue_to_the_end(app.scenes.current)
+        assert isinstance(app.scenes.current.inner, DialogueScene)  # investigation
+        _play_dialogue_to_the_end(app.scenes.current)
+
+        monitor = app.scenes.current.inner
+        assert isinstance(monitor, ExperimentMonitorScene)
+        _play_monitor_checkpoint(monitor, "not_sure_yet")
+        _play_monitor_checkpoint(monitor, "hold_keep_running")
+        _play_monitor_checkpoint(monitor, None)
+
+        evidence_count_before_contrast = len(monitor.context.evidence)
+
+        contrast = app.scenes.current.inner
+        assert isinstance(contrast, ComparisonRevealScene)
+        _play_reveal(contrast, "the_larger_later_sample_is_more_reliable_not_because_week3_was_fake")
+
+        assert len(monitor.context.evidence) == evidence_count_before_contrast
     finally:
         pygame.quit()
 

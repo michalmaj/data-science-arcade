@@ -91,6 +91,10 @@ def _build_checkpoint(dataset, week: int) -> ExperimentCheckpoint:
             evidence_key = SUPPORT_GUARDRAIL_BREACH_EVIDENCE_KEY
         elif is_final and metric_key == d.REFUND_GUARDRAIL:
             evidence_key = REFUND_GUARDRAIL_CLEAN_EVIDENCE_KEY
+        elif is_final and metric_key == d.PRIMARY:
+            evidence_key = WEEK7_PRIMARY_PASS_EVIDENCE_KEY
+        elif week == 3 and metric_key == d.PRIMARY:
+            evidence_key = WEEK3_PRIMARY_READING_EVIDENCE_KEY
         rows.append(
             ExperimentMetricRow(
                 label_key=label_key,
@@ -222,7 +226,7 @@ GUARDRAIL_VISIBILITY_EXPLANATION_FIELD = BriefField(
         BriefOption("guardrails_are_never_detectable_early", "lesson.l20.decision.guardrail_visibility_explanation.option.guardrails_are_never_detectable_early"),
     ),
 )
-DECISION_EVIDENCE_FIELD = EvidenceField(key="evidence", prompt_key="lesson.l20.decision.evidence.prompt", min_count=3, max_count=4)
+DECISION_EVIDENCE_FIELD = EvidenceField(key="evidence", prompt_key="lesson.l20.decision.evidence.prompt", min_count=3, max_count=5)
 DECISION_FIELDS: tuple[BriefField, ...] = (
     FINAL_VERDICT_FIELD,
     WHY_NOT_A_CLEAN_SHIP_FIELD,
@@ -347,7 +351,11 @@ def build_lesson_twenty_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             interpret_options=CONTRAST_INTERPRET_OPTIONS,
             on_complete=on_complete,
             context=context,
-            comparisons_are_evidence=True,
+            # The week-3 and week-7 primary facts are already recorded as
+            # real Evidence (with their own CI) by ExperimentMonitorScene's
+            # own checkpoint rows - this reveal never re-records them as a
+            # second, poorer (point-estimate-only) EvidenceItem.
+            comparisons_are_evidence=False,
         )
 
     # --- Final Decision Brief ---
