@@ -10,6 +10,7 @@ from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.funnel_chart import draw_funnel_bar, step_percent, step_percent_of_top
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
+from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 PROMPT_Y = 74
@@ -29,16 +30,43 @@ NAV_BUTTON_Y = 460
 class FunnelBuilderScene(Scene):
     """A fixed sequence of requests, each a specific complaint about
     checkout conversion; picking one of a few candidate funnel
-    *definitions* (spec §25 Lesson 21 'Funnel Factory') shows a real
-    funnel chart for that definition - same underlying event counts,
-    different choices about which events count, in what order, or
-    against which denominator. Different defensible-looking definitions
-    can make different steps look like the worst bottleneck, which is the
-    whole point: the chart is real either way, but which one you pick
-    still shapes the story it tells.
+    *definitions* shows a real funnel chart for that definition - same
+    underlying counted-event totals, different choices about which
+    events count, in what order, or against which denominator. Different
+    defensible-looking definitions can make different steps look like the
+    worst bottleneck, which is the whole point: the chart is real either
+    way, but which one you pick still shapes the story it tells.
 
-    guided=True also shows each request's hint; guided=False hides it,
-    matching every other stage scene's guided/independent split."""
+    `guided` still exists as a plain hint toggle (matching every other
+    stage scene's own `guided` param), but a lesson built around a real
+    motivated-reasoning trap - picking whichever definition happens to
+    confirm a complaint, rather than the one independently defensible -
+    will usually want `guided=False` throughout: a hint naming what to
+    check would hand the student the trap's own resolution before they
+    fall into it.
+
+    `initial_choices`, when given, seeds `self.choices` - the same "seed
+    the starting state, let the student freely revise before committing"
+    idiom `PowerPlannerScene.initial_weeks` already established. Lets one
+    lesson run this scene twice: once cold, once again seeded with the
+    first pass's own picks after a real intervening reveal, so a
+    student's own initial motivated-reasoning trap becomes something they
+    can actually act on, not something that permanently caps a later
+    score.
+
+    `context`/`mirror_python_code_for`, when both given, record one real
+    `AnalyticalAction` (Python Mirror only, never `EvidenceItem` - see
+    below) per request, in `_next()`, right before advancing past it.
+    Deliberately never records Evidence directly: since `_next()` only
+    fires when leaving a request forward, evidence recorded conditional
+    on "the current pick is correct" would leave a stale correct
+    `EvidenceItem` behind after a later Back-revision to a wrong pick
+    (`LessonContext` has no evidence-removal path, only update-by-key).
+    Real Evidence should come from a real reveal that fires exactly once,
+    after all requests are locked in for that pass - never from here.
+    `mirror_python_code_for(definition, var_name) -> str` is injected
+    rather than imported directly, keeping this shared UI scene ignorant
+    of any one lesson's own dataset/column names."""
 
     def __init__(
         self,
@@ -48,6 +76,10 @@ class FunnelBuilderScene(Scene):
         on_complete: Callable[[FunnelChoices], None],
         guided: bool = True,
         pick_hint_key: str = "funnel.pick_a_definition_hint",
+        context: LessonContext | None = None,
+        initial_choices: FunnelChoices | None = None,
+        mirror_python_code_for: Callable[[FunnelDefinition, str], str] | None = None,
+        mirror_action_label_key: str = "funnel.picked_definition_action_label",
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -55,8 +87,11 @@ class FunnelBuilderScene(Scene):
         self.on_complete = on_complete
         self.guided = guided
         self.pick_hint_key = pick_hint_key
+        self.context = context
+        self.mirror_python_code_for = mirror_python_code_for
+        self.mirror_action_label_key = mirror_action_label_key
         self.request_index = 0
-        self.choices: FunnelChoices = {}
+        self.choices: FunnelChoices = dict(initial_choices) if initial_choices is not None else {}
         self._rebuild_buttons()
 
     def _current_request(self) -> FunnelRequest:
@@ -108,8 +143,17 @@ class FunnelBuilderScene(Scene):
             self._rebuild_buttons()
 
     def _next(self) -> None:
-        if self._current_request().key not in self.choices:
+        request = self._current_request()
+        if request.key not in self.choices:
             return
+        if self.context is not None and self.mirror_python_code_for is not None:
+            definition = self._selected_definition(request)
+            var_name = f"{request.key}_funnel"
+            self.context.record_action(
+                label_key=self.mirror_action_label_key,
+                python_code=self.mirror_python_code_for(definition, var_name),
+                key=f"funnel_pick_{request.key}",
+            )
         if self._is_last_request():
             self.on_complete(dict(self.choices))
             return

@@ -246,6 +246,20 @@ AN_EXPERIMENT_NEEDS_A_DECISION_RULE = HandbookEntry(
     related_entry_ids=("hypothesis", "pre_specification", "guardrail_metric", "statistical_power", "confidence_interval", "practical_significance"),
 )
 
+A_FUNNEL_IS_A_DEFINITION = HandbookEntry(
+    id="a_funnel_is_a_definition",
+    title_key="handbook.article.a_funnel_is_a_definition.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.a_funnel_is_a_definition.body.1",
+        "handbook.article.a_funnel_is_a_definition.body.2",
+        "handbook.article.a_funnel_is_a_definition.body.3",
+        "handbook.article.a_funnel_is_a_definition.body.4",
+        "handbook.article.a_funnel_is_a_definition.body.5",
+    ),
+    related_entry_ids=("metrics_need_definitions",),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -264,6 +278,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     RANDOMIZATION_IS_A_MECHANISM,
     POWER_IS_A_DESIGN_PROPERTY,
     AN_EXPERIMENT_NEEDS_A_DECISION_RULE,
+    A_FUNNEL_IS_A_DEFINITION,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -430,6 +445,12 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.stopping_rule.term",
         definition_key="handbook.glossary.stopping_rule.definition",
         related_entry_id="an_experiment_needs_a_decision_rule",
+    ),
+    GlossaryEntry(
+        id="conversion_basis",
+        term_key="handbook.glossary.conversion_basis.term",
+        definition_key="handbook.glossary.conversion_basis.definition",
+        related_entry_id="a_funnel_is_a_definition",
     ),
 )
 
