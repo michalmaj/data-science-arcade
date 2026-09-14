@@ -247,7 +247,14 @@ from data_science_arcade.lessons.l21_funnel_factory.scenario import (
     MASTERY_EVIDENCE_FIELD as L21_MASTERY_EVIDENCE_FIELD,
 )
 from data_science_arcade.lessons.l22_cohort_observatory.requests import COHORT_REQUESTS as L22_COHORT_REQUESTS
-from data_science_arcade.lessons.l22_cohort_observatory.scenario import DECISION_FIELDS as L22_DECISION_FIELDS
+from data_science_arcade.lessons.l22_cohort_observatory.scenario import (
+    DECISION_FIELDS as L22_DECISION_FIELDS,
+    HORIZON_REVEAL_INTERPRET_OPTIONS as L22_HORIZON_REVEAL_INTERPRET_OPTIONS,
+    MASTERY_CLAIM_STRENGTH_FIELD as L22_MASTERY_CLAIM_STRENGTH_FIELD,
+    MASTERY_EVIDENCE_FIELD as L22_MASTERY_EVIDENCE_FIELD,
+    MASTERY_FAIR_COMPARISON_FIELD as L22_MASTERY_FAIR_COMPARISON_FIELD,
+    REVERSAL_REVEAL_INTERPRET_OPTIONS as L22_REVERSAL_REVEAL_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l23_time_series_control_room.requests import TIME_SERIES_REQUESTS as L23_TIME_SERIES_REQUESTS
 from data_science_arcade.lessons.l23_time_series_control_room.scenario import DECISION_FIELDS as L23_DECISION_FIELDS
 from data_science_arcade.lessons.l24_survey_bureau.requests import SURVEY_REQUESTS as L24_SURVEY_REQUESTS
@@ -410,6 +417,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L21_MASTERY_WHY_MISSED_FIELD,
         L21_MASTERY_EVIDENCE_FIELD,
         *L22_DECISION_FIELDS,
+        L22_MASTERY_FAIR_COMPARISON_FIELD,
+        L22_MASTERY_CLAIM_STRENGTH_FIELD,
+        L22_MASTERY_EVIDENCE_FIELD,
         *L23_DECISION_FIELDS,
         *L24_DECISION_FIELDS,
         *L25_DECISION_FIELDS,
@@ -651,6 +661,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L20_CONTRAST_INTERPRET_OPTIONS,
         L21_DEFINITION_AXIS_INTERPRET_OPTIONS,
         L21_BASIS_AXIS_INTERPRET_OPTIONS,
+        L22_HORIZON_REVEAL_INTERPRET_OPTIONS,
+        L22_REVERSAL_REVEAL_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))

@@ -260,6 +260,20 @@ A_FUNNEL_IS_A_DEFINITION = HandbookEntry(
     related_entry_ids=("metrics_need_definitions",),
 )
 
+COHORTS_NEED_THE_SAME_CLOCK = HandbookEntry(
+    id="cohorts_need_the_same_clock",
+    title_key="handbook.article.cohorts_need_the_same_clock.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.cohorts_need_the_same_clock.body.1",
+        "handbook.article.cohorts_need_the_same_clock.body.2",
+        "handbook.article.cohorts_need_the_same_clock.body.3",
+        "handbook.article.cohorts_need_the_same_clock.body.4",
+        "handbook.article.cohorts_need_the_same_clock.body.5",
+    ),
+    related_entry_ids=("cohort", "cohort_age"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -279,6 +293,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     POWER_IS_A_DESIGN_PROPERTY,
     AN_EXPERIMENT_NEEDS_A_DECISION_RULE,
     A_FUNNEL_IS_A_DEFINITION,
+    COHORTS_NEED_THE_SAME_CLOCK,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -451,6 +466,18 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.conversion_basis.term",
         definition_key="handbook.glossary.conversion_basis.definition",
         related_entry_id="a_funnel_is_a_definition",
+    ),
+    GlossaryEntry(
+        id="cohort",
+        term_key="handbook.glossary.cohort.term",
+        definition_key="handbook.glossary.cohort.definition",
+        related_entry_id="cohorts_need_the_same_clock",
+    ),
+    GlossaryEntry(
+        id="cohort_age",
+        term_key="handbook.glossary.cohort_age.term",
+        definition_key="handbook.glossary.cohort_age.definition",
+        related_entry_id="cohorts_need_the_same_clock",
     ),
 )
 

@@ -8,6 +8,7 @@ import pygame
 from data_science_arcade.app.game import App
 from data_science_arcade.lessons.framework.cohort import CohortMatrix, CohortRequest, CohortRow, ComparisonOption
 from data_science_arcade.ui.cohort_matrix_scene import CohortMatrixScene
+from data_science_arcade.workbench.context import LessonContext
 
 MATRIX = CohortMatrix(
     rows=(
@@ -132,5 +133,73 @@ def test_draw_does_not_crash_guided_or_not_before_or_after_a_choice():
             scene.draw(app.logical_surface)  # before any choice - no cells highlighted
             scene.buttons.buttons[0].on_activate()
             scene.draw(app.logical_surface)  # after a choice - two cells highlighted
+    finally:
+        pygame.quit()
+
+
+def test_initial_choices_seeds_the_starting_state():
+    app = _init_app()
+    try:
+        scene = _make_scene(app, initial_choices={"request_a": "same_month"})
+        assert scene.choices == {"request_a": "same_month"}
+        assert scene.next_button.enabled is True
+    finally:
+        pygame.quit()
+
+
+def test_a_request_records_only_an_action_never_evidence():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = _make_scene(
+            app,
+            context=context,
+            mirror_python_code_for=lambda option, var_name: f"{var_name} = '{option.key}'",
+        )
+        scene.buttons.buttons[0].on_activate()
+        scene.next_button.on_activate()
+
+        assert len(context.actions) == 1
+        action = context.actions[0]
+        assert action.key == "cohort_pick_request_a"
+        assert action.python_code == "request_a_pick = 'mismatched'"
+        assert len(context.evidence) == 0
+    finally:
+        pygame.quit()
+
+
+def test_revisiting_a_request_after_back_updates_the_same_action_in_place():
+    """The exact scenario that motivates action-only (never Evidence)
+    recording: pick, advance, come back, flip to a different option,
+    advance again - the Python Mirror must reflect only the real, final
+    pick, never a stale first one."""
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = _make_scene(
+            app,
+            context=context,
+            mirror_python_code_for=lambda option, var_name: f"{var_name} = '{option.key}'",
+        )
+        scene.buttons.buttons[0].on_activate()  # "mismatched"
+        scene.next_button.on_activate()
+        scene.back_button.on_activate()
+        scene.buttons.buttons[1].on_activate()  # "same_month"
+        scene.next_button.on_activate()
+
+        assert len(context.actions) == 1  # updated in place, never doubled
+        assert context.actions[0].python_code == "request_a_pick = 'same_month'"
+    finally:
+        pygame.quit()
+
+
+def test_no_context_or_no_mirror_callback_records_nothing():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = _make_scene(app, context=context)  # no mirror_python_code_for
+        scene.buttons.buttons[0].on_activate()
+        scene.next_button.on_activate()
+        assert len(context.actions) == 0
     finally:
         pygame.quit()
