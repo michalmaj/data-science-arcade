@@ -1,4 +1,5 @@
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
+from data_science_arcade.lessons.l22_cohort_observatory.scoring import score_lesson_twenty_two
 
 LESSON_22 = LessonDefinition(
     id="ds22_cohort_observatory",
@@ -10,6 +11,14 @@ LESSON_22 = LessonDefinition(
         "lesson.l22.objective2",
         "lesson.l22.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.REASONING, ScoreDimension.UNCERTAINTY, ScoreDimension.OVERCONFIDENCE),
-    estimated_minutes=15,
+    scoring_dimensions=(
+        ScoreDimension.METHOD,
+        ScoreDimension.REASONING,
+        ScoreDimension.EVIDENCE,
+        ScoreDimension.UNCERTAINTY,
+        ScoreDimension.OVERCONFIDENCE,
+    ),
+    estimated_minutes=23,
+    related_handbook_entry_id="cohorts_need_the_same_clock",
+    scorer=score_lesson_twenty_two,
 )

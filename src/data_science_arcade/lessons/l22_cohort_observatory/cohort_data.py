@@ -2,7 +2,7 @@ import pandas as pd
 
 from data_science_arcade.data_engine.dataset import Dataset, PipelineStep
 from data_science_arcade.data_engine.schema import ColumnSchema, Schema
-from data_science_arcade.lessons.framework.cohort import CohortMatrix, CohortRow
+from data_science_arcade.lessons.framework.cohort import CohortMatrix, CohortRow, ComparisonOption
 
 COHORT_RETENTION_SCHEMA = Schema(
     columns=(
@@ -75,3 +75,43 @@ def build_cohort_matrix(dataset: Dataset) -> CohortMatrix:
         retention = tuple(float(row.active_count / row.cohort_size) for row in cohort_frame.itertuples())
         rows.append(CohortRow(cohort_key, _COHORT_LABEL_KEYS[cohort_key], months_observed, retention))
     return CohortMatrix(rows=tuple(rows), month_count=max(row.months_observed for row in rows))
+
+
+def latest_observed_month(dataset: Dataset, cohort_key: str) -> int:
+    """The real horizon a cohort has actually reached - max(month) for
+    that cohort's own rows, never a row-count (CohortRow.months_observed
+    is a UI rendering detail: "2 rows exist" reads as "reached month 2" to
+    a student, which is wrong when month 0 is one of those two rows).
+    May's own two rows are months 0 and 1, so its latest observed month is
+    1, not 2."""
+    return int(dataset.frame[dataset.frame["cohort_key"] == cohort_key]["month"].max())
+
+
+def cell_retention_mirror_code(cohort_key: str, month: int, var_name: str) -> str:
+    return "\n".join(
+        (
+            f'{var_name}_row = cohorts[(cohorts["cohort_key"] == "{cohort_key}") & (cohorts["month"] == {month})].iloc[0]',
+            f'{var_name} = float({var_name}_row["active_count"] / {var_name}_row["cohort_size"])',
+        )
+    )
+
+
+def latest_observed_month_mirror_code(cohort_key: str, var_name: str) -> str:
+    return f'{var_name} = int(cohorts[cohorts["cohort_key"] == "{cohort_key}"]["month"].max())'
+
+
+def cohort_comparison_mirror_code(option: ComparisonOption, var_name: str) -> str:
+    """Real pandas equivalent of a CohortMatrixScene pick - `{var_name}_rates`
+    is scoped to this one call's own var_name (never a shared bare
+    `cohort_rates` symbol reused across calls), so two picks recorded back
+    to back in the same Python Mirror can never have one silently
+    overwrite the other's own intermediate state."""
+    return "\n".join(
+        (
+            f'{var_name}_rates = cohorts.assign(retention=cohorts["active_count"] / cohorts["cohort_size"])',
+            f"{var_name} = {var_name}_rates[",
+            f'    (({var_name}_rates["cohort_key"] == "{option.cohort_a}") & ({var_name}_rates["month"] == {option.month_a}))',
+            f'    | (({var_name}_rates["cohort_key"] == "{option.cohort_b}") & ({var_name}_rates["month"] == {option.month_b}))',
+            "]",
+        )
+    )
