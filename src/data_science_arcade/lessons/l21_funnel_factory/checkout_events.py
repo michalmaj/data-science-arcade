@@ -74,4 +74,29 @@ def build_funnel_definition(
         )
         for row in frame.itertuples()
     )
-    return FunnelDefinition(key=key, label_key=label_key, steps=steps, percent_basis=percent_basis)
+    return FunnelDefinition(
+        key=key, label_key=label_key, steps=steps, percent_basis=percent_basis, dataset_definition_key=dataset_definition_key
+    )
+
+
+def funnel_mirror_code(definition: FunnelDefinition, var_name: str) -> str:
+    """The real pandas-equivalent for a FunnelDefinition's own chosen
+    filter + percent_basis - computes the real conversion percentage,
+    never just filters rows and comments the basis. `var_name` is always
+    a real, distinct variable name (never re-derived from
+    `definition.key`, which two definitions can share the same
+    `dataset_definition_key` under - see FunnelDefinition's own
+    docstring), so no two callers of this function can ever collide."""
+    lines = [
+        f"{var_name} = (",
+        f"    checkout_events[checkout_events['definition_key'] == '{definition.dataset_definition_key}']",
+        "    .sort_values('step_order')",
+        "    .copy()",
+        ")",
+    ]
+    if definition.percent_basis == "top":
+        lines.append(f'{var_name}["conversion"] = {var_name}["count"] / {var_name}["count"].iloc[0]')
+    else:
+        lines.append(f'{var_name}["conversion"] = {var_name}["count"] / {var_name}["count"].shift(1)')
+        lines.append(f'{var_name}.loc[{var_name}.index[0], "conversion"] = 1.0')
+    return "\n".join(lines)

@@ -238,7 +238,14 @@ from data_science_arcade.lessons.l20_ab_test_commander.scenario import (
     RECOMMENDATION_OPTIONS as L20_RECOMMENDATION_OPTIONS,
 )
 from data_science_arcade.lessons.l21_funnel_factory.requests import FUNNEL_REQUESTS as L21_FUNNEL_REQUESTS
-from data_science_arcade.lessons.l21_funnel_factory.scenario import DECISION_FIELDS as L21_DECISION_FIELDS
+from data_science_arcade.lessons.l21_funnel_factory.scenario import (
+    BASIS_AXIS_INTERPRET_OPTIONS as L21_BASIS_AXIS_INTERPRET_OPTIONS,
+    DECISION_FIELDS as L21_DECISION_FIELDS,
+    DEFINITION_AXIS_INTERPRET_OPTIONS as L21_DEFINITION_AXIS_INTERPRET_OPTIONS,
+    MASTERY_REAL_BOTTLENECK_FIELD as L21_MASTERY_REAL_BOTTLENECK_FIELD,
+    MASTERY_WHY_MISSED_FIELD as L21_MASTERY_WHY_MISSED_FIELD,
+    MASTERY_EVIDENCE_FIELD as L21_MASTERY_EVIDENCE_FIELD,
+)
 from data_science_arcade.lessons.l22_cohort_observatory.requests import COHORT_REQUESTS as L22_COHORT_REQUESTS
 from data_science_arcade.lessons.l22_cohort_observatory.scenario import DECISION_FIELDS as L22_DECISION_FIELDS
 from data_science_arcade.lessons.l23_time_series_control_room.requests import TIME_SERIES_REQUESTS as L23_TIME_SERIES_REQUESTS
@@ -399,6 +406,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L20_MASTERY_CONTRAST_FIELD,
         L20_MASTERY_EVIDENCE_FIELD,
         *L21_DECISION_FIELDS,
+        L21_MASTERY_REAL_BOTTLENECK_FIELD,
+        L21_MASTERY_WHY_MISSED_FIELD,
+        L21_MASTERY_EVIDENCE_FIELD,
         *L22_DECISION_FIELDS,
         *L23_DECISION_FIELDS,
         *L24_DECISION_FIELDS,
@@ -639,6 +649,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L19_UNDERPOWERED_INTERPRET_OPTIONS,
         L19_HIGH_N_INTERPRET_OPTIONS,
         L20_CONTRAST_INTERPRET_OPTIONS,
+        L21_DEFINITION_AXIS_INTERPRET_OPTIONS,
+        L21_BASIS_AXIS_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
