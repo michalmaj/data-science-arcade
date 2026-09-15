@@ -274,6 +274,20 @@ COHORTS_NEED_THE_SAME_CLOCK = HandbookEntry(
     related_entry_ids=("cohort", "cohort_age"),
 )
 
+TIME_SERIES_HAVE_A_CALENDAR = HandbookEntry(
+    id="time_series_have_a_calendar",
+    title_key="handbook.article.time_series_have_a_calendar.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.time_series_have_a_calendar.body.1",
+        "handbook.article.time_series_have_a_calendar.body.2",
+        "handbook.article.time_series_have_a_calendar.body.3",
+        "handbook.article.time_series_have_a_calendar.body.4",
+        "handbook.article.time_series_have_a_calendar.body.5",
+    ),
+    related_entry_ids=("seasonality", "cohorts_need_the_same_clock"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -294,6 +308,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     AN_EXPERIMENT_NEEDS_A_DECISION_RULE,
     A_FUNNEL_IS_A_DEFINITION,
     COHORTS_NEED_THE_SAME_CLOCK,
+    TIME_SERIES_HAVE_A_CALENDAR,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -478,6 +493,12 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.cohort_age.term",
         definition_key="handbook.glossary.cohort_age.definition",
         related_entry_id="cohorts_need_the_same_clock",
+    ),
+    GlossaryEntry(
+        id="seasonality",
+        term_key="handbook.glossary.seasonality.term",
+        definition_key="handbook.glossary.seasonality.definition",
+        related_entry_id="time_series_have_a_calendar",
     ),
 )
 

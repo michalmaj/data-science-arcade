@@ -10,6 +10,7 @@ from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.category_chart import draw_line_chart
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
+from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 PROMPT_Y = 72
@@ -26,17 +27,40 @@ VALUE_PADDING = 0.02
 
 
 class TimeSeriesScene(Scene):
-    """A persistent daily line chart (spec §25 Lesson 23 'Time Series
-    Control Room'): a fixed current-period series is always visible, with
-    weekend columns always shaded so calendar rhythm reads at a glance
-    regardless of which claim is active. A fixed sequence of requests each
-    poses a claim about specific highlighted days; picking "the same days,
-    previous period" overlays a second, dimmer line at those same days so
-    a real effect (the line actually shifts) looks different from ordinary
-    calendar noise (the lines land on top of each other).
+    """A persistent daily line chart: a fixed current-period series is
+    always visible, with weekend columns always shaded so calendar rhythm
+    reads at a glance regardless of which claim is active. A fixed
+    sequence of requests each poses a claim about specific highlighted
+    days; picking "the same days, previous period" overlays a second,
+    dimmer line at those same days so a real effect (the line actually
+    shifts) looks different from ordinary calendar noise (the lines land
+    on top of each other). The full chart is already real and inspectable
+    before commit - a motivated-reasoning trap, not a hidden-information
+    one, matching FunnelBuilderScene's/CohortMatrixScene's own established
+    reasoning.
 
     guided=True also shows each request's hint; guided=False hides it,
-    matching every other stage scene's guided/independent split."""
+    matching every other stage scene's guided/independent split.
+
+    `initial_choices`, when given, seeds `self.choices` - the same "seed
+    the starting state, let the student freely revise before committing"
+    idiom FunnelBuilderScene's/CohortMatrixScene's own `initial_choices`
+    already established.
+
+    `context`/`mirror_python_code_for`, when both given, record one real
+    `AnalyticalAction` (Python Mirror only, never `EvidenceItem`) per
+    request, in `_next()`, right before advancing past it - the identical
+    action-only discipline the shared pick scenes already established and
+    for the identical reason: evidence recorded conditional on "the
+    current pick is correct" would leave a stale correct `EvidenceItem`
+    behind after a later Back-revision to a wrong pick. Real Evidence
+    should come from a real reveal that fires exactly once, never from
+    here. `mirror_python_code_for(request, option, var_name) -> str` is
+    injected rather than imported directly, keeping this shared UI scene
+    ignorant of any one lesson's own dataset/column names - it takes the
+    REQUEST too (not just the option, unlike Funnel's/Cohort's 2-arg
+    shape), since `highlight_days` lives on the request here, not the
+    option."""
 
     def __init__(
         self,
@@ -50,6 +74,10 @@ class TimeSeriesScene(Scene):
         current_period_label_key: str = "timeseries.current_period_label",
         previous_period_label_key: str = "timeseries.previous_period_label",
         week_label_key: str = "timeseries.week_label",
+        context: LessonContext | None = None,
+        initial_choices: TimeSeriesChoices | None = None,
+        mirror_python_code_for: Callable[[TimeSeriesRequest, LensOption, str], str] | None = None,
+        mirror_action_label_key: str = "timeseries.picked_lens_action_label",
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -61,8 +89,11 @@ class TimeSeriesScene(Scene):
         self.current_period_label_key = current_period_label_key
         self.previous_period_label_key = previous_period_label_key
         self.week_label_key = week_label_key
+        self.context = context
+        self.mirror_python_code_for = mirror_python_code_for
+        self.mirror_action_label_key = mirror_action_label_key
         self.request_index = 0
-        self.choices: TimeSeriesChoices = {}
+        self.choices: TimeSeriesChoices = dict(initial_choices) if initial_choices is not None else {}
 
         all_values = [point.value for point in current_period.points] + [point.value for point in previous_period.points]
         self.min_value = max(0.0, min(all_values) - VALUE_PADDING)
@@ -119,8 +150,17 @@ class TimeSeriesScene(Scene):
             self._rebuild_buttons()
 
     def _next(self) -> None:
-        if self._current_request().key not in self.choices:
+        request = self._current_request()
+        if request.key not in self.choices:
             return
+        if self.context is not None and self.mirror_python_code_for is not None:
+            option = self._selected_option(request)
+            var_name = f"{request.key}_lens"
+            self.context.record_action(
+                label_key=self.mirror_action_label_key,
+                python_code=self.mirror_python_code_for(request, option, var_name),
+                key=f"timeseries_pick_{request.key}",
+            )
         if self._is_last_request():
             self.on_complete(dict(self.choices))
             return

@@ -256,7 +256,14 @@ from data_science_arcade.lessons.l22_cohort_observatory.scenario import (
     REVERSAL_REVEAL_INTERPRET_OPTIONS as L22_REVERSAL_REVEAL_INTERPRET_OPTIONS,
 )
 from data_science_arcade.lessons.l23_time_series_control_room.requests import TIME_SERIES_REQUESTS as L23_TIME_SERIES_REQUESTS
-from data_science_arcade.lessons.l23_time_series_control_room.scenario import DECISION_FIELDS as L23_DECISION_FIELDS
+from data_science_arcade.lessons.l23_time_series_control_room.scenario import (
+    CAMPAIGN_DEVIATION_REVEAL_INTERPRET_OPTIONS as L23_CAMPAIGN_DEVIATION_REVEAL_INTERPRET_OPTIONS,
+    DECISION_FIELDS as L23_DECISION_FIELDS,
+    MASTERY_EVIDENCE_FIELD as L23_MASTERY_EVIDENCE_FIELD,
+    MASTERY_FAIR_REFERENCE_FIELD as L23_MASTERY_FAIR_REFERENCE_FIELD,
+    MASTERY_INCIDENT_INTERPRETATION_FIELD as L23_MASTERY_INCIDENT_INTERPRETATION_FIELD,
+    WEEKDAY_BASELINE_REVEAL_INTERPRET_OPTIONS as L23_WEEKDAY_BASELINE_REVEAL_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l24_survey_bureau.requests import SURVEY_REQUESTS as L24_SURVEY_REQUESTS
 from data_science_arcade.lessons.l24_survey_bureau.scenario import DECISION_FIELDS as L24_DECISION_FIELDS
 from data_science_arcade.lessons.l25_kpi_emergency_room.requests import MONITORING_REQUESTS as L25_MONITORING_REQUESTS
@@ -421,6 +428,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L22_MASTERY_CLAIM_STRENGTH_FIELD,
         L22_MASTERY_EVIDENCE_FIELD,
         *L23_DECISION_FIELDS,
+        L23_MASTERY_FAIR_REFERENCE_FIELD,
+        L23_MASTERY_INCIDENT_INTERPRETATION_FIELD,
+        L23_MASTERY_EVIDENCE_FIELD,
         *L24_DECISION_FIELDS,
         *L25_DECISION_FIELDS,
         *L26_DECISION_FIELDS,
@@ -663,6 +673,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L21_BASIS_AXIS_INTERPRET_OPTIONS,
         L22_HORIZON_REVEAL_INTERPRET_OPTIONS,
         L22_REVERSAL_REVEAL_INTERPRET_OPTIONS,
+        L23_WEEKDAY_BASELINE_REVEAL_INTERPRET_OPTIONS,
+        L23_CAMPAIGN_DEVIATION_REVEAL_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
