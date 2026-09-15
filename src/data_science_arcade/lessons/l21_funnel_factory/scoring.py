@@ -117,7 +117,7 @@ def _score_evidence(result: LessonTwentyOneResult) -> tuple[float, FeedbackObser
     instrumentation_role = INSTRUMENTATION_GAP_EVIDENCE_KEY in present
     sensitivity_role = sum(1 for key in DEFINITION_SENSITIVITY_KEYS if key in present) >= 2
     basis_role = all(key in present for key in CONVERSION_BASIS_PAIR_KEYS)
-    local_bottleneck_role = BASIS_CHECK_PREVIOUS_EVIDENCE_KEY in present and any(key in present for key in LOCAL_NEIGHBOR_KEYS)
+    local_bottleneck_role = BASIS_CHECK_PREVIOUS_EVIDENCE_KEY in present and all(key in present for key in LOCAL_NEIGHBOR_KEYS)
     roles_present = sum((instrumentation_role, sensitivity_role, basis_role, local_bottleneck_role))
     score = {4: 95.0, 3: 74.0, 2: 50.0, 1: 25.0, 0: 10.0}[roles_present]
     if roles_present < 4:

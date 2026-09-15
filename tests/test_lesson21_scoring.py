@@ -161,18 +161,27 @@ def test_evidence_role_conversion_basis_contrast_requires_both_not_either():
     assert _scores(top_only)[ScoreDimension.EVIDENCE] < _scores(both)[ScoreDimension.EVIDENCE]
 
 
-def test_evidence_role_local_bottleneck_requires_previous_basis_plus_a_neighbor():
-    previous_only = _result(
-        critical_evidence_present=(
-            INSTRUMENTATION_GAP_EVIDENCE_KEY,
-            DEFINITION_CHECK_LEGACY_EVIDENCE_KEY,
-            DEFINITION_CHECK_COMPLETE_EVIDENCE_KEY,
-            BASIS_CHECK_TOP_EVIDENCE_KEY,
-            BASIS_CHECK_PREVIOUS_EVIDENCE_KEY,
-        )
+def test_evidence_role_local_bottleneck_requires_previous_basis_plus_both_neighbors():
+    """Defending 'add_to_cart -> checkout_started is the WORST local
+    transition in the defended funnel' requires showing both relevant
+    neighboring transitions (add_to_cart's own local rate AND
+    order_confirmed's own local rate) - citing checkout_started plus only
+    one of them isn't enough to support a superlative claim."""
+    base = (
+        INSTRUMENTATION_GAP_EVIDENCE_KEY,
+        DEFINITION_CHECK_LEGACY_EVIDENCE_KEY,
+        DEFINITION_CHECK_COMPLETE_EVIDENCE_KEY,
+        BASIS_CHECK_TOP_EVIDENCE_KEY,
+        BASIS_CHECK_PREVIOUS_EVIDENCE_KEY,
     )
-    with_neighbor = _result(critical_evidence_present=ALL_EVIDENCE)
-    assert _scores(previous_only)[ScoreDimension.EVIDENCE] < _scores(with_neighbor)[ScoreDimension.EVIDENCE]
+    previous_and_add_to_cart_only = _result(critical_evidence_present=(*base, LOCAL_ADD_TO_CART_EVIDENCE_KEY))
+    previous_and_order_confirmed_only = _result(critical_evidence_present=(*base, LOCAL_ORDER_CONFIRMED_EVIDENCE_KEY))
+    previous_and_both_neighbors = _result(critical_evidence_present=(*base, LOCAL_ADD_TO_CART_EVIDENCE_KEY, LOCAL_ORDER_CONFIRMED_EVIDENCE_KEY))
+
+    incomplete_score = _scores(previous_and_add_to_cart_only)[ScoreDimension.EVIDENCE]
+    assert incomplete_score == _scores(previous_and_order_confirmed_only)[ScoreDimension.EVIDENCE]
+    assert incomplete_score < _scores(previous_and_both_neighbors)[ScoreDimension.EVIDENCE]
+    assert _scores(previous_and_both_neighbors)[ScoreDimension.EVIDENCE] == 95.0
 
 
 def test_evidence_role_instrumentation_gap_is_its_own_required_role():
