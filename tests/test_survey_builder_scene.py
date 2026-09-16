@@ -11,6 +11,7 @@ from data_science_arcade.data_engine.dataset import Dataset
 from data_science_arcade.data_engine.schema import ColumnSchema, Schema
 from data_science_arcade.lessons.framework.survey import ChannelOption, SurveyRequest, WordingOption
 from data_science_arcade.ui.survey_builder_scene import SurveyBuilderScene
+from data_science_arcade.workbench.context import LessonContext
 
 SCHEMA = Schema(columns=(ColumnSchema("group", "object"), ColumnSchema("value", "float64")))
 FRAME = pd.DataFrame([("a", 0.2), ("a", 0.4), ("b", 0.9)], columns=["group", "value"])
@@ -163,5 +164,77 @@ def test_draw_does_not_crash_guided_or_not_with_or_without_a_full_choice():
             scene.draw(app.logical_surface)  # only wording chosen
             scene.buttons.buttons[2].on_activate()
             scene.draw(app.logical_surface)  # both chosen - the live result path
+    finally:
+        pygame.quit()
+
+
+def test_initial_choices_seeds_the_starting_state():
+    app = _init_app()
+    try:
+        scene = _make_scene(app, initial_choices={"request_a": ("neutral", "all")})
+        assert scene.choices == {"request_a": ("neutral", "all")}
+        assert scene.next_button.enabled is True
+    finally:
+        pygame.quit()
+
+
+def test_a_request_records_only_an_action_never_evidence():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = _make_scene(
+            app,
+            context=context,
+            mirror_python_code_for=lambda channel, wording, var_name: f"{var_name} = '{channel.key}:{wording.key}'",
+        )
+        scene.buttons.buttons[0].on_activate()  # wording: neutral
+        scene.buttons.buttons[2].on_activate()  # channel: all
+        scene.next_button.on_activate()
+
+        assert len(context.actions) == 1
+        action = context.actions[0]
+        assert action.key == "survey_pick_request_a"
+        assert action.python_code == "request_a_survey = 'all:neutral'"
+        assert len(context.evidence) == 0
+    finally:
+        pygame.quit()
+
+
+def test_revisiting_a_request_after_back_updates_the_same_action_in_place():
+    """The exact scenario that motivates action-only (never Evidence)
+    recording: pick, advance, come back, flip to a different combo,
+    advance again - the Python Mirror must reflect only the real, final
+    pick, never a stale first one."""
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = _make_scene(
+            app,
+            context=context,
+            mirror_python_code_for=lambda channel, wording, var_name: f"{var_name} = '{channel.key}:{wording.key}'",
+        )
+        scene.buttons.buttons[0].on_activate()  # wording: neutral
+        scene.buttons.buttons[2].on_activate()  # channel: all
+        scene.next_button.on_activate()
+        scene.back_button.on_activate()
+        scene.buttons.buttons[1].on_activate()  # wording: leading
+        scene.buttons.buttons[3].on_activate()  # channel: a_only
+        scene.next_button.on_activate()
+
+        assert len(context.actions) == 1  # updated in place, never doubled
+        assert context.actions[0].python_code == "request_a_survey = 'a_only:leading'"
+    finally:
+        pygame.quit()
+
+
+def test_no_context_or_no_mirror_callback_records_nothing():
+    app = _init_app()
+    try:
+        context = LessonContext()
+        scene = _make_scene(app, context=context)  # no mirror_python_code_for
+        scene.buttons.buttons[0].on_activate()
+        scene.buttons.buttons[2].on_activate()
+        scene.next_button.on_activate()
+        assert len(context.actions) == 0
     finally:
         pygame.quit()

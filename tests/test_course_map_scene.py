@@ -62,7 +62,6 @@ from data_science_arcade.lessons.l21_funnel_factory.requests import CORRECT_DEFI
 from data_science_arcade.lessons.l22_cohort_observatory.requests import CORRECT_OPTION_BY_REQUEST as L22_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l23_time_series_control_room.requests import CORRECT_OPTION_BY_REQUEST as L23_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l24_survey_bureau.requests import CORRECT_COMBO_BY_REQUEST as L24_CORRECT_COMBO_BY_REQUEST
-from data_science_arcade.lessons.l24_survey_bureau.scenario import DECISION_FIELDS as L24_DECISION_FIELDS
 from data_science_arcade.lessons.l25_kpi_emergency_room.requests import CORRECT_COMBO_BY_REQUEST as L25_CORRECT_COMBO_BY_REQUEST
 from data_science_arcade.lessons.l25_kpi_emergency_room.scenario import DECISION_FIELDS as L25_DECISION_FIELDS
 from data_science_arcade.lessons.l26_correlation_crime_scene.requests import CORRECT_OPTION_BY_REQUEST as L26_CORRECT_OPTION_BY_REQUEST
@@ -2558,11 +2557,39 @@ def test_finishing_lesson_twenty_four_marks_it_complete_and_unlocks_lesson_twent
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _pick_every_l24_combo_correctly(app.scenes.current)  # guided survey designs
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _pick_every_l24_combo_correctly(app.scenes.current)  # independent survey designs
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L24_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, SurveyBuilderScene)  # initial_survey_pass
+        _pick_every_l24_combo_correctly(app.scenes.current)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # coverage_bias_reveal
+        _confirm_reveal(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # sampling_frame_reveal
+        _confirm_reveal(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # nonresponse_bias_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # revision_intro
+
+        assert isinstance(app.scenes.current.inner, SurveyBuilderScene)  # revision_survey_pass
+        _pick_every_l24_combo_correctly(app.scenes.current)
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision_brief
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
