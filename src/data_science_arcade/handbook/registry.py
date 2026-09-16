@@ -302,6 +302,20 @@ A_SURVEY_IS_A_SAMPLE_NOT_A_CENSUS = HandbookEntry(
     related_entry_ids=("sampling", "population"),
 )
 
+AN_ALERT_IS_A_SYMPTOM_NOT_A_DIAGNOSIS = HandbookEntry(
+    id="an_alert_is_a_symptom_not_a_diagnosis",
+    title_key="handbook.article.an_alert_is_a_symptom_not_a_diagnosis.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.an_alert_is_a_symptom_not_a_diagnosis.body.1",
+        "handbook.article.an_alert_is_a_symptom_not_a_diagnosis.body.2",
+        "handbook.article.an_alert_is_a_symptom_not_a_diagnosis.body.3",
+        "handbook.article.an_alert_is_a_symptom_not_a_diagnosis.body.4",
+        "handbook.article.an_alert_is_a_symptom_not_a_diagnosis.body.5",
+    ),
+    related_entry_ids=("primary_metric", "guardrail_metric", "when_a_measure_becomes_a_target"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -324,6 +338,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     COHORTS_NEED_THE_SAME_CLOCK,
     TIME_SERIES_HAVE_A_CALENDAR,
     A_SURVEY_IS_A_SAMPLE_NOT_A_CENSUS,
+    AN_ALERT_IS_A_SYMPTOM_NOT_A_DIAGNOSIS,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -514,6 +529,18 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.seasonality.term",
         definition_key="handbook.glossary.seasonality.definition",
         related_entry_id="time_series_have_a_calendar",
+    ),
+    GlossaryEntry(
+        id="false_positive",
+        term_key="handbook.glossary.false_positive.term",
+        definition_key="handbook.glossary.false_positive.definition",
+        related_entry_id="an_alert_is_a_symptom_not_a_diagnosis",
+    ),
+    GlossaryEntry(
+        id="false_negative",
+        term_key="handbook.glossary.false_negative.term",
+        definition_key="handbook.glossary.false_negative.definition",
+        related_entry_id="an_alert_is_a_symptom_not_a_diagnosis",
     ),
 )
 

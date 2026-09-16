@@ -8,19 +8,28 @@ PAGE_LOAD_TIME = MetricOption("page_load_time", "lesson.l25.option.metric.page_l
 TIGHT_THRESHOLD = ThresholdOption("tight", "lesson.l25.option.threshold.tight", multiplier=1.0)
 BALANCED_THRESHOLD = ThresholdOption("balanced", "lesson.l25.option.threshold.balanced", multiplier=3.0)
 
-# Three scenarios, each built around one of the quarter's two real
-# incidents (day 5's checkout spike, day 11's delivery dip) or the
-# temptation to just watch everything as tightly as possible. The flawed
-# metric offered never reflects that scenario's real incident, regardless
-# of threshold - a vanity or merely-noisy metric doesn't become useful by
-# watching it harder. The defensible combo (the metric that actually
-# moves, a balanced threshold) never changes, but its position varies
-# across both option columns.
+# Two real incidents this quarter (day 5's checkout spike, day 11's
+# delivery dip), each requiring a different metric to catch - no single
+# metric+threshold combo catches both (checkout_error_rate never flags
+# day 11; on_time_delivery_rate never flags day 5, verified directly
+# against incident_log.py's own simulate_monitoring). A third request
+# offering the same checkout incident with a different wrong-metric
+# distractor existed before this pass and was dropped as genuinely
+# redundant with checkout_incident_focus (same correct answer, same real
+# incident) - its own wrong-metric distractor (page_load_time) is still
+# fully exercised, as Reveal A's own subject.
+#
+# Tight and balanced thresholds are BYTE-IDENTICAL for both real metrics
+# on their own real incident day (0 false alarms, incident caught,
+# verified directly) - so CORRECT_METRIC_BY_REQUEST intentionally scores
+# metric selection only, never threshold. The interactive scene still
+# offers both threshold options (needed to explore the WRONG-metric case,
+# where threshold genuinely does matter) and still records the full
+# (metric, threshold) pick for state/Mirror purposes.
 MONITORING_REQUESTS: tuple[MonitoringRequest, ...] = (
     MonitoringRequest(
         key="checkout_incident_focus",
         prompt_key="lesson.l25.request.checkout_incident_focus.prompt",
-        hint_key="lesson.l25.request.checkout_incident_focus.hint",
         target_incident_day=5,
         metric_options=(CHECKOUT_ERROR_RATE, SOCIAL_MENTIONS),
         threshold_options=(TIGHT_THRESHOLD, BALANCED_THRESHOLD),
@@ -28,23 +37,13 @@ MONITORING_REQUESTS: tuple[MonitoringRequest, ...] = (
     MonitoringRequest(
         key="delivery_incident_focus",
         prompt_key="lesson.l25.request.delivery_incident_focus.prompt",
-        hint_key="lesson.l25.request.delivery_incident_focus.hint",
         target_incident_day=11,
         metric_options=(PAGE_LOAD_TIME, ON_TIME_DELIVERY_RATE),
         threshold_options=(BALANCED_THRESHOLD, TIGHT_THRESHOLD),
     ),
-    MonitoringRequest(
-        key="monitor_everything_temptation",
-        prompt_key="lesson.l25.request.monitor_everything_temptation.prompt",
-        hint_key="lesson.l25.request.monitor_everything_temptation.hint",
-        target_incident_day=5,
-        metric_options=(CHECKOUT_ERROR_RATE, PAGE_LOAD_TIME),
-        threshold_options=(TIGHT_THRESHOLD, BALANCED_THRESHOLD),
-    ),
 )
 
-CORRECT_COMBO_BY_REQUEST: dict[str, tuple[str, str]] = {
-    "checkout_incident_focus": ("checkout_error_rate", "balanced"),
-    "delivery_incident_focus": ("on_time_delivery_rate", "balanced"),
-    "monitor_everything_temptation": ("checkout_error_rate", "balanced"),
+CORRECT_METRIC_BY_REQUEST: dict[str, str] = {
+    "checkout_incident_focus": "checkout_error_rate",
+    "delivery_incident_focus": "on_time_delivery_rate",
 }

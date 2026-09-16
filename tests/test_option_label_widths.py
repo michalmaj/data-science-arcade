@@ -275,7 +275,14 @@ from data_science_arcade.lessons.l24_survey_bureau.scenario import (
     SAMPLING_FRAME_REVEAL_INTERPRET_OPTIONS as L24_SAMPLING_FRAME_REVEAL_INTERPRET_OPTIONS,
 )
 from data_science_arcade.lessons.l25_kpi_emergency_room.requests import MONITORING_REQUESTS as L25_MONITORING_REQUESTS
-from data_science_arcade.lessons.l25_kpi_emergency_room.scenario import DECISION_FIELDS as L25_DECISION_FIELDS
+from data_science_arcade.lessons.l25_kpi_emergency_room.scenario import (
+    DECISION_FIELDS as L25_DECISION_FIELDS,
+    INCIDENT_COVERAGE_REVEAL_INTERPRET_OPTIONS as L25_INCIDENT_COVERAGE_REVEAL_INTERPRET_OPTIONS,
+    MASTERY_EVIDENCE_FIELD as L25_MASTERY_EVIDENCE_FIELD,
+    MASTERY_STRONGEST_CLAIM_FIELD as L25_MASTERY_STRONGEST_CLAIM_FIELD,
+    MASTERY_WHAT_46_FALSE_ALARMS_COST_FIELD as L25_MASTERY_WHAT_46_FALSE_ALARMS_COST_FIELD,
+    THRESHOLD_TRADEOFF_REVEAL_INTERPRET_OPTIONS as L25_THRESHOLD_TRADEOFF_REVEAL_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l26_correlation_crime_scene.requests import CORRELATION_REQUESTS as L26_CORRELATION_REQUESTS
 from data_science_arcade.lessons.l26_correlation_crime_scene.scenario import DECISION_FIELDS as L26_DECISION_FIELDS
 from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRELATION_REQUESTS as L27_CORRELATION_REQUESTS
@@ -444,6 +451,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L24_MASTERY_WHY_BLENDED_IS_LOWER_FIELD,
         L24_MASTERY_EVIDENCE_FIELD,
         *L25_DECISION_FIELDS,
+        L25_MASTERY_WHAT_46_FALSE_ALARMS_COST_FIELD,
+        L25_MASTERY_STRONGEST_CLAIM_FIELD,
+        L25_MASTERY_EVIDENCE_FIELD,
         *L26_DECISION_FIELDS,
         *L27_DECISION_FIELDS,
         *L28_DECISION_FIELDS,
@@ -689,6 +699,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L24_COVERAGE_BIAS_REVEAL_INTERPRET_OPTIONS,
         L24_SAMPLING_FRAME_REVEAL_INTERPRET_OPTIONS,
         L24_NONRESPONSE_BIAS_REVEAL_INTERPRET_OPTIONS,
+        L25_THRESHOLD_TRADEOFF_REVEAL_INTERPRET_OPTIONS,
+        L25_INCIDENT_COVERAGE_REVEAL_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))

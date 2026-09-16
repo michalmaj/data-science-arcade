@@ -10,6 +10,7 @@ from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
+from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 PROMPT_Y = 90
@@ -27,23 +28,40 @@ NAV_BUTTON_Y = 470
 
 
 class AlertConfigScene(Scene):
-    """Assemble a monitoring setup from two independent choices (spec §25
-    Lesson 25 'KPI Emergency Room'): which metric to treat as the north
-    star and how tight its alert threshold should be, picked from two
-    independent button columns - the same "two categories of choice, live
-    combined consequence" shape Survey Bureau's SurveyBuilderScene uses,
-    but the live consequence here is a false-alarm count plus whether the
-    scenario's real incident was actually caught (via the injected
-    `simulate` callable), not a respondent count and an average - a
-    different enough result shape to be its own scene.
+    """Assemble a monitoring setup from two independent choices: which
+    metric to treat as the north star and how tight its alert threshold
+    should be, picked from two independent button columns - the same "two
+    categories of choice, live combined consequence" shape Survey
+    Bureau's SurveyBuilderScene uses, but the live consequence here is a
+    false-alarm count plus whether the scenario's real incident was
+    actually caught (via the injected `simulate` callable), not a
+    respondent count and an average - a different enough result shape to
+    be its own scene.
 
     guided=True also shows each request's hint; guided=False hides it,
     matching every other stage scene's guided/independent split.
 
     false_alarm_count_label_key defaults to Lesson 25's own "over 14 days"
     wording - baked in as a literal default rather than a true constant,
-    since Lesson 25 was this scene's only caller until Lesson 30's own
-    8-week dataset needed different wording for the same number."""
+    since Lesson 25 was this scene's original caller before Lesson 30's
+    own 8-week dataset needed different wording for the same number.
+
+    `context`/`initial_choices`/`mirror_python_code_for`, when given,
+    follow the exact same additive, action-only-recording contract
+    SurveyBuilderScene already established: `initial_choices` seeds
+    `self.choices` (revision passes start from the earlier pick, freely
+    revisable); `_next()` records one real `AnalyticalAction` (Python
+    Mirror only, never `EvidenceItem`) per request, keyed so a later
+    Back-revision updates that same slot in place rather than doubling it
+    - real Evidence should only ever come from a reveal that fires
+    exactly once. `mirror_python_code_for(metric, threshold,
+    target_incident_day, var_name) -> str` is injected rather than
+    imported directly, keeping this shared UI scene ignorant of any one
+    lesson's own dataset/column names; its argument order matches
+    `simulate`'s own `(dataset, metric, threshold, target_incident_day)`
+    shape. All four new params default to None/a literal label key, so
+    Lesson 30's own existing call site (positional through `guided`, plus
+    `false_alarm_count_label_key=`) is unaffected."""
 
     def __init__(
         self,
@@ -57,6 +75,10 @@ class AlertConfigScene(Scene):
         metric_label_key: str = "alerting.metric_label",
         threshold_label_key: str = "alerting.threshold_label",
         false_alarm_count_label_key: str = "alerting.false_alarm_count_label",
+        context: LessonContext | None = None,
+        initial_choices: MonitoringChoices | None = None,
+        mirror_python_code_for: Callable[[MetricOption, ThresholdOption, int, str], str] | None = None,
+        mirror_action_label_key: str = "alerting.picked_combo_action_label",
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -68,8 +90,11 @@ class AlertConfigScene(Scene):
         self.metric_label_key = metric_label_key
         self.threshold_label_key = threshold_label_key
         self.false_alarm_count_label_key = false_alarm_count_label_key
+        self.context = context
+        self.mirror_python_code_for = mirror_python_code_for
+        self.mirror_action_label_key = mirror_action_label_key
         self.request_index = 0
-        self.choices: MonitoringChoices = {}
+        self.choices: MonitoringChoices = dict(initial_choices) if initial_choices is not None else {}
         self._metric_choice: str | None = None
         self._threshold_choice: str | None = None
         self._load_pending_choice()
@@ -145,8 +170,19 @@ class AlertConfigScene(Scene):
             self._rebuild_buttons()
 
     def _next(self) -> None:
-        if self._current_request().key not in self.choices:
+        request = self._current_request()
+        if request.key not in self.choices:
             return
+        if self.context is not None and self.mirror_python_code_for is not None:
+            metric_key, threshold_key = self.choices[request.key]
+            metric = next(option for option in request.metric_options if option.key == metric_key)
+            threshold = next(option for option in request.threshold_options if option.key == threshold_key)
+            var_name = f"{request.key}_alert"
+            self.context.record_action(
+                label_key=self.mirror_action_label_key,
+                python_code=self.mirror_python_code_for(metric, threshold, request.target_incident_day, var_name),
+                key=f"alert_pick_{request.key}",
+            )
         if self._is_last_request():
             self.on_complete(dict(self.choices))
             return
