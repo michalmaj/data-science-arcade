@@ -288,6 +288,20 @@ TIME_SERIES_HAVE_A_CALENDAR = HandbookEntry(
     related_entry_ids=("seasonality", "cohorts_need_the_same_clock"),
 )
 
+A_SURVEY_IS_A_SAMPLE_NOT_A_CENSUS = HandbookEntry(
+    id="a_survey_is_a_sample_not_a_census",
+    title_key="handbook.article.a_survey_is_a_sample_not_a_census.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.a_survey_is_a_sample_not_a_census.body.1",
+        "handbook.article.a_survey_is_a_sample_not_a_census.body.2",
+        "handbook.article.a_survey_is_a_sample_not_a_census.body.3",
+        "handbook.article.a_survey_is_a_sample_not_a_census.body.4",
+        "handbook.article.a_survey_is_a_sample_not_a_census.body.5",
+    ),
+    related_entry_ids=("sampling", "population"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -309,6 +323,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     A_FUNNEL_IS_A_DEFINITION,
     COHORTS_NEED_THE_SAME_CLOCK,
     TIME_SERIES_HAVE_A_CALENDAR,
+    A_SURVEY_IS_A_SAMPLE_NOT_A_CENSUS,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (

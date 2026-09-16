@@ -265,7 +265,15 @@ from data_science_arcade.lessons.l23_time_series_control_room.scenario import (
     WEEKDAY_BASELINE_REVEAL_INTERPRET_OPTIONS as L23_WEEKDAY_BASELINE_REVEAL_INTERPRET_OPTIONS,
 )
 from data_science_arcade.lessons.l24_survey_bureau.requests import SURVEY_REQUESTS as L24_SURVEY_REQUESTS
-from data_science_arcade.lessons.l24_survey_bureau.scenario import DECISION_FIELDS as L24_DECISION_FIELDS
+from data_science_arcade.lessons.l24_survey_bureau.scenario import (
+    COVERAGE_BIAS_REVEAL_INTERPRET_OPTIONS as L24_COVERAGE_BIAS_REVEAL_INTERPRET_OPTIONS,
+    DECISION_FIELDS as L24_DECISION_FIELDS,
+    MASTERY_EVIDENCE_FIELD as L24_MASTERY_EVIDENCE_FIELD,
+    MASTERY_WHAT_88_PERCENT_REPRESENTS_FIELD as L24_MASTERY_WHAT_88_PERCENT_REPRESENTS_FIELD,
+    MASTERY_WHY_BLENDED_IS_LOWER_FIELD as L24_MASTERY_WHY_BLENDED_IS_LOWER_FIELD,
+    NONRESPONSE_BIAS_REVEAL_INTERPRET_OPTIONS as L24_NONRESPONSE_BIAS_REVEAL_INTERPRET_OPTIONS,
+    SAMPLING_FRAME_REVEAL_INTERPRET_OPTIONS as L24_SAMPLING_FRAME_REVEAL_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l25_kpi_emergency_room.requests import MONITORING_REQUESTS as L25_MONITORING_REQUESTS
 from data_science_arcade.lessons.l25_kpi_emergency_room.scenario import DECISION_FIELDS as L25_DECISION_FIELDS
 from data_science_arcade.lessons.l26_correlation_crime_scene.requests import CORRELATION_REQUESTS as L26_CORRELATION_REQUESTS
@@ -432,6 +440,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L23_MASTERY_INCIDENT_INTERPRETATION_FIELD,
         L23_MASTERY_EVIDENCE_FIELD,
         *L24_DECISION_FIELDS,
+        L24_MASTERY_WHAT_88_PERCENT_REPRESENTS_FIELD,
+        L24_MASTERY_WHY_BLENDED_IS_LOWER_FIELD,
+        L24_MASTERY_EVIDENCE_FIELD,
         *L25_DECISION_FIELDS,
         *L26_DECISION_FIELDS,
         *L27_DECISION_FIELDS,
@@ -675,6 +686,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L22_REVERSAL_REVEAL_INTERPRET_OPTIONS,
         L23_WEEKDAY_BASELINE_REVEAL_INTERPRET_OPTIONS,
         L23_CAMPAIGN_DEVIATION_REVEAL_INTERPRET_OPTIONS,
+        L24_COVERAGE_BIAS_REVEAL_INTERPRET_OPTIONS,
+        L24_SAMPLING_FRAME_REVEAL_INTERPRET_OPTIONS,
+        L24_NONRESPONSE_BIAS_REVEAL_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))

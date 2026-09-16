@@ -75,3 +75,63 @@ def simulate_survey(dataset: Dataset, channel: ChannelOption, wording: WordingOp
 
     mean_satisfaction = weighted_sum / total_respondents if total_respondents else 0.0
     return total_respondents, mean_satisfaction
+
+
+def survey_mean_mirror_code(channel: ChannelOption, wording: WordingOption, var_name: str) -> str:
+    """Real per-segment filter -> response-rate -> wording-biased-mean
+    logic, matching simulate_survey's own for-loop shape exactly (not a
+    force-vectorized reimplementation that could silently diverge on the
+    zero-respondent-segment edge case). FINAL {var_name} is always
+    mean_satisfaction - the same quantity the live result preview and any
+    ComparisonValue built from this call actually display.
+    RESPONSE_RATE_BY_SEGMENT is embedded as a literal dict (a fixed
+    business constant, never a customers.csv column)."""
+    reach_line = (
+        f'{var_name}_reached = customers.query("{channel.reach_query}")'
+        if channel.reach_query is not None
+        else f"{var_name}_reached = customers"
+    )
+    return "\n".join(
+        (
+            reach_line,
+            f"{var_name}_response_rate_by_segment = {RESPONSE_RATE_BY_SEGMENT!r}",
+            f"{var_name}_respondent_count = 0",
+            f"{var_name}_weighted_sum = 0.0",
+            f"for segment, rate in {var_name}_response_rate_by_segment.items():",
+            f'    {var_name}_segment_reached = {var_name}_reached[{var_name}_reached["segment"] == segment]',
+            f"    {var_name}_segment_respondents = round(len({var_name}_segment_reached) * rate)",
+            f"    if {var_name}_segment_respondents == 0:",
+            f"        continue",
+            f'    {var_name}_segment_value = min(1.0, float({var_name}_segment_reached["true_satisfaction"].mean()) + {wording.bias})',
+            f"    {var_name}_respondent_count += {var_name}_segment_respondents",
+            f"    {var_name}_weighted_sum += {var_name}_segment_respondents * {var_name}_segment_value",
+            f"{var_name} = {var_name}_weighted_sum / {var_name}_respondent_count if {var_name}_respondent_count else 0.0",
+        )
+    )
+
+
+def survey_reach_count_mirror_code(segment: str, condition_query: str, var_name: str) -> str:
+    """A real count of one segment's own rows matching condition_query -
+    e.g. "still_active == False" for in_app_popup's own 27 unreachable
+    already-churned critics, or "is_power_user == True" for the 0
+    critics the power-user panel can reach. A plain count, never a mean -
+    kept as its own function rather than folded into
+    survey_mean_mirror_code, matching every other lesson's own
+    multiple-small-mirror-functions style."""
+    return "\n".join(
+        (
+            f'{var_name}_segment = customers[customers["segment"] == "{segment}"]',
+            f'{var_name} = int(len({var_name}_segment.query("{condition_query}")))',
+        )
+    )
+
+
+def response_rate_mirror_code(segment: str, var_name: str) -> str:
+    """The real, fixed response-rate business constant for one segment -
+    what Reveal C's own response-rate ComparisonValues actually display."""
+    return "\n".join(
+        (
+            f"{var_name}_response_rate_by_segment = {RESPONSE_RATE_BY_SEGMENT!r}",
+            f'{var_name} = float({var_name}_response_rate_by_segment["{segment}"])',
+        )
+    )

@@ -10,6 +10,7 @@ from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
+from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 PROMPT_Y = 90
@@ -27,17 +28,38 @@ NAV_BUTTON_Y = 470
 
 
 class SurveyBuilderScene(Scene):
-    """Assemble a survey from two independent choices (spec §25 Lesson 24
-    'Survey Bureau'): a question wording and a recruitment channel, picked
-    from two independent button columns - the same "two categories of
-    choice, live combined consequence" shape GroupBy Kitchen's
-    PipelineBuilderScene uses, but the live consequence here is a
-    simulated respondent count and recorded average (via the injected
-    `simulate` callable) rather than a grouped table, so it's its own
-    scene rather than a literal reuse of that one.
+    """Assemble a survey from two independent choices: a question wording
+    and a recruitment channel, picked from two independent button columns
+    - the same "two categories of choice, live combined consequence" shape
+    GroupBy Kitchen's PipelineBuilderScene uses, but the live consequence
+    here is a simulated respondent count and recorded average (via the
+    injected `simulate` callable) rather than a grouped table, so it's its
+    own scene rather than a literal reuse of that one. The full result
+    preview is already real and inspectable before commit - a
+    motivated-reasoning trap, not a hidden-information one, matching
+    FunnelBuilderScene's/CohortMatrixScene's/TimeSeriesScene's own
+    established reasoning.
 
     guided=True also shows each request's hint; guided=False hides it,
-    matching every other stage scene's guided/independent split."""
+    matching every other stage scene's guided/independent split.
+
+    `initial_choices`, when given, seeds `self.choices` - the same "seed
+    the starting state, let the student freely revise before committing"
+    idiom the other pick scenes' own `initial_choices` already
+    established.
+
+    `context`/`mirror_python_code_for`, when both given, record one real
+    `AnalyticalAction` (Python Mirror only, never `EvidenceItem`) per
+    request, in `_next()`, right before advancing past it - the identical
+    action-only discipline every other pick scene already established and
+    for the identical reason: evidence recorded conditional on "the
+    current pick is correct" would leave a stale correct `EvidenceItem`
+    behind after a later Back-revision to a wrong pick. Real Evidence
+    should come from a real reveal that fires exactly once, never from
+    here. `mirror_python_code_for(channel, wording, var_name) -> str` is
+    injected rather than imported directly, keeping this shared UI scene
+    ignorant of any one lesson's own dataset/column names - its argument
+    order matches `simulate`'s own `(dataset, channel, wording)` shape."""
 
     def __init__(
         self,
@@ -50,6 +72,10 @@ class SurveyBuilderScene(Scene):
         guided: bool = True,
         wording_label_key: str = "survey.wording_label",
         channel_label_key: str = "survey.channel_label",
+        context: LessonContext | None = None,
+        initial_choices: SurveyChoices | None = None,
+        mirror_python_code_for: Callable[[ChannelOption, WordingOption, str], str] | None = None,
+        mirror_action_label_key: str = "survey.picked_combo_action_label",
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
@@ -60,8 +86,11 @@ class SurveyBuilderScene(Scene):
         self.guided = guided
         self.wording_label_key = wording_label_key
         self.channel_label_key = channel_label_key
+        self.context = context
+        self.mirror_python_code_for = mirror_python_code_for
+        self.mirror_action_label_key = mirror_action_label_key
         self.request_index = 0
-        self.choices: SurveyChoices = {}
+        self.choices: SurveyChoices = dict(initial_choices) if initial_choices is not None else {}
         self._wording_choice: str | None = None
         self._channel_choice: str | None = None
         self._load_pending_choice()
@@ -137,8 +166,19 @@ class SurveyBuilderScene(Scene):
             self._rebuild_buttons()
 
     def _next(self) -> None:
-        if self._current_request().key not in self.choices:
+        request = self._current_request()
+        if request.key not in self.choices:
             return
+        if self.context is not None and self.mirror_python_code_for is not None:
+            wording_key, channel_key = self.choices[request.key]
+            wording = next(option for option in request.wording_options if option.key == wording_key)
+            channel = next(option for option in request.channel_options if option.key == channel_key)
+            var_name = f"{request.key}_survey"
+            self.context.record_action(
+                label_key=self.mirror_action_label_key,
+                python_code=self.mirror_python_code_for(channel, wording, var_name),
+                key=f"survey_pick_{request.key}",
+            )
         if self._is_last_request():
             self.on_complete(dict(self.choices))
             return
