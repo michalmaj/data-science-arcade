@@ -6,6 +6,7 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import pygame
 
 from data_science_arcade.app.game import App
+from data_science_arcade.lessons.framework.brief import MultiChoiceField
 from data_science_arcade.lessons.l01_question_first.definition import LESSON_01
 from data_science_arcade.lessons.l01_question_first.scenario import build_lesson_one_runner
 from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
@@ -62,8 +63,7 @@ from data_science_arcade.lessons.l21_funnel_factory.requests import CORRECT_DEFI
 from data_science_arcade.lessons.l22_cohort_observatory.requests import CORRECT_OPTION_BY_REQUEST as L22_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l23_time_series_control_room.requests import CORRECT_OPTION_BY_REQUEST as L23_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l24_survey_bureau.requests import CORRECT_COMBO_BY_REQUEST as L24_CORRECT_COMBO_BY_REQUEST
-from data_science_arcade.lessons.l25_kpi_emergency_room.requests import CORRECT_COMBO_BY_REQUEST as L25_CORRECT_COMBO_BY_REQUEST
-from data_science_arcade.lessons.l25_kpi_emergency_room.scenario import DECISION_FIELDS as L25_DECISION_FIELDS
+from data_science_arcade.lessons.l25_kpi_emergency_room.requests import CORRECT_METRIC_BY_REQUEST as L25_CORRECT_METRIC_BY_REQUEST
 from data_science_arcade.lessons.l26_correlation_crime_scene.requests import CORRECT_OPTION_BY_REQUEST as L26_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l26_correlation_crime_scene.scenario import DECISION_FIELDS as L26_DECISION_FIELDS
 from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRECT_OPTION_BY_REQUEST as L27_CORRECT_OPTION_BY_REQUEST
@@ -2602,11 +2602,10 @@ def test_finishing_lesson_twenty_four_marks_it_complete_and_unlocks_lesson_twent
 def _pick_every_l25_combo_correctly(scene: AlertConfigScene) -> None:
     for _ in range(len(scene.requests)):
         request = scene._current_request()
-        correct_metric, correct_threshold = L25_CORRECT_COMBO_BY_REQUEST[request.key]
+        correct_metric = L25_CORRECT_METRIC_BY_REQUEST[request.key]
         metric_index = next(i for i, option in enumerate(request.metric_options) if option.key == correct_metric)
-        threshold_index = next(i for i, option in enumerate(request.threshold_options) if option.key == correct_threshold)
         scene.buttons.buttons[metric_index].on_activate()
-        scene.buttons.buttons[len(request.metric_options) + threshold_index].on_activate()
+        scene.buttons.buttons[len(request.metric_options)].on_activate()  # threshold - either is fine, METHOD ignores it
         scene.next_button.on_activate()
 
 
@@ -2622,11 +2621,40 @@ def test_finishing_lesson_twenty_five_marks_it_complete_and_unlocks_lesson_twent
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _pick_every_l25_combo_correctly(app.scenes.current)  # guided monitor designs
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _pick_every_l25_combo_correctly(app.scenes.current)  # independent monitor designs
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L25_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, AlertConfigScene)  # initial_monitoring_pass
+        _pick_every_l25_combo_correctly(app.scenes.current)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # threshold_tradeoff_reveal
+        _confirm_reveal(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # incident_coverage_reveal
+        _confirm_reveal(app.scenes.current.inner)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # revision_intro
+
+        assert isinstance(app.scenes.current.inner, AlertConfigScene)  # revision_monitoring_pass
+        _pick_every_l25_combo_correctly(app.scenes.current)
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision_brief
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            elif isinstance(step, MultiChoiceField):
+                for i in range(step.min_count):
+                    decision.buttons.buttons[i].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

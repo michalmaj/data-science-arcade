@@ -13,9 +13,12 @@ ALERT_FATIGUE_SCHEMA = Schema(
 
 # A different NovaMart team, a different quarter: Warehouse Ops watched
 # every metric it could with tight thresholds. 46 of the 47 alerts that
-# month meant nothing, and everyone got fast at dismissing them - so when
-# the one real incident finally fired, on the same over-alerted channel,
-# it took six hours to notice instead of the usual eighteen minutes.
+# month were false alarms, and the team's average response to one was 4
+# minutes - but the one real incident, on the same over-alerted channel,
+# took 360 minutes (6 hours) to get a response. These two rows show a
+# real, strong association, not a proven causal mechanism: nothing here
+# directly measures dismissal behavior, so the honest claim is "consistent
+# with alert fatigue," never "the false alarms caused the slow response."
 ALERT_FATIGUE_ROWS = [
     ("false_alarm", 46, 4),
     ("real_incident", 1, 360),

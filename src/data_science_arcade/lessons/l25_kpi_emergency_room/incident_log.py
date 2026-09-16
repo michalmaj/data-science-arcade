@@ -72,3 +72,92 @@ def simulate_monitoring(dataset: Dataset, metric: MetricOption, threshold: Thres
     false_alarm_count = len(flagged - REAL_INCIDENT_DAYS)
     incident_caught = target_incident_day in flagged
     return false_alarm_count, incident_caught
+
+
+def false_alarm_count(dataset: Dataset, metric_key: str, multiplier: float) -> int:
+    """The same false-alarm count simulate_monitoring computes internally,
+    independent of any one target day - len(flagged - REAL_INCIDENT_DAYS).
+    Used directly by reveals whose ComparisonValue isn't tied to a single
+    request's own target_incident_day."""
+    return len(flagged_days(dataset, metric_key, multiplier) - REAL_INCIDENT_DAYS)
+
+
+def real_incidents_caught(dataset: Dataset, metric_key: str, multiplier: float) -> int:
+    """How many of the two real incidents (REAL_INCIDENT_DAYS) this
+    metric+threshold combo actually flags - a genuine count across BOTH
+    real incidents in the observed window, never a single target-day
+    boolean (simulate_monitoring's own `incident_caught`) mislabeled as
+    this plural quantity. Used by reveals whose copy talks about "the
+    real incidents" collectively, not one request's own target day."""
+    return len(flagged_days(dataset, metric_key, multiplier) & REAL_INCIDENT_DAYS)
+
+
+def _flagged_days_mirror_lines(metric_key: str, multiplier: float, var_name: str) -> list[str]:
+    """Shared body reused by every mirror function below - reimplements
+    flagged_days()'s own mean/pstdev-over-the-full-series logic (not a
+    shortcut). FINAL {var_name} is the real flagged-day set."""
+    return [
+        f'{var_name}_values = incident_log[incident_log["metric_key"] == "{metric_key}"].sort_values("day")["value"].tolist()',
+        f"{var_name}_mean = statistics.mean({var_name}_values)",
+        f"{var_name}_stdev = statistics.pstdev({var_name}_values)",
+        f"{var_name}_higher_is_worse = {HIGHER_IS_WORSE[metric_key]!r}",
+        f"{var_name} = set()",
+        f"for day, value in enumerate({var_name}_values, start=1):",
+        f"    is_abnormal = value > {var_name}_mean + {multiplier} * {var_name}_stdev if {var_name}_higher_is_worse else value < {var_name}_mean - {multiplier} * {var_name}_stdev",
+        "    if is_abnormal:",
+        f"        {var_name}.add(day)",
+    ]
+
+
+def flagged_days_mirror_code(metric_key: str, multiplier: float, var_name: str) -> str:
+    """Verified this session via direct exec against METRIC_VALUES for all
+    4 metrics x both real threshold multipliers - the FINAL {var_name}
+    matches flagged_days()'s own real output exactly in every case."""
+    return "\n".join(_flagged_days_mirror_lines(metric_key, multiplier, var_name))
+
+
+def false_alarm_count_mirror_code(metric_key: str, multiplier: float, var_name: str) -> str:
+    """FINAL {var_name} is the same false_alarm_count simulate_monitoring
+    computes internally - len(flagged - REAL_INCIDENT_DAYS)."""
+    flagged_var = f"{var_name}_flagged"
+    return "\n".join(
+        (
+            *_flagged_days_mirror_lines(metric_key, multiplier, flagged_var),
+            f"{var_name}_real_incident_days = {REAL_INCIDENT_DAYS!r}",
+            f"{var_name} = len({flagged_var} - {var_name}_real_incident_days)",
+        )
+    )
+
+
+def real_incidents_caught_mirror_code(metric_key: str, multiplier: float, var_name: str) -> str:
+    """FINAL {var_name} is the same real_incidents_caught() this module's
+    own function returns - len(flagged & REAL_INCIDENT_DAYS), a genuine
+    count across both real incidents, never a single target-day boolean."""
+    flagged_var = f"{var_name}_flagged"
+    return "\n".join(
+        (
+            *_flagged_days_mirror_lines(metric_key, multiplier, flagged_var),
+            f"{var_name}_real_incident_days = {REAL_INCIDENT_DAYS!r}",
+            f"{var_name} = len({flagged_var} & {var_name}_real_incident_days)",
+        )
+    )
+
+
+def monitoring_outcome_mirror_code(metric: MetricOption, threshold: ThresholdOption, target_incident_day: int, var_name: str) -> str:
+    """Builds on the flagged-days logic to produce the same
+    (false_alarm_count, incident_caught) pair simulate_monitoring returns
+    for ONE target day - the same quantities the interactive scene's own
+    live result preview shows. Deliberately distinct from
+    real_incidents_caught_mirror_code above: this is the single-target-
+    day boolean the live preview actually displays, not the plural
+    across-both-incidents count a reveal's own copy might describe."""
+    flagged_var = f"{var_name}_flagged"
+    return "\n".join(
+        (
+            *_flagged_days_mirror_lines(metric.metric_key, threshold.multiplier, flagged_var),
+            f"{var_name}_real_incident_days = {REAL_INCIDENT_DAYS!r}",
+            f"{var_name}_false_alarm_count = len({flagged_var} - {var_name}_real_incident_days)",
+            f"{var_name}_incident_caught = {target_incident_day} in {flagged_var}",
+            f"{var_name} = ({var_name}_false_alarm_count, {var_name}_incident_caught)",
+        )
+    )
