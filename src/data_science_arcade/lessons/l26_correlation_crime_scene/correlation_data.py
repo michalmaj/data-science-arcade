@@ -90,3 +90,54 @@ def compute_correlation(dataset: Dataset, column_a: str, column_b: str) -> float
 def compute_correlation_within(dataset: Dataset, group_column: str, group_value: str, column_a: str, column_b: str) -> float:
     subset = dataset.frame[dataset.frame[group_column] == group_value]
     return float(subset[column_a].astype(float).corr(subset[column_b].astype(float)))
+
+
+def compute_device_group_correlation(dataset: Dataset, group_column: str, group_value: str, column_b: str) -> float:
+    """A derived 0/1 "is this row the candidate group" column, built on
+    the fly - never mutates the dataset's own real schema/columns."""
+    is_group = (dataset.frame[group_column] == group_value).astype(float)
+    return float(is_group.corr(dataset.frame[column_b].astype(float)))
+
+
+_MIRROR_SOURCE_BY_REQUEST = {
+    "push_opens_claim": ("push_spend", "push_opens_per_week", "weekly_spend"),
+    "shipment_sales_claim": ("shipment_sales", "shipment_received", "daily_sales"),
+    "dark_mode_claim": ("dark_mode", "dark_mode_enabled", "weekly_spend"),
+}
+
+
+def correlation_mirror_code(request_key: str, var_name: str) -> str:
+    """FINAL {var_name} is the same Pearson r CorrelationRequest.correlation
+    already displays - verified via direct exec against all three real
+    scenarios. dataset_var matches that scenario's own PipelineStep load
+    line (push_spend/shipment_sales/dark_mode) - three separate real
+    DataFrames, not one shared dataset."""
+    dataset_var, column_a, column_b = _MIRROR_SOURCE_BY_REQUEST[request_key]
+    return f'{var_name} = float({dataset_var}["{column_a}"].astype(float).corr({dataset_var}["{column_b}"].astype(float)))'
+
+
+def correlation_within_mirror_code(group_column: str, group_value: str, column_a: str, column_b: str, var_name: str) -> str:
+    """FINAL {var_name} is the real SUBGROUP correlation - never the
+    general one - matching compute_correlation_within()'s own output
+    exactly. Only ever called for the modern-device subgroup, where
+    dark_mode_enabled actually varies; the older-device subgroup has zero
+    variance (every row is False) and its own correlation is undefined -
+    never computed or shown here."""
+    return "\n".join(
+        (
+            f'{var_name}_subset = dark_mode[dark_mode["{group_column}"] == "{group_value}"]',
+            f'{var_name} = float({var_name}_subset["{column_a}"].astype(float).corr({var_name}_subset["{column_b}"].astype(float)))',
+        )
+    )
+
+
+def device_group_correlation_mirror_code(group_column: str, group_value: str, column_b: str, var_name: str) -> str:
+    """A derived 0/1 "is this row the candidate group" column, built on
+    the fly - never mutates dark_mode's own real schema. FINAL {var_name}
+    matches compute_device_group_correlation()'s own real output."""
+    return "\n".join(
+        (
+            f'{var_name}_is_group = (dark_mode["{group_column}"] == "{group_value}").astype(float)',
+            f'{var_name} = float({var_name}_is_group.corr(dark_mode["{column_b}"].astype(float)))',
+        )
+    )

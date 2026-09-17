@@ -284,7 +284,14 @@ from data_science_arcade.lessons.l25_kpi_emergency_room.scenario import (
     THRESHOLD_TRADEOFF_REVEAL_INTERPRET_OPTIONS as L25_THRESHOLD_TRADEOFF_REVEAL_INTERPRET_OPTIONS,
 )
 from data_science_arcade.lessons.l26_correlation_crime_scene.requests import CORRELATION_REQUESTS as L26_CORRELATION_REQUESTS
-from data_science_arcade.lessons.l26_correlation_crime_scene.scenario import DECISION_FIELDS as L26_DECISION_FIELDS
+from data_science_arcade.lessons.l26_correlation_crime_scene.scenario import (
+    CONFOUNDING_REVEAL_INTERPRET_OPTIONS as L26_CONFOUNDING_REVEAL_INTERPRET_OPTIONS,
+    DECISION_FIELDS as L26_DECISION_FIELDS,
+    MASTERY_EVIDENCE_FIELD as L26_MASTERY_EVIDENCE_FIELD,
+    MASTERY_STRONGEST_CLAIM_FIELD as L26_MASTERY_STRONGEST_CLAIM_FIELD,
+    MASTERY_WHAT_THE_OBSERVATIONAL_GAP_REPRESENTS_FIELD as L26_MASTERY_WHAT_THE_OBSERVATIONAL_GAP_REPRESENTS_FIELD,
+    STRONG_ASSOCIATION_REVEAL_INTERPRET_OPTIONS as L26_STRONG_ASSOCIATION_REVEAL_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRELATION_REQUESTS as L27_CORRELATION_REQUESTS
 from data_science_arcade.lessons.l27_causality_courtroom.scenario import DECISION_FIELDS as L27_DECISION_FIELDS
 from data_science_arcade.lessons.l28_chart_crime_lab.requests import CHART_REQUESTS as L28_CHART_REQUESTS
@@ -455,6 +462,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L25_MASTERY_STRONGEST_CLAIM_FIELD,
         L25_MASTERY_EVIDENCE_FIELD,
         *L26_DECISION_FIELDS,
+        L26_MASTERY_WHAT_THE_OBSERVATIONAL_GAP_REPRESENTS_FIELD,
+        L26_MASTERY_STRONGEST_CLAIM_FIELD,
+        L26_MASTERY_EVIDENCE_FIELD,
         *L27_DECISION_FIELDS,
         *L28_DECISION_FIELDS,
         *L29_DECISION_FIELDS,
@@ -701,6 +711,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L24_NONRESPONSE_BIAS_REVEAL_INTERPRET_OPTIONS,
         L25_THRESHOLD_TRADEOFF_REVEAL_INTERPRET_OPTIONS,
         L25_INCIDENT_COVERAGE_REVEAL_INTERPRET_OPTIONS,
+        L26_STRONG_ASSOCIATION_REVEAL_INTERPRET_OPTIONS,
+        L26_CONFOUNDING_REVEAL_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))

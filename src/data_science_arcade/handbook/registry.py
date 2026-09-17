@@ -316,6 +316,20 @@ AN_ALERT_IS_A_SYMPTOM_NOT_A_DIAGNOSIS = HandbookEntry(
     related_entry_ids=("primary_metric", "guardrail_metric", "when_a_measure_becomes_a_target"),
 )
 
+A_CORRELATION_DOESNT_NAME_ITS_OWN_CAUSE = HandbookEntry(
+    id="a_correlation_doesnt_name_its_own_cause",
+    title_key="handbook.article.a_correlation_doesnt_name_its_own_cause.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.a_correlation_doesnt_name_its_own_cause.body.1",
+        "handbook.article.a_correlation_doesnt_name_its_own_cause.body.2",
+        "handbook.article.a_correlation_doesnt_name_its_own_cause.body.3",
+        "handbook.article.a_correlation_doesnt_name_its_own_cause.body.4",
+        "handbook.article.a_correlation_doesnt_name_its_own_cause.body.5",
+    ),
+    related_entry_ids=("confounder", "randomization_is_a_mechanism"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -339,6 +353,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     TIME_SERIES_HAVE_A_CALENDAR,
     A_SURVEY_IS_A_SAMPLE_NOT_A_CENSUS,
     AN_ALERT_IS_A_SYMPTOM_NOT_A_DIAGNOSIS,
+    A_CORRELATION_DOESNT_NAME_ITS_OWN_CAUSE,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -397,6 +412,7 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         id="confounder",
         term_key="handbook.glossary.confounder.term",
         definition_key="handbook.glossary.confounder.definition",
+        related_entry_id="a_correlation_doesnt_name_its_own_cause",
     ),
     GlossaryEntry(
         id="quantile",
@@ -541,6 +557,12 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.false_negative.term",
         definition_key="handbook.glossary.false_negative.definition",
         related_entry_id="an_alert_is_a_symptom_not_a_diagnosis",
+    ),
+    GlossaryEntry(
+        id="correlation",
+        term_key="handbook.glossary.correlation.term",
+        definition_key="handbook.glossary.correlation.definition",
+        related_entry_id="a_correlation_doesnt_name_its_own_cause",
     ),
 )
 
