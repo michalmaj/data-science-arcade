@@ -1,4 +1,5 @@
 from data_science_arcade.lessons.framework.definition import LessonDefinition, ScoreDimension
+from data_science_arcade.lessons.l26_correlation_crime_scene.scoring import score_lesson_twenty_six
 
 LESSON_26 = LessonDefinition(
     id="ds26_correlation_crime_scene",
@@ -10,6 +11,13 @@ LESSON_26 = LessonDefinition(
         "lesson.l26.objective2",
         "lesson.l26.objective3",
     ),
-    scoring_dimensions=(ScoreDimension.REASONING, ScoreDimension.EVIDENCE, ScoreDimension.UNCERTAINTY),
-    estimated_minutes=15,
+    scoring_dimensions=(
+        ScoreDimension.METHOD,
+        ScoreDimension.REASONING,
+        ScoreDimension.EVIDENCE,
+        ScoreDimension.OVERCONFIDENCE,
+    ),
+    estimated_minutes=24,
+    related_handbook_entry_id="a_correlation_doesnt_name_its_own_cause",
+    scorer=score_lesson_twenty_six,
 )

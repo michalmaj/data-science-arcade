@@ -9,6 +9,7 @@ from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
+from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 PROMPT_Y = 72
@@ -24,17 +25,31 @@ NAV_BUTTON_Y = 470
 
 
 class CorrelationScene(Scene):
-    """Weigh a real correlation against candidate causal stories (spec §25
-    Lesson 26 'Correlation Crime Scene'): a persistent evidence panel shows
-    the actual computed correlation, sample size, and one additional fact
-    that rules some explanations out - then the player picks one of a
-    small set of complete verdicts (which explanations survive, which
-    don't), rather than checking each explanation individually. Every pick
-    shows its own real consequence text, right or wrong, same as every
-    other stage scene's "see what actually follows" discipline.
+    """Weigh a real correlation against candidate causal stories: a
+    persistent evidence panel shows the actual computed correlation,
+    sample size, and one additional fact that rules some explanations out
+    - then the player picks one of a small set of complete verdicts
+    (which explanations survive, which don't), rather than checking each
+    explanation individually. Every pick shows its own real consequence
+    text, right or wrong, same as every other stage scene's "see what
+    actually follows" discipline.
 
     guided=True also shows each request's hint; guided=False hides it,
-    matching every other stage scene's guided/independent split."""
+    matching every other stage scene's guided/independent split.
+
+    `context`/`initial_choices`/`mirror_python_code_for`, when given,
+    follow the exact same additive, action-only-recording contract every
+    other pick scene in this codebase already established:
+    `initial_choices` seeds `self.choices` (a revision pass starts from
+    the earlier pick, freely revisable); `_next()` records one real
+    `AnalyticalAction` (Python Mirror only, never `EvidenceItem`) per
+    request, keyed so a later Back-revision updates that same slot in
+    place rather than doubling it - real Evidence should only ever come
+    from a reveal that fires exactly once, never from a pick. No scene in
+    this codebase has ever emitted Evidence directly from a pick.
+    `mirror_python_code_for(request, var_name) -> str` is injected rather
+    than imported directly, keeping this shared UI scene ignorant of any
+    one lesson's own dataset/column names."""
 
     def __init__(
         self,
@@ -43,14 +58,21 @@ class CorrelationScene(Scene):
         requests: tuple[CorrelationRequest, ...],
         on_complete: Callable[[CorrelationChoices], None],
         guided: bool = True,
+        context: LessonContext | None = None,
+        initial_choices: CorrelationChoices | None = None,
+        mirror_python_code_for: Callable[[CorrelationRequest, str], str] | None = None,
+        mirror_action_label_key: str = "correlation.picked_verdict_action_label",
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
         self.requests = requests
         self.on_complete = on_complete
         self.guided = guided
+        self.context = context
+        self.mirror_python_code_for = mirror_python_code_for
+        self.mirror_action_label_key = mirror_action_label_key
         self.request_index = 0
-        self.choices: CorrelationChoices = {}
+        self.choices: CorrelationChoices = dict(initial_choices) if initial_choices is not None else {}
         self._rebuild_buttons()
 
     def _current_request(self) -> CorrelationRequest:
@@ -100,8 +122,16 @@ class CorrelationScene(Scene):
             self._rebuild_buttons()
 
     def _next(self) -> None:
-        if self._current_request().key not in self.choices:
+        request = self._current_request()
+        if request.key not in self.choices:
             return
+        if self.context is not None and self.mirror_python_code_for is not None:
+            var_name = f"{request.key}_correlation"
+            self.context.record_action(
+                label_key=self.mirror_action_label_key,
+                python_code=self.mirror_python_code_for(request, var_name),
+                key=f"correlation_pick_{request.key}",
+            )
         if self._is_last_request():
             self.on_complete(dict(self.choices))
             return

@@ -15,10 +15,15 @@ LOYALTY_LTV_SCHEMA = Schema(
 # signups vs. customer lifetime value. The observational gap (people who
 # chose to join vs. people who didn't) was huge - and NovaMart spent big
 # on the program based on it. A later randomized test (a random subset
-# actually invited, not self-selected) showed the program's own real
-# effect was a small fraction of that gap - most of it was always just
-# self-selection: customers who were already going to spend more were
-# also more likely to sign up.
+# actually invited, not self-selected) showed a much smaller effect than
+# the observational gap suggested. The observational comparison mixes the
+# program's own effect with the fact that people already likely to spend
+# more were also more likely to join - real, but not something this toy
+# dataset can cleanly decompose into an exact percentage. Student-facing
+# copy must say the randomized estimate is much smaller than the
+# observational gap, never claim a precise "X% was selection, Y% was the
+# real effect" breakdown - that requires assumptions this dataset alone
+# doesn't support.
 LOYALTY_LTV_ROWS = [
     ("observational_member", 5000, 340.0),
     ("observational_nonmember", 5000, 180.0),
