@@ -293,7 +293,14 @@ from data_science_arcade.lessons.l26_correlation_crime_scene.scenario import (
     STRONG_ASSOCIATION_REVEAL_INTERPRET_OPTIONS as L26_STRONG_ASSOCIATION_REVEAL_INTERPRET_OPTIONS,
 )
 from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRELATION_REQUESTS as L27_CORRELATION_REQUESTS
-from data_science_arcade.lessons.l27_causality_courtroom.scenario import DECISION_FIELDS as L27_DECISION_FIELDS
+from data_science_arcade.lessons.l27_causality_courtroom.scenario import (
+    DECISION_FIELDS as L27_DECISION_FIELDS,
+    GROUP_DIFFERENCES_REVEAL_INTERPRET_OPTIONS as L27_GROUP_DIFFERENCES_REVEAL_INTERPRET_OPTIONS,
+    MASTERY_EVIDENCE_FIELD as L27_MASTERY_EVIDENCE_FIELD,
+    MASTERY_STRONGEST_CLAIM_FIELD as L27_MASTERY_STRONGEST_CLAIM_FIELD,
+    MASTERY_WHAT_THE_NAIVE_COMPARISON_SHOWS_FIELD as L27_MASTERY_WHAT_THE_NAIVE_COMPARISON_SHOWS_FIELD,
+    RANDOMIZATION_REVEAL_INTERPRET_OPTIONS as L27_RANDOMIZATION_REVEAL_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l28_chart_crime_lab.requests import CHART_REQUESTS as L28_CHART_REQUESTS
 from data_science_arcade.lessons.l28_chart_crime_lab.scenario import DECISION_FIELDS as L28_DECISION_FIELDS
 from data_science_arcade.lessons.l29_the_executive_brief.findings import FINDINGS_POOL as L29_FINDINGS_POOL
@@ -466,6 +473,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L26_MASTERY_STRONGEST_CLAIM_FIELD,
         L26_MASTERY_EVIDENCE_FIELD,
         *L27_DECISION_FIELDS,
+        L27_MASTERY_WHAT_THE_NAIVE_COMPARISON_SHOWS_FIELD,
+        L27_MASTERY_STRONGEST_CLAIM_FIELD,
+        L27_MASTERY_EVIDENCE_FIELD,
         *L28_DECISION_FIELDS,
         *L29_DECISION_FIELDS,
         *L30_DECISION_FIELDS,
@@ -713,6 +723,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L25_INCIDENT_COVERAGE_REVEAL_INTERPRET_OPTIONS,
         L26_STRONG_ASSOCIATION_REVEAL_INTERPRET_OPTIONS,
         L26_CONFOUNDING_REVEAL_INTERPRET_OPTIONS,
+        L27_GROUP_DIFFERENCES_REVEAL_INTERPRET_OPTIONS,
+        L27_RANDOMIZATION_REVEAL_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))
