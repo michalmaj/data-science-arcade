@@ -69,7 +69,11 @@ from data_science_arcade.lessons.l26_correlation_crime_scene.requests import COR
 from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRECT_OPTION_BY_REQUEST as L27_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l27_causality_courtroom.scenario import DECISION_FIELDS as L27_DECISION_FIELDS
 from data_science_arcade.lessons.l28_chart_crime_lab.requests import CORRECT_OPTION_BY_REQUEST as L28_CORRECT_OPTION_BY_REQUEST
-from data_science_arcade.lessons.l29_the_executive_brief.findings import CORRECT_FINDING_KEYS as L29_CORRECT_FINDING_KEYS
+from data_science_arcade.lessons.l29_the_executive_brief.findings import (
+    CORRECT_FINDING_KEYS as L29_CORRECT_FINDING_KEYS,
+    FINDINGS_POOL as L29_FINDINGS_POOL,
+    ON_TOPIC_FINDING_KEYS as L29_ON_TOPIC_FINDING_KEYS,
+)
 from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
 from data_science_arcade.lessons.l30_the_data_incident.scenario import DECISION_FIELDS as L30_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonCheckpoint, LessonState
@@ -2860,14 +2864,21 @@ def test_finishing_lesson_twenty_eight_marks_it_complete_and_unlocks_lesson_twen
         pygame.quit()
 
 
-def _pick_every_l29_finding_correctly(scene: FindingPickerScene) -> None:
+def _shortlist_every_l29_on_topic_finding(scene: FindingPickerScene) -> None:
     # Unlike every other lesson's fixed-index-per-request helper, the pool
     # here shrinks after every pick - the correct finding's position has to
     # be looked up fresh each round rather than read off a stable mapping.
     for _ in range(scene.target_count):
         remaining = scene._remaining_findings()
-        index = next(i for i, finding in enumerate(remaining) if finding.key in L29_CORRECT_FINDING_KEYS)
+        index = next(i for i, finding in enumerate(remaining) if finding.key in L29_ON_TOPIC_FINDING_KEYS)
         scene.buttons.buttons[index].on_activate()
+
+
+def _cite_every_l29_headline_finding(scene: DecisionBuilderScene) -> None:
+    label_to_key = {finding.label_key: finding.key for finding in L29_FINDINGS_POOL}
+    for item in scene.context.evidence:
+        if label_to_key.get(item.label_key) in L29_CORRECT_FINDING_KEYS:
+            scene._evidence_toggle_buttons[item.id].on_activate()
 
 
 def test_finishing_lesson_twenty_nine_marks_it_complete_and_unlocks_lesson_thirty():
@@ -2882,11 +2893,25 @@ def test_finishing_lesson_twenty_nine_marks_it_complete_and_unlocks_lesson_thirt
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _pick_every_l29_finding_correctly(app.scenes.current)  # guided findings
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _pick_every_l29_finding_correctly(app.scenes.current)  # independent findings
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L29_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, FindingPickerScene)  # finding_shortlist
+        _shortlist_every_l29_on_topic_finding(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision_brief
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                _cite_every_l29_headline_finding(decision)
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
