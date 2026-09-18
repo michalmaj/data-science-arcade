@@ -313,7 +313,11 @@ from data_science_arcade.lessons.l28_chart_crime_lab.scenario import (
     WINDOW_REVEAL_INTERPRET_OPTIONS as L28_WINDOW_REVEAL_INTERPRET_OPTIONS,
 )
 from data_science_arcade.lessons.l29_the_executive_brief.findings import FINDINGS_POOL as L29_FINDINGS_POOL
-from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
+from data_science_arcade.lessons.l29_the_executive_brief.scenario import (
+    DECISION_FIELDS as L29_DECISION_FIELDS,
+    MASTERY_STRONGEST_CLAIM_FIELD as L29_MASTERY_STRONGEST_CLAIM_FIELD,
+    MASTERY_WHICH_METRIC_FIELD as L29_MASTERY_WHICH_METRIC_FIELD,
+)
 from data_science_arcade.lessons.l30_the_data_incident.leads import (
     DASHBOARD_CHART_REQUEST as L30_DASHBOARD_CHART_REQUEST,
     MONITORING_REQUEST as L30_MONITORING_REQUEST,
@@ -490,6 +494,8 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L28_MASTERY_STRONGEST_CLAIM_FIELD,
         L28_MASTERY_EVIDENCE_FIELD,
         *L29_DECISION_FIELDS,
+        L29_MASTERY_WHICH_METRIC_FIELD,
+        L29_MASTERY_STRONGEST_CLAIM_FIELD,
         *L30_DECISION_FIELDS,
     )
     for field in brief_fields:

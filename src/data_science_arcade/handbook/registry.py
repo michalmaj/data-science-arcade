@@ -358,6 +358,20 @@ A_TRUTHFUL_CHART_CAN_STILL_MISLEAD = HandbookEntry(
     related_entry_ids=("a_chart_encodes_a_question",),
 )
 
+NOT_EVERY_TRUE_FACT_BELONGS_IN_THE_HEADLINE = HandbookEntry(
+    id="not_every_true_fact_belongs_in_the_headline",
+    title_key="handbook.article.not_every_true_fact_belongs_in_the_headline.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.not_every_true_fact_belongs_in_the_headline.body.1",
+        "handbook.article.not_every_true_fact_belongs_in_the_headline.body.2",
+        "handbook.article.not_every_true_fact_belongs_in_the_headline.body.3",
+        "handbook.article.not_every_true_fact_belongs_in_the_headline.body.4",
+        "handbook.article.not_every_true_fact_belongs_in_the_headline.body.5",
+    ),
+    related_entry_ids=("a_truthful_chart_can_still_mislead",),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -384,6 +398,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     A_CORRELATION_DOESNT_NAME_ITS_OWN_CAUSE,
     A_GROUP_DIFFERENCE_IS_NOT_A_TREATMENT_EFFECT,
     A_TRUTHFUL_CHART_CAN_STILL_MISLEAD,
+    NOT_EVERY_TRUE_FACT_BELONGS_IN_THE_HEADLINE,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -611,6 +626,12 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.visual_rhetoric.term",
         definition_key="handbook.glossary.visual_rhetoric.definition",
         related_entry_id="a_truthful_chart_can_still_mislead",
+    ),
+    GlossaryEntry(
+        id="decision_relevance",
+        term_key="handbook.glossary.decision_relevance.term",
+        definition_key="handbook.glossary.decision_relevance.definition",
+        related_entry_id="not_every_true_fact_belongs_in_the_headline",
     ),
 )
 
