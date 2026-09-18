@@ -302,7 +302,16 @@ from data_science_arcade.lessons.l27_causality_courtroom.scenario import (
     RANDOMIZATION_REVEAL_INTERPRET_OPTIONS as L27_RANDOMIZATION_REVEAL_INTERPRET_OPTIONS,
 )
 from data_science_arcade.lessons.l28_chart_crime_lab.requests import CHART_REQUESTS as L28_CHART_REQUESTS
-from data_science_arcade.lessons.l28_chart_crime_lab.scenario import DECISION_FIELDS as L28_DECISION_FIELDS
+from data_science_arcade.lessons.l28_chart_crime_lab.scenario import (
+    AXIS_REVEAL_INTERPRET_OPTIONS as L28_AXIS_REVEAL_INTERPRET_OPTIONS,
+    DECISION_FIELDS as L28_DECISION_FIELDS,
+    DENOMINATOR_REVEAL_INTERPRET_OPTIONS as L28_DENOMINATOR_REVEAL_INTERPRET_OPTIONS,
+    DUAL_AXIS_REVEAL_INTERPRET_OPTIONS as L28_DUAL_AXIS_REVEAL_INTERPRET_OPTIONS,
+    MASTERY_EVIDENCE_FIELD as L28_MASTERY_EVIDENCE_FIELD,
+    MASTERY_STRONGEST_CLAIM_FIELD as L28_MASTERY_STRONGEST_CLAIM_FIELD,
+    MASTERY_WHAT_THE_FLAWED_RATE_SHOWS_FIELD as L28_MASTERY_WHAT_THE_FLAWED_RATE_SHOWS_FIELD,
+    WINDOW_REVEAL_INTERPRET_OPTIONS as L28_WINDOW_REVEAL_INTERPRET_OPTIONS,
+)
 from data_science_arcade.lessons.l29_the_executive_brief.findings import FINDINGS_POOL as L29_FINDINGS_POOL
 from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
 from data_science_arcade.lessons.l30_the_data_incident.leads import (
@@ -477,6 +486,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L27_MASTERY_STRONGEST_CLAIM_FIELD,
         L27_MASTERY_EVIDENCE_FIELD,
         *L28_DECISION_FIELDS,
+        L28_MASTERY_WHAT_THE_FLAWED_RATE_SHOWS_FIELD,
+        L28_MASTERY_STRONGEST_CLAIM_FIELD,
+        L28_MASTERY_EVIDENCE_FIELD,
         *L29_DECISION_FIELDS,
         *L30_DECISION_FIELDS,
     )
@@ -725,6 +737,10 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L26_CONFOUNDING_REVEAL_INTERPRET_OPTIONS,
         L27_GROUP_DIFFERENCES_REVEAL_INTERPRET_OPTIONS,
         L27_RANDOMIZATION_REVEAL_INTERPRET_OPTIONS,
+        L28_AXIS_REVEAL_INTERPRET_OPTIONS,
+        L28_WINDOW_REVEAL_INTERPRET_OPTIONS,
+        L28_DENOMINATOR_REVEAL_INTERPRET_OPTIONS,
+        L28_DUAL_AXIS_REVEAL_INTERPRET_OPTIONS,
     ):
         for option in options:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width))

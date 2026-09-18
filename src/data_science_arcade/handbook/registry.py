@@ -344,6 +344,20 @@ A_GROUP_DIFFERENCE_IS_NOT_A_TREATMENT_EFFECT = HandbookEntry(
     related_entry_ids=("randomization_is_a_mechanism", "confounder"),
 )
 
+A_TRUTHFUL_CHART_CAN_STILL_MISLEAD = HandbookEntry(
+    id="a_truthful_chart_can_still_mislead",
+    title_key="handbook.article.a_truthful_chart_can_still_mislead.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.a_truthful_chart_can_still_mislead.body.1",
+        "handbook.article.a_truthful_chart_can_still_mislead.body.2",
+        "handbook.article.a_truthful_chart_can_still_mislead.body.3",
+        "handbook.article.a_truthful_chart_can_still_mislead.body.4",
+        "handbook.article.a_truthful_chart_can_still_mislead.body.5",
+    ),
+    related_entry_ids=("a_chart_encodes_a_question",),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -369,6 +383,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     AN_ALERT_IS_A_SYMPTOM_NOT_A_DIAGNOSIS,
     A_CORRELATION_DOESNT_NAME_ITS_OWN_CAUSE,
     A_GROUP_DIFFERENCE_IS_NOT_A_TREATMENT_EFFECT,
+    A_TRUTHFUL_CHART_CAN_STILL_MISLEAD,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -590,6 +605,12 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.counterfactual.term",
         definition_key="handbook.glossary.counterfactual.definition",
         related_entry_id="a_group_difference_is_not_a_treatment_effect",
+    ),
+    GlossaryEntry(
+        id="visual_rhetoric",
+        term_key="handbook.glossary.visual_rhetoric.term",
+        definition_key="handbook.glossary.visual_rhetoric.definition",
+        related_entry_id="a_truthful_chart_can_still_mislead",
     ),
 )
 

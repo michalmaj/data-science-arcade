@@ -5,12 +5,13 @@ import pygame
 from data_science_arcade.core.display import LOGICAL_SIZE
 from data_science_arcade.core.fonts import get_font
 from data_science_arcade.core.scenes import Scene
-from data_science_arcade.lessons.framework.chart import ChartChoices, ChartOption, ChartRequest
+from data_science_arcade.lessons.framework.chart import ChartChoices, ChartOption, ChartRequest, chart_render_range
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.category_chart import category_x, draw_bar_chart, draw_line_chart, value_to_y
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
+from data_science_arcade.workbench.context import LessonContext
 
 CENTER_X = LOGICAL_SIZE[0] // 2
 CHART_RECT = pygame.Rect(150, 68, 660, 168)
@@ -46,7 +47,19 @@ class ChartDesignerScene(Scene):
     `ChartBuilderScene`, which has no such capability at all.
 
     guided=True also shows each request's hint; guided=False hides it,
-    matching every other stage scene's guided/independent split."""
+    matching every other stage scene's guided/independent split.
+
+    `context`/`initial_choices`/`mirror_python_code_for`, when given,
+    follow the exact same additive, action-only-recording contract
+    `CorrelationScene` already established: `initial_choices` seeds
+    `self.choices` (a revision pass starts from the earlier pick, freely
+    revisable); `_next()` records one real `AnalyticalAction` (Python
+    Mirror only, never `EvidenceItem`) per request, keyed so a later
+    Back-revision updates that same slot in place rather than doubling
+    it - real Evidence should only ever come from a reveal that fires
+    exactly once, never from a pick. All three default to None, so
+    `l30_the_data_incident/leads.py`'s existing 5-positional-arg call
+    site keeps working unchanged."""
 
     def __init__(
         self,
@@ -55,14 +68,21 @@ class ChartDesignerScene(Scene):
         requests: tuple[ChartRequest, ...],
         on_complete: Callable[[ChartChoices], None],
         guided: bool = True,
+        context: LessonContext | None = None,
+        initial_choices: ChartChoices | None = None,
+        mirror_python_code_for: Callable[[ChartRequest, ChartOption, str], str] | None = None,
+        mirror_action_label_key: str = "chart_designer.picked_chart_action_label",
     ) -> None:
         super().__init__(app)
         self.title_key = title_key
         self.requests = requests
         self.on_complete = on_complete
         self.guided = guided
+        self.context = context
+        self.mirror_python_code_for = mirror_python_code_for
+        self.mirror_action_label_key = mirror_action_label_key
         self.request_index = 0
-        self.choices: ChartChoices = {}
+        self.choices: ChartChoices = dict(initial_choices) if initial_choices is not None else {}
         self._rebuild_buttons()
 
     def _current_request(self) -> ChartRequest:
@@ -112,8 +132,17 @@ class ChartDesignerScene(Scene):
             self._rebuild_buttons()
 
     def _next(self) -> None:
-        if self._current_request().key not in self.choices:
+        request = self._current_request()
+        if request.key not in self.choices:
             return
+        if self.context is not None and self.mirror_python_code_for is not None:
+            var_name = f"{request.key}_chart"
+            option = self._selected_option(request)
+            self.context.record_action(
+                label_key=self.mirror_action_label_key,
+                python_code=self.mirror_python_code_for(request, option, var_name),
+                key=f"chart_pick_{request.key}",
+            )
         if self._is_last_request():
             self.on_complete(dict(self.choices))
             return
@@ -144,9 +173,7 @@ class ChartDesignerScene(Scene):
             draw_wrapped_text(surface, loc.t(request.hint_key), (CENTER_X - 300, HINT_Y), 600, 15, colors.BUTTON_TEXT_DISABLED)
 
     def _chart_range(self, option: ChartOption, values: tuple[float, ...]) -> tuple[float, float]:
-        if option.chart_type == "bar" and option.scale == "zoomed":
-            return min(values) * 0.9, max(values) * 1.05
-        return 0.0, max(values) * 1.15
+        return chart_render_range(option.chart_type, option.scale, values)
 
     def _effective_series(self, request: ChartRequest, option: ChartOption) -> tuple[tuple[str, ...], tuple[float, ...]]:
         categories = option.categories if option.categories is not None else request.categories
