@@ -8,6 +8,7 @@ import pygame
 from data_science_arcade.app.game import App
 from data_science_arcade.lessons.framework.chart import ChartOption, ChartRequest
 from data_science_arcade.ui.chart_designer_scene import ChartDesignerScene
+from data_science_arcade.workbench.context import LessonContext
 
 REQUESTS = (
     ChartRequest(
@@ -169,6 +170,88 @@ def test_an_option_with_an_override_uses_its_own_series_instead():
 
         assert categories == ("Feb", "Mar")
         assert values == (90.0, 80.0)
+    finally:
+        pygame.quit()
+
+
+def test_initial_choices_seeds_real_ui_state():
+    app = _init_app()
+    try:
+        scene = _make_scene(app, initial_choices={"request_a": "bar_zoomed"})
+        assert scene.choices == {"request_a": "bar_zoomed"}
+        assert scene.next_button.enabled is True
+    finally:
+        pygame.quit()
+
+
+def test_a_legacy_call_with_no_new_params_still_works_unchanged():
+    """`l30_the_data_incident/leads.py`'s own existing call site never
+    passes context/initial_choices/mirror_python_code_for - all three
+    must default to None and the scene must behave exactly as before."""
+    app = _init_app()
+    try:
+        scene = ChartDesignerScene(app, "app.title", REQUESTS, lambda choices: None, guided=True)
+        assert scene.context is None
+        assert scene.mirror_python_code_for is None
+        assert scene.choices == {}
+        scene.buttons.buttons[0].on_activate()
+        scene.next_button.on_activate()  # must not raise even with no context/mirror callback
+        assert scene.request_index == 1
+    finally:
+        pygame.quit()
+
+
+def test_mirror_python_code_records_one_action_reflecting_the_selected_option():
+    app = _init_app()
+    try:
+        context = LessonContext()
+
+        def mirror_python_code_for(request, option, var_name):
+            return f"{var_name} = {request.key}:{option.key}"
+
+        scene = _make_scene(app, context=context, mirror_python_code_for=mirror_python_code_for)
+        scene.buttons.buttons[1].on_activate()  # bar_zoomed
+        scene.next_button.on_activate()
+
+        pick_actions = [a for a in context.actions if a.key == "chart_pick_request_a"]
+        assert len(pick_actions) == 1
+        assert pick_actions[0].python_code == "request_a_chart = request_a:bar_zoomed"
+    finally:
+        pygame.quit()
+
+
+def test_a_revision_pass_overwrites_the_same_action_key_rather_than_doubling_it():
+    app = _init_app()
+    try:
+        context = LessonContext()
+
+        def mirror_python_code_for(request, option, var_name):
+            return f"{var_name} = {option.key}"
+
+        first_pass = _make_scene(app, context=context, mirror_python_code_for=mirror_python_code_for)
+        first_pass.buttons.buttons[0].on_activate()  # bar_zero
+        first_pass.next_button.on_activate()
+        first_pass.buttons.buttons[1].on_activate()
+        first_pass.next_button.on_activate()
+
+        revision = _make_scene(
+            app, context=context, initial_choices=dict(first_pass.choices), mirror_python_code_for=mirror_python_code_for
+        )
+        revision.request_index = 0
+        revision._rebuild_buttons()
+        revision.buttons.buttons[1].on_activate()  # bar_zoomed this time - real revision
+        revision.next_button.on_activate()
+        revision.buttons.buttons[1].on_activate()
+        revision.next_button.on_activate()
+
+        pick_actions = [a for a in context.actions if a.key == "chart_pick_request_a"]
+        assert len(pick_actions) == 1  # overwritten in place, never doubled
+        assert pick_actions[0].python_code == "request_a_chart = bar_zoomed"
+
+        # No Evidence is ever recorded from a pick, before or after revision -
+        # only a reveal (via ComparisonRevealScene/DualAxisRevealScene) records
+        # Evidence, and none of those scenes are exercised here.
+        assert context.evidence == ()
     finally:
         pygame.quit()
 

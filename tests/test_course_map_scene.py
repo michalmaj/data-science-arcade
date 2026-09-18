@@ -11,6 +11,7 @@ from data_science_arcade.lessons.l01_question_first.definition import LESSON_01
 from data_science_arcade.lessons.l01_question_first.scenario import build_lesson_one_runner
 from data_science_arcade.ui.comparison_reveal_scene import ComparisonRevealScene
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene
+from data_science_arcade.ui.dual_axis_reveal_scene import DualAxisRevealScene
 from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
 from data_science_arcade.ui.mastery_challenge_scene import MasteryChallengeScene
 from data_science_arcade.ui.metric_contract_scene import MetricContractScene
@@ -68,7 +69,6 @@ from data_science_arcade.lessons.l26_correlation_crime_scene.requests import COR
 from data_science_arcade.lessons.l27_causality_courtroom.requests import CORRECT_OPTION_BY_REQUEST as L27_CORRECT_OPTION_BY_REQUEST
 from data_science_arcade.lessons.l27_causality_courtroom.scenario import DECISION_FIELDS as L27_DECISION_FIELDS
 from data_science_arcade.lessons.l28_chart_crime_lab.requests import CORRECT_OPTION_BY_REQUEST as L28_CORRECT_OPTION_BY_REQUEST
-from data_science_arcade.lessons.l28_chart_crime_lab.scenario import DECISION_FIELDS as L28_DECISION_FIELDS
 from data_science_arcade.lessons.l29_the_executive_brief.findings import CORRECT_FINDING_KEYS as L29_CORRECT_FINDING_KEYS
 from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
 from data_science_arcade.lessons.l30_the_data_incident.scenario import DECISION_FIELDS as L30_DECISION_FIELDS
@@ -2799,6 +2799,11 @@ def _pick_every_l28_chart_correctly(scene: ChartDesignerScene) -> None:
         scene.next_button.on_activate()
 
 
+def _confirm_l28_reveal(scene) -> None:
+    scene.buttons.buttons[0].on_activate()
+    scene.continue_button.on_activate()
+
+
 def test_finishing_lesson_twenty_eight_marks_it_complete_and_unlocks_lesson_twenty_nine():
     app = App()
     app.init()
@@ -2811,11 +2816,41 @@ def test_finishing_lesson_twenty_eight_marks_it_complete_and_unlocks_lesson_twen
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _pick_every_l28_chart_correctly(app.scenes.current)  # guided charts
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _pick_every_l28_chart_correctly(app.scenes.current)  # independent charts
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L28_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, ChartDesignerScene)  # initial_pass
+        _pick_every_l28_chart_correctly(app.scenes.current)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # reveal_axis
+        _confirm_l28_reveal(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # reveal_window
+        _confirm_l28_reveal(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # reveal_denominator
+        _confirm_l28_reveal(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, DualAxisRevealScene)  # reveal_dual_axis
+        _confirm_l28_reveal(app.scenes.current.inner)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # revision_intro
+
+        assert isinstance(app.scenes.current.inner, ChartDesignerScene)  # revision_pass
+        _pick_every_l28_chart_correctly(app.scenes.current)
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision_brief
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
