@@ -14,17 +14,20 @@ TOOL_SPEND_CORRELATION = compute_correlation(_tool_spend, "tool_used", "impulse_
 RESOLUTION_SATISFACTION_CORRELATION = compute_correlation(_resolution_satisfaction, "resolved_under_1hr", "satisfaction_score")
 TRAINING_PERFORMANCE_CORRELATION = compute_correlation(_training_performance, "completed_training", "performance_score")
 
-# Three cases, each a real self-selection or selection-on-outcome trap -
-# hand-crafted, not random, verified via script before any of this was
-# written. Every case offers one option that reaches the *right verdict*
-# for the *wrong reason* (a real, tempting mistake distinct from simply
-# picking the opposite verdict), not just a correct option vs. an
-# obviously-opposite one. The correct verdict's position varies across
-# all three requests (0, 1, 2) so it can't be recognized by position alone.
+# Three cases, two genuinely different non-random-formation mechanisms -
+# case 1 and case 3 are real self-selection (a person chooses); case 2 is
+# selection-on-outcome via an operational process (ticket difficulty),
+# never a person "selecting" anything - see case_data.py's own header for
+# why these are never lumped together as one mechanism. Hand-crafted, not
+# random, verified via script before any of this was written. Every case
+# offers one option that reaches the *right verdict* for the *wrong
+# reason* (a real, tempting mistake distinct from simply picking the
+# opposite verdict), not just a correct option vs. an obviously-opposite
+# one. The correct verdict's position varies across all three requests
+# (0, 1, 2) so it can't be recognized by position alone.
 TOOL_SPEND_CLAIM = CorrelationRequest(
     key="tool_spend_claim",
     prompt_key="lesson.l27.request.tool_spend_claim.prompt",
-    hint_key="lesson.l27.request.tool_spend_claim.hint",
     metric_a_label_key="lesson.l27.metric.tool_used",
     metric_b_label_key="lesson.l27.metric.impulse_spend",
     evidence_key="lesson.l27.evidence.tool_spend_claim",
@@ -40,7 +43,6 @@ TOOL_SPEND_CLAIM = CorrelationRequest(
 RESOLUTION_SATISFACTION_CLAIM = CorrelationRequest(
     key="resolution_satisfaction_claim",
     prompt_key="lesson.l27.request.resolution_satisfaction_claim.prompt",
-    hint_key="lesson.l27.request.resolution_satisfaction_claim.hint",
     metric_a_label_key="lesson.l27.metric.resolved_under_1hr",
     metric_b_label_key="lesson.l27.metric.satisfaction_score",
     evidence_key="lesson.l27.evidence.resolution_satisfaction_claim",
@@ -56,7 +58,6 @@ RESOLUTION_SATISFACTION_CLAIM = CorrelationRequest(
 TRAINING_PERFORMANCE_CLAIM = CorrelationRequest(
     key="training_performance_claim",
     prompt_key="lesson.l27.request.training_performance_claim.prompt",
-    hint_key="lesson.l27.request.training_performance_claim.hint",
     metric_a_label_key="lesson.l27.metric.completed_training",
     metric_b_label_key="lesson.l27.metric.performance_score",
     evidence_key="lesson.l27.evidence.training_performance_claim",

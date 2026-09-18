@@ -2733,6 +2733,11 @@ def _pick_every_l27_option_correctly(scene: CorrelationScene) -> None:
         scene.next_button.on_activate()
 
 
+def _confirm_l27_reveal(scene: ComparisonRevealScene) -> None:
+    scene.buttons.buttons[0].on_activate()
+    scene.continue_button.on_activate()
+
+
 def test_finishing_lesson_twenty_seven_marks_it_complete_and_unlocks_lesson_twenty_eight():
     app = App()
     app.init()
@@ -2745,11 +2750,37 @@ def test_finishing_lesson_twenty_seven_marks_it_complete_and_unlocks_lesson_twen
 
         _play_dialogue_to_the_end(app.scenes.current)  # briefing
         _play_dialogue_to_the_end(app.scenes.current)  # investigation
-        _pick_every_l27_option_correctly(app.scenes.current)  # guided verdicts
-        _play_dialogue_to_the_end(app.scenes.current)  # independent intro
-        _pick_every_l27_option_correctly(app.scenes.current)  # independent verdicts
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L27_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, CorrelationScene)  # initial_case_pass
+        _pick_every_l27_option_correctly(app.scenes.current)
+
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # group_differences_reveal
+        _confirm_l27_reveal(app.scenes.current.inner)
+        assert isinstance(app.scenes.current.inner, ComparisonRevealScene)  # randomization_reveal
+        _confirm_l27_reveal(app.scenes.current.inner)
+
+        _play_dialogue_to_the_end(app.scenes.current)  # revision_intro
+
+        assert isinstance(app.scenes.current.inner, CorrelationScene)  # revision_case_pass
+        _pick_every_l27_option_correctly(app.scenes.current)
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # final_decision_brief
+        decision = app.scenes.current.inner
+        for step in decision._steps:
+            if decision._is_evidence_step(step):
+                evidence_ids = list(decision._evidence_toggle_buttons.keys())[: decision.evidence_field.min_count]
+                for item_id in evidence_ids:
+                    decision._evidence_toggle_buttons[item_id].on_activate()
+            else:
+                decision.buttons.buttons[0].on_activate()
+            decision.next_button.on_activate()
+
+        assert isinstance(app.scenes.current.inner, OfferThenTaskScene)  # mastery_challenge - skipped
+        app.scenes.current.inner.buttons.buttons[1].on_activate()
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.buttons.buttons[0].on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

@@ -330,6 +330,20 @@ A_CORRELATION_DOESNT_NAME_ITS_OWN_CAUSE = HandbookEntry(
     related_entry_ids=("confounder", "randomization_is_a_mechanism"),
 )
 
+A_GROUP_DIFFERENCE_IS_NOT_A_TREATMENT_EFFECT = HandbookEntry(
+    id="a_group_difference_is_not_a_treatment_effect",
+    title_key="handbook.article.a_group_difference_is_not_a_treatment_effect.title",
+    category_key="handbook.category.foundations",
+    body_paragraph_keys=(
+        "handbook.article.a_group_difference_is_not_a_treatment_effect.body.1",
+        "handbook.article.a_group_difference_is_not_a_treatment_effect.body.2",
+        "handbook.article.a_group_difference_is_not_a_treatment_effect.body.3",
+        "handbook.article.a_group_difference_is_not_a_treatment_effect.body.4",
+        "handbook.article.a_group_difference_is_not_a_treatment_effect.body.5",
+    ),
+    related_entry_ids=("randomization_is_a_mechanism", "confounder"),
+)
+
 HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     ASKING_AN_ANALYTICAL_QUESTION,
     OBSERVATION_UNIT_AND_GRAIN,
@@ -354,6 +368,7 @@ HANDBOOK_ENTRIES: tuple[HandbookEntry, ...] = (
     A_SURVEY_IS_A_SAMPLE_NOT_A_CENSUS,
     AN_ALERT_IS_A_SYMPTOM_NOT_A_DIAGNOSIS,
     A_CORRELATION_DOESNT_NAME_ITS_OWN_CAUSE,
+    A_GROUP_DIFFERENCE_IS_NOT_A_TREATMENT_EFFECT,
 )
 
 GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
@@ -563,6 +578,18 @@ GLOSSARY_ENTRIES: tuple[GlossaryEntry, ...] = (
         term_key="handbook.glossary.correlation.term",
         definition_key="handbook.glossary.correlation.definition",
         related_entry_id="a_correlation_doesnt_name_its_own_cause",
+    ),
+    GlossaryEntry(
+        id="selection_bias",
+        term_key="handbook.glossary.selection_bias.term",
+        definition_key="handbook.glossary.selection_bias.definition",
+        related_entry_id="a_group_difference_is_not_a_treatment_effect",
+    ),
+    GlossaryEntry(
+        id="counterfactual",
+        term_key="handbook.glossary.counterfactual.term",
+        definition_key="handbook.glossary.counterfactual.definition",
+        related_entry_id="a_group_difference_is_not_a_treatment_effect",
     ),
 )
 
