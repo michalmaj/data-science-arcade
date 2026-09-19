@@ -41,10 +41,13 @@ class InvestigationHubScene(Scene):
     investigation engine.
 
     Every lead's own content stays fixed regardless of which others were
-    visited - the twist and final decision never depend on *which* subset
-    was investigated, only that enough real investigation happened -
-    matching every prior lesson's "grade on method, not a lucky path"
-    discipline."""
+    visited - this hub itself only ever tracks that enough real
+    investigation happened, never which subset. A calling lesson MAY
+    still make its own downstream scoring depend on which leads were
+    investigated and what was chosen inside each (Lesson 30 does exactly
+    this, deliberately: which sources you choose to trust is itself the
+    skill under test there) - that's a property of the lesson's own
+    scoring, not of this scene, which stays subset-agnostic either way."""
 
     def __init__(
         self,

@@ -319,13 +319,18 @@ from data_science_arcade.lessons.l29_the_executive_brief.scenario import (
     MASTERY_WHICH_METRIC_FIELD as L29_MASTERY_WHICH_METRIC_FIELD,
 )
 from data_science_arcade.lessons.l30_the_data_incident.leads import (
+    BASELINE_CHECK_REQUEST as L30_BASELINE_CHECK_REQUEST,
+    CHECKOUT_HEALTH_REQUEST as L30_CHECKOUT_HEALTH_REQUEST,
     DASHBOARD_CHART_REQUEST as L30_DASHBOARD_CHART_REQUEST,
+    DEDUP_FIELD as L30_DEDUP_FIELD,
     MONITORING_REQUEST as L30_MONITORING_REQUEST,
-    PROMO_CORRELATION_REQUEST as L30_PROMO_CORRELATION_REQUEST,
     REDESIGN_CORRELATION_REQUEST as L30_REDESIGN_CORRELATION_REQUEST,
-    REGIONAL_BREAKDOWN_REQUEST as L30_REGIONAL_BREAKDOWN_REQUEST,
+    REGIONAL_CUT_REQUEST as L30_REGIONAL_CUT_REQUEST,
+    promo_correlation_request_for as l30_promo_correlation_request_for,
 )
 from data_science_arcade.lessons.l30_the_data_incident.scenario import DECISION_FIELDS as L30_DECISION_FIELDS
+
+L30_PROMO_CORRELATION_REQUEST = l30_promo_correlation_request_for(dedupe=True)
 from data_science_arcade.localization.service import SUPPORTED_LOCALES, Localization
 from data_science_arcade.ui.alert_config_scene import OPTION_SIZE as ALERT_OPTION_SIZE
 from data_science_arcade.ui.brief_builder_scene import OPTION_SIZE
@@ -497,6 +502,7 @@ def _collect_checks() -> list[tuple[str, str, int]]:
         L29_MASTERY_WHICH_METRIC_FIELD,
         L29_MASTERY_STRONGEST_CLAIM_FIELD,
         *L30_DECISION_FIELDS,
+        L30_DEDUP_FIELD,
     )
     for field in brief_fields:
         for option in field.options:
@@ -570,8 +576,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
             checks.append((f"interpret.{option.key}", option.label_key, comparison_reveal_option_button_width_l15))
 
     segment_option_button_width = SEGMENT_OPTION_SIZE[0] - BUTTON_PADDING
-    for option in L30_REGIONAL_BREAKDOWN_REQUEST.options:
-        checks.append((f"{L30_REGIONAL_BREAKDOWN_REQUEST.key}.{option.key}", option.label_key, segment_option_button_width))
+    for request in (L30_REGIONAL_CUT_REQUEST, L30_BASELINE_CHECK_REQUEST, L30_CHECKOUT_HEALTH_REQUEST):
+        for option in request.options:
+            checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
     for request in _l07_build_investigation_requests(l07_generate_orders()):
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, segment_option_button_width))
@@ -659,6 +666,9 @@ def _collect_checks() -> list[tuple[str, str, int]]:
     for request in L27_CORRELATION_REQUESTS:
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, correlation_option_button_width))
+    # promo_correlation_request_for's own options are the same VerdictOption
+    # objects regardless of dedupe - only the correlation value differs -
+    # so checking one instance covers both.
     for request in (L30_REDESIGN_CORRELATION_REQUEST, L30_PROMO_CORRELATION_REQUEST):
         for option in request.options:
             checks.append((f"{request.key}.{option.key}", option.label_key, correlation_option_button_width))
@@ -795,11 +805,12 @@ ALL_CHECKS = _collect_checks()
 # label once investigated, so the *longer*, post-investigation text is
 # the real worst case to check - not just the bare label.
 L30_LEAD_LABEL_KEYS = (
-    "lesson.l30.lead_label.redesign_correlation",
     "lesson.l30.lead_label.regional_breakdown",
-    "lesson.l30.lead_label.dashboard_chart",
     "lesson.l30.lead_label.promo_correlation",
+    "lesson.l30.lead_label.redesign_correlation",
+    "lesson.l30.lead_label.checkout_health_check",
     "lesson.l30.lead_label.monitoring_review",
+    "lesson.l30.lead_label.dashboard_chart",
 )
 
 

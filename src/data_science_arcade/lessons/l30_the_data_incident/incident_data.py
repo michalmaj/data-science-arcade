@@ -9,22 +9,25 @@ INCIDENT_SCHEMA = Schema(
         ColumnSchema("week", "int64"),
         ColumnSchema("revenue", "float64"),
         ColumnSchema("support_tickets", "int64"),
-        ColumnSchema("promo_redemptions", "int64"),
+        ColumnSchema("checkout_completion_rate", "float64"),
     )
 )
 
-# One real incident, one shared table every investigation lead reads from -
-# unlike every prior lesson's separate guided/independent/twist datasets,
-# Lesson 30's whole point is drawing the right conclusion from ONE body of
-# evidence, so there is deliberately no separate twist_data.py here.
+# Finance's own weekly regional revenue export - the trigger everyone
+# starts from. Promo redemptions live in their own log (promo_log_data.py)
+# and are joined in separately, not pre-merged here - see leads.py's own
+# promo_correlation lead for why that join (and the dedup it depends on)
+# is itself part of what this lesson tests, not a given.
 #
 # Weeks 1-6: ordinary weeks, small realistic noise, no real signal anywhere.
 # Week 7: a one-week 20%-off flash promo ran in the East region only,
 # driving a real, large but temporary revenue spike there (and nowhere
-# else) - real promo-code redemptions back it up.
+# else) - real promo-redemption-log activity backs it up (promo_log_data.py).
 # Week 8 ("this week"): the promo ended and East reverted to its own
-# ordinary baseline. Company-wide revenue looks like an 18% "drop" versus
-# week 7, but every region's week-8 number is unremarkable on its own.
+# ordinary baseline (~75k, same as weeks 1-6). Company-wide revenue looks
+# like an 18% "drop" versus week 7, but that comparison point (week 7) was
+# itself the unusual one - every region's week-8 number is unremarkable
+# against its own longer-run baseline.
 REGION_WEEKLY_REVENUE = {
     "east": (74800.0, 75200.0, 74900.0, 75100.0, 75300.0, 74700.0, 150000.0, 74000.0),
     "north": (89800.0, 90200.0, 89900.0, 90100.0, 90300.0, 89700.0, 90000.0, 90200.0),
@@ -39,19 +42,22 @@ REGION_WEEKLY_TICKETS = {
     "west": (7, 8, 7, 8, 7, 8, 8, 7),
 }
 
-REGION_WEEKLY_PROMO_REDEMPTIONS = {
-    "east": (0, 0, 0, 0, 0, 0, 3000, 0),
-    "north": (0, 0, 0, 0, 0, 0, 0, 0),
-    "south": (0, 0, 0, 0, 0, 0, 0, 0),
-    "west": (0, 0, 0, 0, 0, 0, 0, 0),
-}
+# Engineering's own checkout funnel monitor (payment-confirmation step),
+# a company-wide metric independent of Finance's revenue export and of
+# the region it's read against - a real, separately-computed operational
+# signal, not authored to conveniently exonerate anything. Flat across
+# the whole window, including weeks 7-8: this specific metric shows no
+# deterioration, which supports ruling out a checkout-completion collapse
+# specifically, not a blanket "the redesign is fine" claim - see
+# leads.py's own checkout_health_check framing.
+WEEKLY_CHECKOUT_COMPLETION_RATE = (0.684, 0.686, 0.683, 0.687, 0.682, 0.685, 0.685, 0.684)
 
 WEEKS = tuple(range(1, 9))
 PROMO_WEEK = 7
 INCIDENT_WEEK = 8
 
 
-def _build_rows() -> list[tuple[str, int, float, int, int]]:
+def _build_rows() -> list[tuple[str, int, float, int, float]]:
     rows = []
     for region in REGION_WEEKLY_REVENUE:
         for index, week in enumerate(WEEKS):
@@ -61,7 +67,7 @@ def _build_rows() -> list[tuple[str, int, float, int, int]]:
                     week,
                     REGION_WEEKLY_REVENUE[region][index],
                     REGION_WEEKLY_TICKETS[region][index],
-                    REGION_WEEKLY_PROMO_REDEMPTIONS[region][index],
+                    WEEKLY_CHECKOUT_COMPLETION_RATE[index],
                 )
             )
     return rows
@@ -69,7 +75,7 @@ def _build_rows() -> list[tuple[str, int, float, int, int]]:
 
 def generate_incident_data() -> Dataset:
     frame = pd.DataFrame(
-        _build_rows(), columns=["region", "week", "revenue", "support_tickets", "promo_redemptions"]
+        _build_rows(), columns=["region", "week", "revenue", "support_tickets", "checkout_completion_rate"]
     )
     step = PipelineStep("collected", python_code="incident = pd.read_csv('novamart_weekly_regional_revenue.csv')")
     return Dataset(name="novamart_weekly_regional_revenue", frame=frame, schema=INCIDENT_SCHEMA, history=(step,))
@@ -110,21 +116,17 @@ def correlation_ticket_change_vs_revenue_change(dataset: Dataset) -> float:
     return float(pd.Series(ticket_changes).corr(pd.Series(revenue_changes)))
 
 
-def correlation_promo_redemptions_vs_revenue(dataset: Dataset, region: str) -> float:
-    redemptions = pd.Series(region_series(dataset, region, "promo_redemptions"))
-    revenue = pd.Series(region_series(dataset, region, "revenue"))
-    return float(redemptions.corr(revenue))
-
-
-def region_week_over_week_change(dataset: Dataset, region: str) -> tuple[float, float]:
-    before = value_at(dataset, region, PROMO_WEEK, "revenue")
-    after = value_at(dataset, region, INCIDENT_WEEK, "revenue")
-    return before, after
-
-
 def region_baseline_average(dataset: Dataset, region: str, through_week: int = 6) -> float:
     subset = dataset.frame[(dataset.frame["region"] == region) & (dataset.frame["week"] <= through_week)]
     return float(subset["revenue"].mean())
+
+
+def checkout_completion_window_average(dataset: Dataset, weeks: tuple[int, ...]) -> float:
+    subset = dataset.frame[dataset.frame["week"].isin(weeks) & (dataset.frame["region"] == "east")]
+    # checkout_completion_rate is identical across regions (one shared
+    # company-wide system) - filtering to one region avoids counting it
+    # four times over when averaging.
+    return float(subset["checkout_completion_rate"].mean())
 
 
 def metric_series(dataset: Dataset, metric_key: str) -> tuple[float, ...]:
@@ -138,17 +140,24 @@ def metric_series(dataset: Dataset, metric_key: str) -> tuple[float, ...]:
 
 
 def simulate_monitoring(
-    dataset: Dataset, metric, threshold, target_incident_day: int
+    dataset: Dataset, metric, threshold, target_anomaly_week: int
 ) -> tuple[int, bool]:
     """Flags any week whose value strays from the first 6 weeks' own
     baseline average by at least `threshold.multiplier` - real computed
     anomaly detection over `metric.metric_key`'s series, not a scripted
-    result. A false alarm is any flagged week other than the real
-    incident week; `incident_caught` is whether that week itself got
-    flagged."""
+    result. This is a plain percent-of-6-week-baseline check, NOT the
+    stdev-of-spread check `framework/alerting.py`'s own `multiplier`
+    field docstring describes for L25 (that lesson's real daily series
+    supports a stdev-based check; this one's 8 weekly points don't) -
+    same field name, deliberately different statistic, see leads.py's
+    own comment at MONITORING_REQUEST. A false alarm is any flagged week
+    other than the real anomaly week; `anomaly_caught` is whether that
+    week itself got flagged. Catching week 7 here means the monitor would
+    have flagged the spike itself as worth a look - it says nothing about
+    *why* it happened (see leads.py's own monitoring_review framing)."""
     series = metric_series(dataset, metric.metric_key)
     baseline = sum(series[:6]) / 6
     flagged_weeks = [index + 1 for index, value in enumerate(series) if abs(percent_change(baseline, value)) >= threshold.multiplier]
-    false_alarm_count = sum(1 for week in flagged_weeks if week != target_incident_day)
-    incident_caught = target_incident_day in flagged_weeks
-    return false_alarm_count, incident_caught
+    false_alarm_count = sum(1 for week in flagged_weeks if week != target_anomaly_week)
+    anomaly_caught = target_anomaly_week in flagged_weeks
+    return false_alarm_count, anomaly_caught
