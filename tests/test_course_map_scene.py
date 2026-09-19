@@ -75,7 +75,6 @@ from data_science_arcade.lessons.l29_the_executive_brief.findings import (
     ON_TOPIC_FINDING_KEYS as L29_ON_TOPIC_FINDING_KEYS,
 )
 from data_science_arcade.lessons.l29_the_executive_brief.scenario import DECISION_FIELDS as L29_DECISION_FIELDS
-from data_science_arcade.lessons.l30_the_data_incident.scenario import DECISION_FIELDS as L30_DECISION_FIELDS
 from data_science_arcade.progress.model import TOTAL_LESSONS, LessonCheckpoint, LessonState
 from data_science_arcade.ui.aggregation_builder_scene import AggregationBuilderScene
 from data_science_arcade.ui.alert_config_scene import AlertConfigScene
@@ -2926,23 +2925,53 @@ def _complete_l30_correlation_or_chart_lead(scene) -> None:
     scene.next_button.on_activate()
 
 
+def _complete_l30_segment_lead(scene: SegmentSlicerScene, request_count: int) -> None:
+    for _ in range(request_count):
+        scene.buttons.buttons[0].on_activate()
+        scene.next_button.on_activate()
+
+
 def _complete_l30_alert_lead(scene: AlertConfigScene) -> None:
     scene.buttons.buttons[0].on_activate()  # metric
     scene.buttons.buttons[len(scene._current_request().metric_options)].on_activate()  # threshold
     scene.next_button.on_activate()
 
 
+def _complete_l30_promo_lead(scene: SequenceScene) -> None:
+    scene.buttons.buttons[0].on_activate()  # dedup choice
+    scene.next_button.on_activate()  # advances to the CorrelationScene
+    scene.buttons.buttons[0].on_activate()  # verdict
+    scene.next_button.on_activate()
+
+
 def _investigate_every_l30_lead(app, hub: InvestigationHubScene) -> None:
-    # Each of the 5 leads is a different reused scene type - unlike every
+    # Each of the 6 leads is a different reused scene shape - unlike every
     # prior lesson's single-scene-type helper, this one has to know which
     # completion shape applies to whichever lead it just opened.
-    for index in range(len(hub.leads)):
+    for index, lead in enumerate(hub.leads):
         hub.buttons.buttons[index].on_activate()
         lead_scene = app.scenes.current.inner
-        if isinstance(lead_scene, AlertConfigScene):
+        if lead.key == "regional_breakdown":
+            _complete_l30_segment_lead(lead_scene, request_count=2)
+        elif lead.key == "checkout_health_check":
+            _complete_l30_segment_lead(lead_scene, request_count=1)
+        elif lead.key == "promo_correlation":
+            _complete_l30_promo_lead(lead_scene)
+        elif isinstance(lead_scene, AlertConfigScene):
             _complete_l30_alert_lead(lead_scene)
         else:
             _complete_l30_correlation_or_chart_lead(lead_scene)
+
+
+def _fill_out_l30_decision(scene: DecisionBuilderScene) -> None:
+    for step in scene._steps:
+        if scene._is_evidence_step(step):
+            if scene.context.evidence:
+                first_id = scene.context.evidence[0].id
+                scene._evidence_toggle_buttons[first_id].on_activate()
+        else:
+            scene.buttons.buttons[0].on_activate()  # BriefField or MultiChoiceField - one click satisfies both
+        scene.next_button.on_activate()
 
 
 def test_finishing_lesson_thirty_marks_it_complete():
@@ -2955,15 +2984,15 @@ def test_finishing_lesson_thirty_marks_it_complete():
         course_map._open_lesson(30)
         click_through_mission_briefing(app)
 
-        _play_dialogue_to_the_end(app.scenes.current)  # briefing
-        _play_dialogue_to_the_end(app.scenes.current)  # investigation intro
+        _play_dialogue_to_the_end(app.scenes.current)  # briefing (merged, single stage)
         hub = app.scenes.current.inner
         assert isinstance(hub, InvestigationHubScene)
         _investigate_every_l30_lead(app, hub)
         assert hub.conclude_button.enabled
         hub.conclude_button.on_activate()
-        app.scenes.current.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(1, 1), button=1))  # twist
-        _fill_out(app.scenes.current, L30_DECISION_FIELDS)  # decision
+
+        assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # no standalone Twist stage
+        _fill_out_l30_decision(app.scenes.current.inner)
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map
