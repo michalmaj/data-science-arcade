@@ -171,6 +171,13 @@ def flawed_rate_minimum_quarter_number(dataset: Dataset) -> float:
 
 _WINDOW_SLICE_BY_OPTION = {"full_year": "[:]", "last_two_months": "[-2:]", "first_two_months": "[:2]"}
 _DENOMINATOR_COLUMN_BY_OPTION = {"per_customers": "total_customers", "per_units_sold": "units_sold"}
+DENOMINATOR_SCALE_BY_OPTION = {"per_customers": 10000, "per_units_sold": 100}
+"""The display scale each denominator option's own rate is shown at (per
+10,000 customers vs. per 100 units sold) - a single shared source for
+both `requests.py`'s own chart values and `chart_pick_mirror_code`'s
+Mirror output below, so the two can't drift out of sync with each
+other the way they previously did (the Mirror omitted this scale
+entirely)."""
 
 
 def chart_pick_mirror_code(request_key: str, option_key: str, var_name: str) -> str:
@@ -187,7 +194,8 @@ def chart_pick_mirror_code(request_key: str, option_key: str, var_name: str) -> 
         return f'{var_name} = active_users.sort_values("month_index")["active_users"]{window}'
     if request_key == "returns_rate_claim":
         denominator = _DENOMINATOR_COLUMN_BY_OPTION[option_key]
-        return f'{var_name} = returns["returns"] / returns["{denominator}"]'
+        scale = DENOMINATOR_SCALE_BY_OPTION[option_key]
+        return f'{var_name} = (returns["returns"] / returns["{denominator}"]) * {scale}'
     raise ValueError(f"no mirror code for request {request_key!r}")
 
 

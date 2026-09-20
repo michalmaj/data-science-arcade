@@ -321,6 +321,27 @@ def monitoring_choice_is_sound(metric_key: str, multiplier: float) -> bool:
     return caught and false_alarms == 0
 
 
+_MONITORING_SERIES_EXPRESSION = {
+    "east_revenue": "incident[incident.region == 'east'].sort_values('week')['revenue']",
+    "company_total_revenue": "incident.groupby('week')['revenue'].sum()",
+    "east_support_tickets": "incident[incident.region == 'east'].sort_values('week')['support_tickets']",
+}
+
+
+def monitoring_review_mirror_code(metric_key: str, multiplier: float) -> str:
+    """Self-contained, parameterized by the STUDENT's own metric/threshold
+    pick (unlike a fixed string, which can't reflect a choice at all) -
+    real pandas mirroring `simulate_monitoring`'s own logic exactly:
+    baseline is the first-6-week mean, a week is flagged past `multiplier`
+    relative deviation from it."""
+    series_expr = _MONITORING_SERIES_EXPRESSION[metric_key]
+    return (
+        f"series = {series_expr}.reset_index(drop=True)\n"
+        "baseline = series.iloc[:6].mean()\n"
+        f"flagged = [index + 1 for index, value in enumerate(series) if abs((value - baseline) / baseline) >= {multiplier}]"
+    )
+
+
 def build_investigation_leads(
     app, context: LessonContext, collected: dict, sync_context: Callable[[], None]
 ) -> tuple[InvestigationLead, ...]:
@@ -349,14 +370,14 @@ def build_investigation_leads(
                     "lesson.l30.action.regional_cut_by_region",
                     "lesson.l30.evidence.concentration",
                     "regional_cut",
-                    python_code="by_region = incident.groupby('region')['revenue'].agg(['first', 'last'])",
+                    python_code="by_region = incident[incident.week.isin([7, 8])].pivot(index='region', columns='week', values='revenue')",
                 )
             else:
                 _record(
                     "lesson.l30.action.regional_cut_by_device",
                     "lesson.l30.evidence.by_device_seen",
                     "regional_cut",
-                    python_code="by_device = device_dashboard.groupby('device')['revenue'].sum()",
+                    python_code="by_device = device_dashboard[device_dashboard.week.isin([7, 8])].pivot(index='device', columns='week', values='revenue')",
                 )
 
             if baseline_check == "vs_own_baseline":
@@ -406,7 +427,10 @@ def build_investigation_leads(
                     "lesson.l30.action.checkout_health_full_window",
                     "lesson.l30.evidence.checkout_flat",
                     "checkout_health",
-                    python_code="checkout_rate = incident[incident.region == 'east']['checkout_completion_rate']",
+                    python_code=(
+                        "checkout_before = incident[(incident.region == 'east') & (incident.week <= 6)]['checkout_completion_rate'].mean()\n"
+                        "checkout_after = incident[(incident.region == 'east') & (incident.week >= 7)]['checkout_completion_rate'].mean()"
+                    ),
                     detail=detail,
                 )
             else:
@@ -440,7 +464,13 @@ def build_investigation_leads(
                 "lesson.l30.action.redesign_correlation",
                 "lesson.l30.evidence.redesign_weak_correlation",
                 "redesign_weak_correlation",
-                python_code="redesign_corr = ticket_change.corr(revenue_change)  # n=4",
+                python_code=(
+                    "ticket_change = incident[incident.week == 8].set_index('region')['support_tickets'] - incident[incident.week == 7].set_index('region')['support_tickets']\n"
+                    "revenue_before = incident[incident.week == 7].set_index('region')['revenue']\n"
+                    "revenue_after = incident[incident.week == 8].set_index('region')['revenue']\n"
+                    "revenue_change = (revenue_after - revenue_before) / revenue_before\n"
+                    "redesign_corr = ticket_change.corr(revenue_change)  # n=4"
+                ),
                 detail=f"r={REDESIGN_CORRELATION:.2f}, n=4",
             )
             hub_close(choices)
@@ -459,11 +489,13 @@ def build_investigation_leads(
                 "lesson.l30.evidence.promo_context",
                 "promo_context",
                 python_code=(
-                    "promo_by_week = promo_log.drop_duplicates(subset='redemption_id').groupby('week').size()\n"
-                    "weekly = incident[incident.region == 'east'].merge(promo_by_week, on='week', how='left').fillna(0)"
-                    if dedupe
-                    else "promo_by_week = promo_log.groupby('week').size()  # not deduped - inflates the count\n"
-                    "weekly = incident[incident.region == 'east'].merge(promo_by_week, on='week', how='left').fillna(0)"
+                    (
+                        "promo_by_week = promo_log.drop_duplicates(subset='redemption_id').groupby('week').size().rename('promo_count').reset_index()\n"
+                        if dedupe
+                        else "promo_by_week = promo_log.groupby('week').size().rename('promo_count').reset_index()  # not deduped - inflates the count\n"
+                    )
+                    + "weekly = incident[incident.region == 'east'].merge(promo_by_week, on='week', how='left').fillna(0)\n"
+                    "promo_correlation = weekly['revenue'].corr(weekly['promo_count'])"
                 ),
                 # Pure count, no English words baked in - `detail` is never
                 # localized (only the label is), so any hardcoded phrase
@@ -520,7 +552,7 @@ def build_investigation_leads(
                 "lesson.l30.action.monitoring_review",
                 "lesson.l30.evidence.monitoring_sound" if sound else "lesson.l30.evidence.monitoring_unsound",
                 "monitoring_review",
-                python_code="flagged = [w for w in weeks if abs(pct_change(baseline, value_at(w))) >= threshold]",
+                python_code=monitoring_review_mirror_code(metric_key, threshold_multiplier),
             )
             hub_close(choices)
 

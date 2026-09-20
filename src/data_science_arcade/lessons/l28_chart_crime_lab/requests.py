@@ -1,5 +1,6 @@
 from data_science_arcade.lessons.framework.chart import ChartOption, ChartRequest
 from data_science_arcade.lessons.l28_chart_crime_lab.chart_data import (
+    DENOMINATOR_SCALE_BY_OPTION,
     fair_return_rate,
     flawed_return_rate,
     generate_active_users_data,
@@ -12,8 +13,8 @@ _active_users = generate_active_users_data()
 _returns = generate_returns_data()
 
 _QUARTERS = ("Q1", "Q2", "Q3", "Q4")
-_PER_UNITS_SOLD_VALUES = tuple(fair_return_rate(_returns, q) * 100 for q in _QUARTERS)
-_PER_CUSTOMERS_VALUES = tuple(flawed_return_rate(_returns, q) * 10000 for q in _QUARTERS)
+_PER_UNITS_SOLD_VALUES = tuple(fair_return_rate(_returns, q) * DENOMINATOR_SCALE_BY_OPTION["per_units_sold"] for q in _QUARTERS)
+_PER_CUSTOMERS_VALUES = tuple(flawed_return_rate(_returns, q) * DENOMINATOR_SCALE_BY_OPTION["per_customers"] for q in _QUARTERS)
 
 _ALL_MONTHS = tuple(_active_users.frame.sort_values("month_index")["month"])
 _ALL_ACTIVE_USERS = tuple(float(v) for v in _active_users.frame.sort_values("month_index")["active_users"])

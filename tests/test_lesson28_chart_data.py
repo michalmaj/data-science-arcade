@@ -120,10 +120,17 @@ def test_chart_pick_mirror_code_matches_the_exact_rendered_series_for_every_opti
         exec(chart_pick_mirror_code("active_users_claim", option_key, "x"), namespace)
         assert list(namespace["x"]) == expected
 
+    # Cross-checked against requests.py's own real rendered chart values
+    # (not hand-typed independently) - a prior version of this test had
+    # its own hardcoded, unscaled expectation that matched a real Mirror
+    # bug (the code omitted the same *100/*10000 display scale the chart
+    # itself uses) rather than catching it.
+    from data_science_arcade.lessons.l28_chart_crime_lab.requests import _PER_CUSTOMERS_VALUES, _PER_UNITS_SOLD_VALUES
+
     namespace = {"returns": returns.frame}
     exec(chart_pick_mirror_code("returns_rate_claim", "per_units_sold", "x"), namespace)
-    assert [round(v, 4) for v in namespace["x"]] == [0.15, 0.16, 0.13, 0.17]
+    assert list(namespace["x"]) == list(_PER_UNITS_SOLD_VALUES)
 
     namespace = {"returns": returns.frame}
     exec(chart_pick_mirror_code("returns_rate_claim", "per_customers", "x"), namespace)
-    assert [round(v, 4) for v in namespace["x"]] == [0.0054, 0.0064, 0.0057, 0.0082]
+    assert list(namespace["x"]) == list(_PER_CUSTOMERS_VALUES)

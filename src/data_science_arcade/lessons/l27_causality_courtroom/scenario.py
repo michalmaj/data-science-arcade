@@ -91,6 +91,14 @@ def _pct(value: float) -> str:
     return f"{value:.0%}"
 
 
+def _pp(value: float) -> str:
+    # For a genuine difference-of-two-rates quantity (not a rate itself) -
+    # matches the pp-suffixed convention L15/L17-L20 already use for this
+    # exact "point gap" shape, avoiding the percent/percentage-point
+    # ambiguity a plain _pct would read as here.
+    return f"{value * 100:+.0f}pp"
+
+
 # --- Reveal A: "Observed Difference Is Not a Treatment Effect" - the real,
 # signed, business-interpretable group-mean difference for each of the
 # three cases, never shown before (the picker only ever shows r). ---------
@@ -149,13 +157,13 @@ RANDOMIZATION_REVEAL_COMPARISONS = (
         CHECKOUT_BETA_OBSERVATIONAL_GAP_EVIDENCE_KEY,
         _CHECKOUT_BETA_OBSERVATIONAL_GAP,
         python_code=group_gap_mirror_code("checkout_beta", "beta_opt_in", "non_beta", "randomization_reveal_observational"),
-        value_format=_pct,
+        value_format=_pp,
     ),
     ComparisonValue(
         CHECKOUT_BETA_RANDOMIZED_GAP_EVIDENCE_KEY,
         _CHECKOUT_BETA_RANDOMIZED_GAP,
         python_code=group_gap_mirror_code("checkout_beta", "randomized_treatment", "randomized_control", "randomization_reveal_randomized"),
-        value_format=_pct,
+        value_format=_pp,
     ),
 )
 RANDOMIZATION_REVEAL_INTERPRET_OPTIONS = tuple(
