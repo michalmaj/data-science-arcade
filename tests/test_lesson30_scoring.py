@@ -153,6 +153,33 @@ def test_scenario_g_raw_count_instead_of_dedup_only_hurts_method():
     assert scores[ScoreDimension.REASONING] >= 90.0
 
 
+def test_misreading_the_redesign_correlation_verdict_lowers_method_not_reasoning():
+    # Triage decision (Option B): the CorrelationScene verdict picks now
+    # count toward METHOD, matching L26/L27's own precedent for this
+    # exact scene ("did you correctly read this one piece of evidence in
+    # isolation") - a genuinely different question from REASONING's own
+    # "does the overall synthesized story hold", so misreading this one
+    # correlation must not touch REASONING when the rest of the evidence
+    # still licenses the correct overall claim.
+    result = _strong_result(redesign_verdict_choice="redesign_confirmed")  # wrong - overclaims
+    scores, _ = _score(result)
+    assert scores[ScoreDimension.METHOD] < 90.0
+    assert scores[ScoreDimension.REASONING] >= 90.0
+
+
+def test_misreading_the_promo_correlation_verdict_lowers_method_not_reasoning():
+    result = _strong_result(promo_verdict_choice="run_promo_permanently")  # wrong - overclaims external validity
+    scores, _ = _score(result)
+    assert scores[ScoreDimension.METHOD] < 90.0
+    assert scores[ScoreDimension.REASONING] >= 90.0
+
+
+def test_correct_verdicts_do_not_drag_method_down():
+    result = _strong_result(redesign_verdict_choice="not_the_redesign_too_weak", promo_verdict_choice="promo_context_confirmed")
+    scores, _ = _score(result)
+    assert scores[ScoreDimension.METHOD] >= 90.0
+
+
 def test_method_never_rewards_opening_more_leads_on_its_own():
     # Correction #14: METHOD must grade quality of choices, never lead
     # count - a student who investigated fewer leads but chose well on
