@@ -44,7 +44,9 @@ class ChartDesignerScene(Scene):
     Used by Lesson 28 ("Chart Crime Lab") for exactly this reason - real
     axis-scale and data-window/denominator manipulation are its own
     territory, deliberately kept out of Lesson 14's own rebuilt
-    `ChartBuilderScene`, which has no such capability at all.
+    `ChartBuilderScene`, which has no such capability at all. Lesson 30
+    ("The Data Incident") reuses this same scene unchanged for its own
+    dashboard-chart lead.
 
     guided=True also shows each request's hint; guided=False hides it,
     matching every other stage scene's guided/independent split.

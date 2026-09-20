@@ -41,9 +41,10 @@ class FindingPickerScene(Scene):
     isn't tied to Dataset transformations the way Lesson 06's WorkbenchScene
     integration is: a finding pick doesn't transform any Dataset, it
     surfaces a fact already computed elsewhere (findings_data.py's own
-    percent_change/point_change). Lesson 29's own scenario.py doesn't pass
-    a context and is unaffected - this is proven via a direct test of this
-    scene, not a played in-game Workbench path."""
+    percent_change/point_change). Lesson 29's own scenario.py does pass a
+    real `context` here (its Cut 1 shortlist and Cut 2 EvidenceField both
+    read from the same recorded pool), so this path is exercised by an
+    actual played-in-game flow, not just a direct scene-level test."""
 
     def __init__(
         self,

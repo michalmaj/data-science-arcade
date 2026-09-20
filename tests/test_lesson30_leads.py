@@ -20,7 +20,10 @@ from data_science_arcade.lessons.l30_the_data_incident.leads import (
     CORRECT_REDESIGN_VERDICT,
     CORRECT_REGIONAL_CUT,
     DASHBOARD_CHART_REQUEST,
+    DEVICE_DASHBOARD_DATASET,
+    INCIDENT_DATASET,
     MINIMUM_LEADS_REQUIRED,
+    PROMO_LOG_DATASET,
     MONITORING_REQUEST,
     RAW_EVENT_COUNT,
     REDESIGN_CORRELATION_REQUEST,
@@ -305,3 +308,116 @@ def test_every_real_evidence_text_fits_the_evidence_field_button(locale):
             assert width <= max_width, f"{locale}/{label_key} is {width}px wide, evidence button only fits {max_width}px: {text!r}"
     finally:
         pygame.quit()
+
+
+def _all_recorded_contexts() -> list[LessonContext]:
+    """Same real-choice matrix as `_all_evidence_label_detail_pairs`, but
+    returns the full LessonContext per run so callers can inspect
+    `.actions` (Python Mirror code) as well as `.evidence`."""
+
+    def run(pick_fn) -> LessonContext:
+        app = App()
+        app.init()
+        try:
+            context = LessonContext()
+            collected: dict = {}
+            leads = {lead.key: lead for lead in build_investigation_leads(app, context, collected, _sync_noop)}
+            pick_fn(leads)
+            return context
+        finally:
+            pygame.quit()
+
+    def pick_regional(region_cut: str, baseline_check: str):
+        def _pick(leads):
+            scene = leads["regional_breakdown"].build_scene(lambda *choices: None)
+            scene._make_choose(region_cut)()
+            scene._next()
+            scene._make_choose(baseline_check)()
+            scene._next()
+
+        return _pick
+
+    def pick_checkout(choice: str):
+        def _pick(leads):
+            scene = leads["checkout_health_check"].build_scene(lambda *choices: None)
+            scene._make_choose(choice)()
+            scene._next()
+
+        return _pick
+
+    def pick_promo(dedup_choice: str):
+        def _pick(leads):
+            scene = leads["promo_correlation"].build_scene(lambda *choices: None)
+            scene.buttons.buttons[0 if dedup_choice == CORRECT_DEDUP_CHOICE else 1].on_activate()
+            scene.next_button.on_activate()
+            scene._active.buttons.buttons[0].on_activate()
+            scene._active.next_button.on_activate()
+
+        return _pick
+
+    def pick_redesign():
+        def _pick(leads):
+            scene = leads["redesign_correlation"].build_scene(lambda *choices: None)
+            scene.buttons.buttons[0].on_activate()
+            scene.next_button.on_activate()
+
+        return _pick
+
+    def pick_dashboard(choice_index: int):
+        def _pick(leads):
+            scene = leads["dashboard_chart"].build_scene(lambda *choices: None)
+            scene.buttons.buttons[choice_index].on_activate()
+            scene.next_button.on_activate()
+
+        return _pick
+
+    def pick_monitoring(metric_index: int, threshold_index: int):
+        def _pick(leads):
+            scene = leads["monitoring_review"].build_scene(lambda *choices: None)
+            scene.buttons.buttons[metric_index].on_activate()
+            scene.buttons.buttons[len(scene._current_request().metric_options) + threshold_index].on_activate()
+            scene.next_button.on_activate()
+
+        return _pick
+
+    return [
+        run(pick_regional("by_region", "vs_own_baseline")),
+        run(pick_regional("by_device", "vs_prior_week_only")),
+        run(pick_checkout("full_window_avg")),
+        run(pick_promo(CORRECT_DEDUP_CHOICE)),
+        run(pick_promo("count_every_log_row")),
+        run(pick_redesign()),
+        run(pick_dashboard(1)),  # zero_based_bar
+        run(pick_monitoring(0, 0)),
+        run(pick_monitoring(1, 2)),  # company_total_revenue/loose - exercises a different metric branch
+    ]
+
+
+def test_every_real_python_mirror_snippet_actually_executes():
+    # The Python Mirror invariant (CLAUDE.md: "every major analytical
+    # action... must have a shown, realistic pandas/numpy equivalent")
+    # is only real if the code string actually runs. Nothing else in the
+    # suite calls exec() on these - this closes that exact gap (a prior
+    # audit found 7 of 9 snippets here failed or computed the wrong
+    # population/window before this test existed).
+    import pandas as pd
+
+    namespace_base = {
+        "pd": pd,
+        "incident": INCIDENT_DATASET.frame,
+        "device_dashboard": DEVICE_DASHBOARD_DATASET.frame,
+        "promo_log": PROMO_LOG_DATASET.frame,
+    }
+
+    checked = 0
+    for context in _all_recorded_contexts():
+        for action in context.actions:
+            if action.python_code is None:
+                continue
+            namespace = dict(namespace_base)
+            try:
+                exec(action.python_code, namespace)
+            except Exception as exc:
+                raise AssertionError(f"Mirror code for action {action.key!r} failed to exec: {exc}\ncode:\n{action.python_code}") from exc
+            checked += 1
+    assert checked >= 9  # one per real lead/branch driven above
