@@ -9,6 +9,8 @@ from data_science_arcade.lessons.l30_the_data_incident.leads import (
     CORRECT_CHART_OPTION,
     CORRECT_CHECKOUT_HEALTH_OPTION,
     CORRECT_DEDUP_CHOICE,
+    CORRECT_PROMO_VERDICT,
+    CORRECT_REDESIGN_VERDICT,
     CORRECT_REGIONAL_CUT,
     MINIMUM_LEADS_REQUIRED,
     monitoring_choice_is_sound,
@@ -135,7 +137,19 @@ def _score_method(result: LessonThirtyResult) -> tuple[float, FeedbackObservatio
     discriminates between them - `monitoring_choice_is_sound` recomputes
     the real outcome for the student's own combo rather than reading a
     fixed answer key, so east_revenue's three equally-good thresholds are
-    never treated as two wrong answers and one right one."""
+    never treated as two wrong answers and one right one.
+
+    Also includes the redesign/promo CorrelationScene verdict picks -
+    matching L26/L27's own precedent (the scene's originating lessons),
+    where reading a correlation's own evidence panel correctly *is*
+    METHOD (`test_method_reads_only_the_final_post_revision_verdicts`).
+    This is a distinct invariant from REASONING's own `what_happened`
+    check: METHOD here asks "did you correctly read THIS ONE piece of
+    evidence in isolation" (e.g. is r=0.34 too weak to blame the
+    redesign), never "does the overall synthesized story hold" - a
+    student can misread a single correlation here while still reaching
+    the right overall conclusion from everything else gathered, and
+    vice versa, so this never double-penalizes the same mistake."""
     checks: list[bool] = []
     if result.regional_cut_choice is not None:
         checks.append(result.regional_cut_choice == CORRECT_REGIONAL_CUT)
@@ -150,6 +164,10 @@ def _score_method(result: LessonThirtyResult) -> tuple[float, FeedbackObservatio
     if result.monitoring_choice is not None:
         metric_key, multiplier = result.monitoring_choice
         checks.append(monitoring_choice_is_sound(metric_key, multiplier))
+    if result.redesign_verdict_choice is not None:
+        checks.append(result.redesign_verdict_choice == CORRECT_REDESIGN_VERDICT)
+    if result.promo_verdict_choice is not None:
+        checks.append(result.promo_verdict_choice == CORRECT_PROMO_VERDICT)
 
     if not checks:
         return 15.0, FeedbackObservation("lesson.l30.feedback.method_no_real_checks", ScoreDimension.METHOD)
