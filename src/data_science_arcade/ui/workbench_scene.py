@@ -463,7 +463,7 @@ class WorkbenchScene(Scene):
         description_font = get_font(13)
         y = top
         for column in self.dataset.schema.columns:
-            header = f"{column.name} ({column.dtype})" + ("" if not column.nullable else " - nullable")
+            header = f"{column.name} ({column.dtype})" + ("" if not column.nullable else f" - {loc.t('workbench.schema.nullable_suffix')}")
             draw_single_line(surface, header, (left, y), width, 16, colors.TEXT)
             # description_key (localized) wins when a schema author has set
             # one; the legacy literal `description` string is the fallback

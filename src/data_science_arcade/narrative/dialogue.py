@@ -2,10 +2,11 @@ from dataclasses import dataclass
 
 from data_science_arcade.narrative.npc import NPC
 
-# Covers the spec §66 dialogue requirements that have something to attach to
-# right now: speaker, localized text, optional response choices. Conditional
-# lines and mission-state triggers are deferred - there's no mission/lesson
-# state yet for a line to condition on (that starts at Phase 7).
+# Covers the spec §66 dialogue requirements every one of the 30 lessons
+# has actually used: speaker, localized text, optional response choices.
+# Conditional lines that branch on mission/lesson state were never added -
+# no lesson's own narrative content ended up needing more branching than
+# DialogueChoice.next_index already gives it.
 
 
 @dataclass(frozen=True)

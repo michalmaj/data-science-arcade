@@ -115,7 +115,7 @@ def test_the_full_lesson_plays_through_all_seven_stages_to_a_result():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         assert isinstance(app.scenes.current.inner, DialogueScene)  # debrief
         _play_dialogue_to_the_end(app.scenes.current)
@@ -182,7 +182,7 @@ def test_supporting_chart_is_scored_against_the_students_own_lead_not_a_fixed_ke
         _fill_out_decision(app.scenes.current.inner, decision)
 
         app.scenes.current.inner.buttons.buttons[1].on_activate()  # mastery - skipped
-        app.scenes.current.inner.buttons.buttons[0].on_activate()  # feedback ack
+        app.scenes.current.inner.continue_button.on_activate()  # feedback ack
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         result = finished_results[0]

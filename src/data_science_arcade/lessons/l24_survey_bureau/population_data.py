@@ -8,9 +8,9 @@ CUSTOMER_POPULATION_SCHEMA = Schema(
     columns=(
         ColumnSchema("customer_id", "int64"),
         ColumnSchema("segment", "object"),
-        ColumnSchema("true_satisfaction", "float64", description="Hidden ground truth - never shown to the player directly"),
-        ColumnSchema("still_active", "bool", description="False if this customer already quit the app over the price change"),
-        ColumnSchema("is_power_user", "bool", description="Eligible for the incentivized advisory panel"),
+        ColumnSchema("true_satisfaction", "float64", description_key="lesson.l24.schema.true_satisfaction"),
+        ColumnSchema("still_active", "bool", description_key="lesson.l24.schema.still_active"),
+        ColumnSchema("is_power_user", "bool", description_key="lesson.l24.schema.is_power_user"),
     )
 )
 

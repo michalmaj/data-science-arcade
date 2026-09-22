@@ -6,7 +6,7 @@ from data_science_arcade.lessons.framework.funnel import FunnelDefinition, Funne
 
 CHECKOUT_EVENTS_SCHEMA = Schema(
     columns=(
-        ColumnSchema("definition_key", "object", description="which candidate way of counting this event was used"),
+        ColumnSchema("definition_key", "object", description_key="lesson.l21.schema.definition_key"),
         ColumnSchema("step_key", "object"),
         ColumnSchema("step_order", "int64"),
         ColumnSchema("count", "int64"),

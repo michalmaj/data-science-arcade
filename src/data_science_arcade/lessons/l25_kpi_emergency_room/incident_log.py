@@ -8,7 +8,7 @@ from data_science_arcade.lessons.framework.alerting import MetricOption, Thresho
 
 INCIDENT_LOG_SCHEMA = Schema(
     columns=(
-        ColumnSchema("day", "int64", description="1-indexed day within the 14-day window"),
+        ColumnSchema("day", "int64", description_key="lesson.l25.schema.day"),
         ColumnSchema("metric_key", "object"),
         ColumnSchema("value", "float64"),
     )

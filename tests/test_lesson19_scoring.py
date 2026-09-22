@@ -14,7 +14,7 @@ from data_science_arcade.lessons.l19_power_plant.scoring import (
 GOOD_DECISION_7WK = {
     "final_design_meets_sensitivity_target": "meets_sensitivity_target",
     "what_more_sample_size_changes": "narrows_uncertainty_improves_sensitivity_not_effect_size",
-    "what_mde_represents": "design_stage_probability_not_post_hoc_cutoff",
+    "what_mde_represents": "design_stage_effect_size_at_target_power",
     "business_vs_statistical_detectability": "answer_different_questions_not_interchangeable",
     "underpowered_result_interpretation": "inconclusive_neither_zero_nor_worthwhile_ruled_out",
     "precise_small_effect_interpretation": "precisely_estimated_small_effect_below_threshold",

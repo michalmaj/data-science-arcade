@@ -80,11 +80,12 @@ class CourseMapScene(Scene):
             self._start_lesson(lesson_number)
             return
 
-        # No lesson runtime exists yet for lessons without a registry entry
-        # (spec Phase 8+ adds more). In dev mode, treat a click as "play it"
-        # and mark it complete so the unlock chain and completion marker can
-        # actually be exercised; never happens for a normal student since
-        # dev_mode defaults off.
+        # Defensive fallback only - every lesson 1-30 has a real registry
+        # entry today, so this branch is currently unreachable from the
+        # course map's own lesson buttons. In dev mode, treat a click as
+        # "play it" and mark it complete so the unlock chain and completion
+        # marker can actually be exercised; never happens for a normal
+        # student since dev_mode defaults off.
         if self.app.dev_mode and self.app.progress.state_of(lesson_number) is not LessonState.COMPLETED:
             self.app.progress.complete(lesson_number)
             self.app.save_progress()

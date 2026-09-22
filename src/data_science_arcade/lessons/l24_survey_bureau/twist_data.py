@@ -7,7 +7,7 @@ DELIVERY_SURVEY_SCHEMA = Schema(
     columns=(
         ColumnSchema("group_label", "object"),
         ColumnSchema("customer_count", "int64"),
-        ColumnSchema("was_surveyed", "bool", description="False if the survey trigger never fires for this group at all"),
+        ColumnSchema("was_surveyed", "bool", description_key="lesson.l24.schema.was_surveyed"),
         ColumnSchema("satisfied_count", "int64"),
     )
 )

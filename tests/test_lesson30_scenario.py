@@ -18,6 +18,7 @@ from data_science_arcade.ui.correlation_scene import CorrelationScene
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.investigation_hub_scene import InvestigationHubScene
+from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
 from data_science_arcade.ui.segment_slicer_scene import SegmentSlicerScene
 
 from lesson_test_helpers import click_through_mission_briefing
@@ -136,6 +137,9 @@ def test_the_full_lesson_plays_through_to_a_result_investigating_exactly_the_min
         assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # no Twist stage
         _fill_out_decision(app.scenes.current)
 
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.continue_button.on_activate()
+
         assert isinstance(app.scenes.current.inner, DialogueScene)  # debrief
         _play_dialogue_to_the_end(app.scenes.current)
 
@@ -167,6 +171,8 @@ def test_investigating_every_lead_still_completes_thoughtfully_and_records_evide
         hub.conclude_button.on_activate()
 
         _fill_out_decision(app.scenes.current)
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.continue_button.on_activate()
         _play_dialogue_to_the_end(app.scenes.current)
 
         result = finished_results[0]

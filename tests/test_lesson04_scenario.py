@@ -151,7 +151,7 @@ def _play_lesson_to_feedback(
 
 
 def _finish_from_feedback(app) -> None:
-    app.scenes.current.inner.buttons.buttons[0].on_activate()
+    app.scenes.current.inner.continue_button.on_activate()
     assert isinstance(app.scenes.current.inner, DialogueScene)
     _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 

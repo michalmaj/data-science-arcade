@@ -398,7 +398,11 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
 
     def _record_join1_consequence_evidence(how: str) -> None:
         count = _JOIN1_ROW_COUNT_BY_HOW[how]
-        detail = f"{count} rows ({how})"
+        # No English prose baked in here - `detail` is never localized
+        # (only the label is); `how` itself is a pandas merge() keyword
+        # ("inner"/"left"/"outer"), a technical identifier like a column
+        # name, not narrative text, so it's fine to leave as-is.
+        detail = f"{count} ({how})"
         action = context.record_action(label_key="lesson.l13.evidence.join1_consequence", key="join1_consequence_role")
         context.record_evidence(
             label_key="lesson.l13.evidence.join1_consequence", source_action=action, key="join1_consequence_role", detail=detail
@@ -407,7 +411,9 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
     def _record_repair_consequence_evidence(choice: str) -> None:
         right = _repair_right_dataset(choice, active_promotions, promo_per_customer, deduped_promotions)
         represented_count = _represented_promo_count(right, CONCRETE_EXAMPLE_CUSTOMER_ID)
-        detail = f"{CONCRETE_EXAMPLE_CUSTOMER_ID}: represents {represented_count:.0f} of 3 real promotions after {choice}"
+        # No English prose - `choice` is the repair option's own internal
+        # key (a technical identifier, like `how` above), not narrative text.
+        detail = f"{CONCRETE_EXAMPLE_CUSTOMER_ID}: {represented_count:.0f}/3 ({choice})"
         action = context.record_action(label_key="lesson.l13.evidence.repair_consequence", key="repair_consequence_role")
         context.record_evidence(
             label_key="lesson.l13.evidence.repair_consequence", source_action=action, key="repair_consequence_role", detail=detail
@@ -619,7 +625,7 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                     "lesson.l13.fan_out.before_label",
                     1.0,
                     python_code=f"orders.loc[orders['customer_id'] == '{CONCRETE_EXAMPLE_CUSTOMER_ID}']",
-                    value_format=lambda v: f"{v:,.0f} row",
+                    value_format=lambda v: app.localization.t("lesson.l13.fan_out.row_count_singular").format(count=f"{v:,.0f}"),
                 ),
                 ComparisonValue(
                     "lesson.l13.fan_out.after_label",
@@ -634,7 +640,7 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                         "raw_promo_join = orders.merge(active_promotions, on='customer_id', how='left')\n"
                         f"raw_promo_join.loc[raw_promo_join['customer_id'] == '{CONCRETE_EXAMPLE_CUSTOMER_ID}']"
                     ),
-                    value_format=lambda v: f"{v:,.0f} rows",
+                    value_format=lambda v: app.localization.t("lesson.l13.fan_out.row_count_plural").format(count=f"{v:,.0f}"),
                 ),
                 ComparisonValue(
                     "lesson.l13.fan_out.naive_revenue_label",
@@ -802,12 +808,14 @@ def build_lesson_thirteen_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                     "lesson.l13.multi_check.row_count_label", row_count_matches, value_format=lambda v: f"{v:,.0f}"
                 ),
                 ComparisonValue(
-                    "lesson.l13.multi_check.order_id_unique_label", order_id_unique, value_format=lambda v: "Yes" if v == 1.0 else "No"
+                    "lesson.l13.multi_check.order_id_unique_label",
+                    order_id_unique,
+                    value_format=lambda v: app.localization.t("alerting.yes" if v == 1.0 else "alerting.no"),
                 ),
                 ComparisonValue(
                     "lesson.l13.multi_check.right_key_unique_label",
                     right_key_unique,
-                    value_format=lambda v: "Yes" if v == 1.0 else "No",
+                    value_format=lambda v: app.localization.t("alerting.yes" if v == 1.0 else "alerting.no"),
                 ),
                 ComparisonValue(
                     "lesson.l13.multi_check.revenue_before_label", revenue_before, value_format=lambda v: f"${v:,.2f}"

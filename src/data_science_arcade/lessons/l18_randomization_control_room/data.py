@@ -65,8 +65,8 @@ STRATIFIED_RANDOM = "stratified_random"
 ROSTER_SCHEMA = Schema(
     columns=(
         ColumnSchema("customer_id", "object"),
-        ColumnSchema("customer_id_num", "int64", description="the same identifier as customer_id, as a real integer"),
-        ColumnSchema("platform", "object", description="'ios' or 'android'"),
+        ColumnSchema("customer_id_num", "int64", description_key="lesson.l18.schema.customer_id_num"),
+        ColumnSchema("platform", "object", description_key="lesson.l18.schema.platform"),
         ColumnSchema("tenure_days", "int64"),
     )
 )

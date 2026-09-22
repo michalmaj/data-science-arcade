@@ -9,6 +9,7 @@ from data_science_arcade.lessons.framework.brief import BriefOption
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
+from data_science_arcade.ui.number_format import format_number, format_percent
 from data_science_arcade.ui.text import draw_centered_text, draw_wrapped_text
 from data_science_arcade.workbench.context import LessonContext
 
@@ -171,9 +172,13 @@ class ExperimentMonitorScene(Scene):
             python_code=checkpoint.mirror_python_code,
             key=checkpoint.record_key,
         )
+        locale = self.app.localization.locale
         for row in checkpoint.rows:
             if row.evidence_key is not None:
-                detail = f"{row.diff * 100:+.2f}pp [{row.ci_lower * 100:+.2f}pp, {row.ci_upper * 100:+.2f}pp]"
+                diff_pp = format_number(row.diff * 100, locale, signed=True)
+                ci_lower_pp = format_number(row.ci_lower * 100, locale, signed=True)
+                ci_upper_pp = format_number(row.ci_upper * 100, locale, signed=True)
+                detail = f"{diff_pp}pp [{ci_lower_pp}pp, {ci_upper_pp}pp]"
                 self.context.record_evidence(label_key=row.evidence_key, source_action=action, key=row.evidence_key, detail=detail)
 
         if checkpoint.recommendation_record_key is not None:
@@ -214,13 +219,20 @@ class ExperimentMonitorScene(Scene):
             value_color = colors.SEGMENT_SECONDARY if row.warn else colors.TEXT
             values_text = (
                 f"{loc.t(row.label_key)}  -  "
-                f"{loc.t('lesson.l20.monitor.control_label')} {row.control_rate * 100:.2f}%   "
-                f"{loc.t('lesson.l20.monitor.treatment_label')} {row.treatment_rate * 100:.2f}%"
+                f"{loc.t('lesson.l20.monitor.control_label')} {format_percent(row.control_rate, loc.locale)}   "
+                f"{loc.t('lesson.l20.monitor.treatment_label')} {format_percent(row.treatment_rate, loc.locale)}"
             )
             draw_wrapped_text(surface, values_text, (LABEL_X, y), 860, VALUE_LINE_SIZE, colors.TEXT)
 
             ci_color = colors.SEGMENT_SECONDARY if row.warn else (colors.BUTTON_FOCUS_BORDER if row.threshold_cleared else colors.BUTTON_TEXT_DISABLED)
-            ci_text = f"diff {row.diff * 100:+.2f}pp   95% CI [{row.ci_lower * 100:+.2f}pp, {row.ci_upper * 100:+.2f}pp]   {loc.t(row.status_label_key)}"
+            diff_pp = format_number(row.diff * 100, loc.locale, signed=True)
+            ci_lower_pp = format_number(row.ci_lower * 100, loc.locale, signed=True)
+            ci_upper_pp = format_number(row.ci_upper * 100, loc.locale, signed=True)
+            ci_text = (
+                f"{loc.t('lesson.l20.monitor.diff_label')} {diff_pp}pp   "
+                f"{loc.t('lesson.l20.monitor.ci_label')} [{ci_lower_pp}pp, {ci_upper_pp}pp]   "
+                f"{loc.t(row.status_label_key)}"
+            )
             draw_wrapped_text(surface, ci_text, (LABEL_X, y + 22), 860, CI_LINE_SIZE, ci_color)
 
         if self._needs_recommendation():

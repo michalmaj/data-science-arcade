@@ -37,7 +37,7 @@ METHOD_SCORE_BY_WEEKS = {
 _MEETS_TARGET_KEY = "meets_sensitivity_target"
 _DOES_NOT_MEET_TARGET_KEY = "does_not_meet_sensitivity_target"
 _CORRECT_SAMPLE_SIZE_EFFECT = "narrows_uncertainty_improves_sensitivity_not_effect_size"
-_CORRECT_MDE_REPRESENTS = "design_stage_probability_not_post_hoc_cutoff"
+_CORRECT_MDE_REPRESENTS = "design_stage_effect_size_at_target_power"
 _CORRECT_BUSINESS_VS_STATISTICAL = "answer_different_questions_not_interchangeable"
 
 # --- UNCERTAINTY - 2 independent calibration-interpretation checks. ----

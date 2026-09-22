@@ -35,10 +35,10 @@ CHECKOUT_EXPERIMENT_SCHEMA = Schema(
     columns=(
         ColumnSchema("checkpoint", "int64"),
         ColumnSchema("week", "int64"),
-        ColumnSchema("metric_key", "object", description="'primary', 'support_guardrail', or 'refund_guardrail'"),
-        ColumnSchema("group", "object", description="'control' or 'treatment'"),
+        ColumnSchema("metric_key", "object", description_key="lesson.l20.schema.metric_key"),
+        ColumnSchema("group", "object", description_key="lesson.l20.schema.group"),
         ColumnSchema("n", "int64"),
-        ColumnSchema("events", "int64", description="a hit for whatever metric_key tracks"),
+        ColumnSchema("events", "int64", description_key="lesson.l20.schema.events"),
     )
 )
 
@@ -174,9 +174,9 @@ MASTERY_ROWS = [("control", 800, 8), ("treatment", 800, 28)]
 
 MASTERY_SCHEMA = Schema(
     columns=(
-        ColumnSchema("group", "object", description="'control' or 'treatment'"),
+        ColumnSchema("group", "object", description_key="lesson.l20.schema.group"),
         ColumnSchema("n", "int64"),
-        ColumnSchema("events", "int64", description="a damage claim"),
+        ColumnSchema("events", "int64", description_key="lesson.l20.schema.events_mastery"),
     )
 )
 

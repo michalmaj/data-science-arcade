@@ -134,7 +134,7 @@ REFERENCE_DESIGN_B_MIRROR = (
 
 CALIBRATION_SCHEMA = Schema(
     columns=(
-        ColumnSchema("group", "object", description="'control' or 'treatment'"),
+        ColumnSchema("group", "object", description_key="lesson.l19.schema.group"),
         ColumnSchema("n", "int64"),
         ColumnSchema("conversions", "int64"),
     )
