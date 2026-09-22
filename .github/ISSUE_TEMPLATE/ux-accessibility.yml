@@ -1,0 +1,58 @@
+name: "UI / UX / accessibility"
+description: "Overlapping text, unclear navigation, a control that doesn't work well, or another usability concern."
+title: "[UX]: "
+labels: ["type: ux"]
+body:
+  - type: input
+    id: screen
+    attributes:
+      label: Screen
+    validations:
+      required: true
+
+  - type: input
+    id: resolution
+    attributes:
+      label: Resolution / display scaling
+      description: "e.g. 1920x1080, fullscreen, a scaled/HiDPI display."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options:
+        - English
+        - Polish
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue type
+      options:
+        - Overflow
+        - Readability
+        - Navigation
+        - Keyboard controls
+        - Accessibility
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: "Optional - drag and drop an image here."
+    validations:
+      required: false

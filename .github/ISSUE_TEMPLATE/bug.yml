@@ -1,0 +1,85 @@
+name: "App / technical bug"
+description: "Something in the app itself crashed, froze, or behaved incorrectly."
+title: "[Bug]: "
+labels: ["type: bug"]
+body:
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: "The version shown in the app, or the git commit/tag if you're running from source."
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: "e.g. Windows 11, macOS 15, Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version (if running from source)
+      description: "Leave blank if you're running a packaged build."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: App language
+      options:
+        - English
+        - Polish
+    validations:
+      required: true
+
+  - type: input
+    id: lesson-screen
+    attributes:
+      label: Lesson / screen
+      description: "Which lesson number, or which menu/screen, were you on?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: "As exact as you can - what did you click, in what order?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Traceback / log
+      description: "Paste any error text or log output here, if you have it."
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: "Optional - drag and drop an image here."
+    validations:
+      required: false

@@ -1,0 +1,44 @@
+name: "Lesson / content problem"
+description: "A confusing explanation, wrong copy, unclear feedback, or another curriculum/content concern."
+title: "[Content]: "
+labels: ["type: content"]
+body:
+  - type: input
+    id: lesson
+    attributes:
+      label: Lesson number / title
+    validations:
+      required: true
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options:
+        - English
+        - Polish
+    validations:
+      required: true
+
+  - type: textarea
+    id: exact-copy
+    attributes:
+      label: Exact screen / question / copy
+      description: "Quote the exact text you're referring to, so it can be found."
+    validations:
+      required: true
+
+  - type: textarea
+    id: whats-wrong
+    attributes:
+      label: What seems wrong or confusing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: "Optional."
+    validations:
+      required: false

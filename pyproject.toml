@@ -1,6 +1,6 @@
 [project]
 name = "data-science-arcade"
-version = "0.1.0"
+version = "1.0.0a1"
 description = "A bilingual (PL/EN), gamified data science course delivered as a 2D Pygame desktop application."
 readme = "README.md"
 authors = [

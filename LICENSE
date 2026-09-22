@@ -1,0 +1,11 @@
+This project uses two licenses for two different kinds of material.
+
+- Software (code): MIT License — see [LICENSE-CODE](LICENSE-CODE).
+- Educational content (lessons, Handbook, glossary, EN/PL instructional
+  text): Creative Commons Attribution-ShareAlike 4.0 International
+  (CC BY-SA 4.0) — see [LICENSE-CONTENT](LICENSE-CONTENT).
+
+See [LICENSING.md](LICENSING.md) for exactly which files and directories
+each license covers.
+
+Copyright (c) 2026 Michał Maj.
