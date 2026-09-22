@@ -7,8 +7,8 @@ COMPLAINTS_SCHEMA = Schema(
     columns=(
         ColumnSchema("quarter", "object"),
         ColumnSchema("complaints", "int64"),
-        ColumnSchema("orders_this_quarter", "int64", description="The real exposure population for a complaint-rate question"),
-        ColumnSchema("lifetime_customers", "int64", description="A large, fixed, cumulative base - real, but not this quarter's exposure population"),
+        ColumnSchema("orders_this_quarter", "int64", description_key="lesson.l28.schema.orders_this_quarter"),
+        ColumnSchema("lifetime_customers", "int64", description_key="lesson.l28.schema.lifetime_customers"),
     )
 )
 

@@ -105,7 +105,7 @@ def test_the_full_lesson_plays_through_all_thirteen_stages_to_a_result():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         assert isinstance(app.scenes.current.inner, DialogueScene)  # debrief
         _play_dialogue_to_the_end(app.scenes.current)
@@ -175,7 +175,7 @@ def test_a_real_revision_can_correct_a_motivated_initial_pick_to_a_fully_defensi
         app.scenes.current.inner.buttons.buttons[1].on_activate()  # mastery_challenge - skipped
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         result = finished_results[0]

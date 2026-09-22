@@ -85,10 +85,10 @@ class LessonContext:
     by the owning scenario.py inside the same generic `collected` dict
     LessonRunner already checkpoints (e.g. collected["analytical_context"])
     - deliberately not a new typed LessonCheckpoint field, since that would
-    mean touching the shared runtime foundation every one of the 30
-    lessons uses for a concept exactly one lesson uses today. Every field
-    on every dataclass here is already plain str/tuple[str, ...], so no
-    new serialization machinery is needed - just explicit dict/list
+    mean touching the shared runtime foundation for a concept every one of
+    the 30 lessons' own scenario.py now uses. Every field on every
+    dataclass here is already plain str/tuple[str, ...], so no new
+    serialization machinery is needed - just explicit dict/list
     construction, same as everything else already living in `collected`.
 
     A bespoke scene emits into a LessonContext directly via record_action/

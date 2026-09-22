@@ -329,7 +329,7 @@ def build_lesson_nine_runner(app, on_finished) -> tuple[LessonRunner, dict]:
                     "lesson.l09.evidence.detection_flag_rate",
                     float(count),
                     python_code="((orders['fulfillment_cost'] < lower) | (orders['fulfillment_cost'] > upper)).sum()",
-                    value_format=lambda v: f"{int(v)} of 89",
+                    value_format=lambda v: f"{int(v)} {app.localization.t('common.of')} 89",
                 ),
             ),
             interpret_prompt_key="lesson.l09.detection.interpret_prompt",

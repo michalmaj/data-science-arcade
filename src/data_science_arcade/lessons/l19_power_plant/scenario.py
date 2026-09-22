@@ -141,7 +141,7 @@ MDE_REPRESENTS_FIELD = BriefField(
     key="what_mde_represents",
     prompt_key="lesson.l19.decision.mde_represents.prompt",
     options=(
-        BriefOption("design_stage_probability_not_post_hoc_cutoff", "lesson.l19.decision.mde_represents.option.design_stage_probability_not_post_hoc_cutoff"),
+        BriefOption("design_stage_effect_size_at_target_power", "lesson.l19.decision.mde_represents.option.design_stage_effect_size_at_target_power"),
         BriefOption("a_hard_cutoff_effects_below_it_cannot_be_real", "lesson.l19.decision.mde_represents.option.a_hard_cutoff_effects_below_it_cannot_be_real"),
         BriefOption("a_guarantee_the_true_effect_equals_this_value", "lesson.l19.decision.mde_represents.option.a_guarantee_the_true_effect_equals_this_value"),
     ),

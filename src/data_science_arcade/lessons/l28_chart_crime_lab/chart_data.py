@@ -14,7 +14,7 @@ SATISFACTION_SCHEMA = Schema(
 ACTIVE_USERS_SCHEMA = Schema(
     columns=(
         ColumnSchema("month", "object"),
-        ColumnSchema("month_index", "int64", description="1-12, for ordering"),
+        ColumnSchema("month_index", "int64", description_key="lesson.l28.schema.month_index"),
         ColumnSchema("active_users", "int64"),
     )
 )
@@ -24,7 +24,7 @@ RETURNS_SCHEMA = Schema(
         ColumnSchema("quarter", "object"),
         ColumnSchema("units_sold", "int64"),
         ColumnSchema("returns", "int64"),
-        ColumnSchema("total_customers", "int64", description="Cumulative registered customers - irrelevant as a returns denominator"),
+        ColumnSchema("total_customers", "int64", description_key="lesson.l28.schema.total_customers"),
     )
 )
 

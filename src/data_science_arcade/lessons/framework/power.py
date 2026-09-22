@@ -21,11 +21,12 @@ def minimum_detectable_effect(baseline_rate: float, sample_size_per_group: int) 
     This is a design-stage planning quantity, not a deterministic cutoff
     on any later observed result: an effect smaller than the MDE can
     still be detected in a given experiment, and an effect larger than
-    the MDE can still be missed - MDE describes detection *probability*
-    across repeated samples under an assumed true effect, not a promise
-    for any one realized experiment. Never read a real observed effect
-    against this number after the fact (see L19's own Handbook entry) -
-    it only ever describes a plan, before any result exists."""
+    the MDE can still be missed. MDE is the effect SIZE the plan is
+    sized to detect at that target power - power itself is the
+    probability; MDE is never a probability, it's an effect magnitude
+    that corresponds to one. Never read a real observed effect against
+    this number after the fact (see L19's own Handbook entry) - it only
+    ever describes a plan, before any result exists."""
     if sample_size_per_group <= 0:
         return math.inf
     variance_term = 2 * baseline_rate * (1 - baseline_rate)

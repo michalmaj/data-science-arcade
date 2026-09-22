@@ -9,7 +9,8 @@ from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.course_map_scene import CourseMapScene
-from data_science_arcade.ui.placeholder_scene import PlaceholderScene
+from data_science_arcade.ui.credits_scene import CreditsScene
+from data_science_arcade.ui.new_course_confirmation_scene import NewCourseConfirmationScene
 from data_science_arcade.ui.settings_scene import SettingsScene
 from data_science_arcade.ui.text import draw_centered_text
 from data_science_arcade.world.hub_scene import HubScene
@@ -28,7 +29,7 @@ class MainMenuScene(Scene):
             ("menu.new_course", self._new_course),
             ("menu.course_map", self._open_course_map),
             ("menu.settings", self._open_settings),
-            ("menu.credits", lambda: self._open_placeholder("menu.credits")),
+            ("menu.credits", self._open_credits),
             ("menu.quit", self._quit),
         ]
         buttons = []
@@ -44,13 +45,16 @@ class MainMenuScene(Scene):
         for button, (key, _action) in zip(self.buttons.buttons, self._items):
             button.label = self.app.localization.t(key)
 
-    def _open_placeholder(self, title_key: str) -> None:
-        self.app.scenes.push(PlaceholderScene(self.app, self.app.localization.t(title_key)))
+    def _open_credits(self) -> None:
+        self.app.scenes.push(CreditsScene(self.app))
 
     def _continue(self) -> None:
         self.app.scenes.push(HubScene(self.app))
 
     def _new_course(self) -> None:
+        self.app.scenes.push(NewCourseConfirmationScene(self.app, on_confirm=self._confirm_new_course, on_cancel=lambda: None))
+
+    def _confirm_new_course(self) -> None:
         self.app.progress = Progress()
         self.app.save_progress()
         self.app.scenes.push(HubScene(self.app))

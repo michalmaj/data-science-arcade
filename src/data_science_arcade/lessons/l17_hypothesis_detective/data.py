@@ -40,8 +40,8 @@ ONE_CLICK_WEB_REPEAT = 12
 PILOT_SCHEMA = Schema(
     columns=(
         ColumnSchema("customer_id", "object"),
-        ColumnSchema("variant", "object", description="'control' or 'one_click'"),
-        ColumnSchema("device", "object", description="'app' or 'web'"),
+        ColumnSchema("variant", "object", description_key="lesson.l17.schema.variant"),
+        ColumnSchema("device", "object", description_key="lesson.l17.schema.device"),
         ColumnSchema("repeat_purchase_14d", "bool"),
     )
 )
@@ -49,8 +49,8 @@ PILOT_SCHEMA = Schema(
 BLINDED_ROSTER_SCHEMA = Schema(
     columns=(
         ColumnSchema("customer_id", "object"),
-        ColumnSchema("variant", "object", description="'control' or 'one_click'"),
-        ColumnSchema("device", "object", description="'app' or 'web'"),
+        ColumnSchema("variant", "object", description_key="lesson.l17.schema.variant"),
+        ColumnSchema("device", "object", description_key="lesson.l17.schema.device"),
     )
 )
 
@@ -140,8 +140,8 @@ MASTERY_AFTER_RURAL_LATE = 45
 DELIVERIES_SCHEMA = Schema(
     columns=(
         ColumnSchema("delivery_id", "object"),
-        ColumnSchema("period", "object", description="'before' or 'after' the new route planner shipped"),
-        ColumnSchema("route_type", "object", description="'urban' or 'rural'"),
+        ColumnSchema("period", "object", description_key="lesson.l17.schema.period"),
+        ColumnSchema("route_type", "object", description_key="lesson.l17.schema.route_type"),
         ColumnSchema("late", "bool"),
     )
 )

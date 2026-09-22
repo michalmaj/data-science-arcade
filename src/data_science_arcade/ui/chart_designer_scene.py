@@ -10,6 +10,7 @@ from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.category_chart import category_x, draw_bar_chart, draw_line_chart, value_to_y
+from data_science_arcade.ui.number_format import format_number
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
 from data_science_arcade.workbench.context import LessonContext
 
@@ -201,10 +202,14 @@ class ChartDesignerScene(Scene):
             x = category_x(index, len(categories), CHART_RECT)
             draw_centered_text(surface, category, (x, CATEGORY_LABEL_Y), 13, colors.BUTTON_TEXT_DISABLED)
             label_y = value_to_y(value, min_value, max_value, CHART_RECT) - 12
-            draw_centered_text(surface, f"{value:,.0f}", (x, label_y), 12, colors.BUTTON_TEXT_DISABLED)
+            draw_centered_text(surface, format_number(value, loc.locale, decimals=0), (x, label_y), 12, colors.BUTTON_TEXT_DISABLED)
 
-        draw_centered_text(surface, f"{min_value:,.0f}", (CHART_RECT.left - 8, CHART_RECT.bottom), 12, colors.BUTTON_TEXT_DISABLED)
-        draw_centered_text(surface, f"{max_value:,.0f}", (CHART_RECT.left - 8, CHART_RECT.top), 12, colors.BUTTON_TEXT_DISABLED)
+        draw_centered_text(
+            surface, format_number(min_value, loc.locale, decimals=0), (CHART_RECT.left - 8, CHART_RECT.bottom), 12, colors.BUTTON_TEXT_DISABLED
+        )
+        draw_centered_text(
+            surface, format_number(max_value, loc.locale, decimals=0), (CHART_RECT.left - 8, CHART_RECT.top), 12, colors.BUTTON_TEXT_DISABLED
+        )
 
     def _draw_selected_indicator(self, surface: pygame.Surface, request: ChartRequest) -> None:
         selected_key = self.choices.get(request.key)

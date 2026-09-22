@@ -7,8 +7,8 @@ from data_science_arcade.lessons.framework.cohort import CohortMatrix, CohortRow
 COHORT_RETENTION_SCHEMA = Schema(
     columns=(
         ColumnSchema("cohort_key", "object"),
-        ColumnSchema("cohort_order", "int64", description="0 = oldest cohort"),
-        ColumnSchema("month", "int64", description="months since that cohort's own acquisition"),
+        ColumnSchema("cohort_order", "int64", description_key="lesson.l22.schema.cohort_order"),
+        ColumnSchema("month", "int64", description_key="lesson.l22.schema.month"),
         ColumnSchema("cohort_size", "int64"),
         ColumnSchema("active_count", "int64"),
     )

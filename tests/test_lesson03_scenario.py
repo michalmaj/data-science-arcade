@@ -170,7 +170,7 @@ def _play_lesson_to_completion(
         app.scenes.current.inner.finish_button.on_activate()
 
     assert isinstance(app.scenes.current.inner, LessonFeedbackScene)
-    app.scenes.current.inner.buttons.buttons[0].on_activate()
+    app.scenes.current.inner.continue_button.on_activate()
 
     assert isinstance(app.scenes.current.inner, DialogueScene)
     _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
@@ -513,7 +513,7 @@ def _play_mastery_and_finish(app, finished_results, *, metric_key: str, interpre
     mastery.finish_button.on_activate()
 
     feedback = app.scenes.current.inner
-    app.scenes.current.inner.buttons.buttons[0].on_activate()  # feedback
+    app.scenes.current.inner.continue_button.on_activate()  # feedback
     _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
     return finished_results[0], feedback.evaluation
 

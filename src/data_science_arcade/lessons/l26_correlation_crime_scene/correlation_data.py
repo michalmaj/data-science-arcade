@@ -22,7 +22,7 @@ SHIPMENT_SALES_SCHEMA = Schema(
 DARK_MODE_SCHEMA = Schema(
     columns=(
         ColumnSchema("customer_id", "int64"),
-        ColumnSchema("device_group", "object", description="'modern' can toggle dark mode; 'older' cannot"),
+        ColumnSchema("device_group", "object", description_key="lesson.l26.schema.device_group"),
         ColumnSchema("dark_mode_enabled", "bool"),
         ColumnSchema("weekly_spend", "float64"),
     )

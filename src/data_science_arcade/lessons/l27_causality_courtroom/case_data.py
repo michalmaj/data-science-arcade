@@ -6,7 +6,7 @@ from data_science_arcade.data_engine.schema import ColumnSchema, Schema
 TOOL_SPEND_SCHEMA = Schema(
     columns=(
         ColumnSchema("customer_id", "int64"),
-        ColumnSchema("tool_used", "bool", description="Entirely opt-in - nobody was assigned to use it"),
+        ColumnSchema("tool_used", "bool", description_key="lesson.l27.schema.tool_used"),
         ColumnSchema("impulse_spend", "float64"),
     )
 )
@@ -22,7 +22,7 @@ RESOLUTION_SATISFACTION_SCHEMA = Schema(
 TRAINING_PERFORMANCE_SCHEMA = Schema(
     columns=(
         ColumnSchema("employee_id", "int64"),
-        ColumnSchema("completed_training", "bool", description="Entirely optional, unadvertised beyond a single email"),
+        ColumnSchema("completed_training", "bool", description_key="lesson.l27.schema.completed_training"),
         ColumnSchema("performance_score", "float64"),
     )
 )

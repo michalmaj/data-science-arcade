@@ -144,7 +144,7 @@ def _play_lesson_to_completion(app, *, skip_mastery: bool = True) -> None:
         app.scenes.current.inner.finish_button.on_activate()
 
     assert isinstance(app.scenes.current.inner, LessonFeedbackScene)
-    app.scenes.current.inner.buttons.buttons[0].on_activate()
+    app.scenes.current.inner.continue_button.on_activate()
 
     assert isinstance(app.scenes.current.inner, DialogueScene)
     _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes

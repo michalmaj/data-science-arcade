@@ -10,6 +10,7 @@ from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
 from data_science_arcade.ui.comparison_reveal_scene import InterpretOption
 from data_science_arcade.ui.histogram import draw_histogram, draw_segmented_histogram, draw_value_marker
+from data_science_arcade.ui.number_format import format_number
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
 from data_science_arcade.workbench.context import LessonContext
 
@@ -181,7 +182,7 @@ class DistributionExplorerScene(Scene):
             active = marker.key in self.active_markers
             label = loc.t(marker.label_key)
             if active:
-                label = f"{label}: ${marker.value:,.2f}"
+                label = f"{label}: ${format_number(marker.value, loc.locale)}"
             button = Button(rect, label, self._toggle_marker(marker.key))
             self.marker_buttons[marker.key] = button
             buttons.append(button)
@@ -236,8 +237,12 @@ class DistributionExplorerScene(Scene):
             if marker.key in self.active_markers:
                 draw_value_marker(surface, CHART_RECT, marker.value, self.min_value, self.max_value, marker_color)
 
-        draw_centered_text(surface, f"${self.min_value:,.0f}", (CHART_RECT.left + 28, AXIS_LABEL_Y), 14, colors.BUTTON_TEXT_DISABLED)
-        draw_centered_text(surface, f"${self.max_value:,.0f}", (CHART_RECT.right - 28, AXIS_LABEL_Y), 14, colors.BUTTON_TEXT_DISABLED)
+        draw_centered_text(
+            surface, f"${format_number(self.min_value, loc.locale, decimals=0)}", (CHART_RECT.left + 28, AXIS_LABEL_Y), 14, colors.BUTTON_TEXT_DISABLED
+        )
+        draw_centered_text(
+            surface, f"${format_number(self.max_value, loc.locale, decimals=0)}", (CHART_RECT.right - 28, AXIS_LABEL_Y), 14, colors.BUTTON_TEXT_DISABLED
+        )
 
         if self.segment_series is not None:
             self._draw_segment_legend(surface)

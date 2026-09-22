@@ -6,8 +6,8 @@ from data_science_arcade.lessons.framework.timeseries import DailyPoint, LensOpt
 
 DAILY_CONVERSION_SCHEMA = Schema(
     columns=(
-        ColumnSchema("period", "object", description="'current' or 'previous'"),
-        ColumnSchema("day", "int64", description="1-indexed day within its period; day 1 is a Monday"),
+        ColumnSchema("period", "object", description_key="lesson.l23.schema.period"),
+        ColumnSchema("day", "int64", description_key="lesson.l23.schema.day"),
         ColumnSchema("visits", "int64"),
         ColumnSchema("conversions", "int64"),
     )

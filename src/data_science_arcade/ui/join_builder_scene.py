@@ -10,6 +10,7 @@ from data_science_arcade.data_engine.dataset import Dataset
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
+from data_science_arcade.ui.number_format import format_number
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
 from data_science_arcade.workbench.context import LessonContext
 
@@ -70,13 +71,13 @@ class JoinTypeOption:
     using an undefined name."""
 
 
-def _format_cell(value: object) -> str:
+def _format_cell(value: object, locale: str) -> str:
     if pd.isna(value):
         return "NaN"
     if isinstance(value, pd.Timestamp):
         return value.strftime("%Y-%m-%d")
     if isinstance(value, float):
-        return f"{value:,.0f}" if value.is_integer() else f"{value:,.2f}"
+        return format_number(value, locale, decimals=0) if value.is_integer() else format_number(value, locale)
     return str(value)
 
 
@@ -278,7 +279,7 @@ class JoinBuilderScene(Scene):
         preview_rows = merged[preview_columns].head(MAX_PREVIEW_ROWS)
         for row_index, row in enumerate(preview_rows.itertuples(index=False)):
             y = PREVIEW_TOP + HEADER_Y_GAP + row_index * ROW_HEIGHT
-            line = "  |  ".join(_format_cell(value) for value in row)
+            line = "  |  ".join(_format_cell(value, loc.locale) for value in row)
             draw_centered_text(surface, line, (CENTER_X, y), 13, colors.BUTTON_TEXT_DISABLED)
 
         note_y = PREVIEW_TOP + HEADER_Y_GAP + min(total, MAX_PREVIEW_ROWS) * ROW_HEIGHT + 8

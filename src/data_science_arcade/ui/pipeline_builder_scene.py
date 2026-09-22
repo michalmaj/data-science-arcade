@@ -10,6 +10,7 @@ from data_science_arcade.lessons.framework.aggregation import AggregateOption, A
 from data_science_arcade.ui import colors
 from data_science_arcade.ui.button import Button
 from data_science_arcade.ui.button_group import ButtonGroup
+from data_science_arcade.ui.number_format import format_number
 from data_science_arcade.ui.text import draw_centered_text, draw_centered_wrapped_text, draw_wrapped_text
 from data_science_arcade.workbench.context import LessonContext
 
@@ -36,8 +37,8 @@ def _format_group_key(value: object) -> str:
     return str(value)
 
 
-def _format_value(value: float) -> str:
-    return f"{value:,.0f}" if float(value).is_integer() else f"{value:,.2f}"
+def _format_value(value: float, locale: str) -> str:
+    return format_number(value, locale, decimals=0) if float(value).is_integer() else format_number(value, locale)
 
 
 class PipelineBuilderScene(Scene):
@@ -256,7 +257,7 @@ class PipelineBuilderScene(Scene):
 
         for index, (key, value) in enumerate(rows[:MAX_PREVIEW_ROWS]):
             y = RESULT_RECT.top + 26 + index * PREVIEW_ROW_HEIGHT
-            line = f"{_format_group_key(key)}  |  {_format_value(value)}"
+            line = f"{_format_group_key(key)}  |  {_format_value(value, loc.locale)}"
             draw_centered_text(surface, line, (CENTER_X, y), 14, colors.BUTTON_TEXT_DISABLED)
 
         if len(rows) > MAX_PREVIEW_ROWS:

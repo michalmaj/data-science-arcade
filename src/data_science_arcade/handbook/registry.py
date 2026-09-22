@@ -1,9 +1,9 @@
 from data_science_arcade.handbook.entries import GlossaryEntry, HandbookEntry
 
-# The editorial vertical slice this PR is scoped to: 4 full-prose articles
-# tied to Lesson 01, ~10 glossary terms. Deliberately not theory for all 30
-# lessons - see decisions/CONTENT_STYLE_GUIDE.md/TERMINOLOGY_GUIDE.md for
-# the standards every entry here was written and reviewed against.
+# 26 full-prose articles and 39 glossary terms, spanning the concepts
+# introduced across all 30 lessons - see
+# decisions/CONTENT_STYLE_GUIDE.md/TERMINOLOGY_GUIDE.md for the standards
+# every entry here was written and reviewed against.
 
 ASKING_AN_ANALYTICAL_QUESTION = HandbookEntry(
     id="asking_an_analytical_question",

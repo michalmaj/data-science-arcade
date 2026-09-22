@@ -66,8 +66,7 @@ LESSON_RUNNERS: dict[int, RunnerBuilder] = {
     29: build_lesson_twenty_nine_runner,
     30: build_lesson_thirty_runner,
 }
-"""Lesson number -> its build_lesson_*_runner(app, on_finished) factory.
-The single place CourseMapScene (or anything else that wants to launch a
-lesson) needs to know about, instead of importing and special-casing each
-lesson's scenario module individually. Lessons not listed here have no
-runtime yet - spec Phase 8+ adds them."""
+"""Lesson number -> its build_lesson_*_runner(app, on_finished) factory,
+covering all 30 lessons. The single place CourseMapScene (or anything
+else that wants to launch a lesson) needs to know about, instead of
+importing and special-casing each lesson's scenario module individually."""

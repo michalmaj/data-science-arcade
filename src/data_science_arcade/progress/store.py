@@ -124,11 +124,15 @@ def _migrate_forward(raw: dict, from_version: int) -> dict | None:
 class ProgressStore:
     """Reads/writes a single versioned JSON save file.
 
-    A missing file or corrupt JSON falls back to a fresh Progress(). An
-    older version runs forward through MIGRATIONS; a version this build
-    doesn't recognize (newer than SAVE_VERSION, or older than any migration
-    can bridge) also falls back to fresh - but only after renaming the
-    unreadable file aside, so the next save() doesn't silently destroy it.
+    A missing file falls back to a fresh Progress(). Malformed JSON (a
+    truncated or garbled file, e.g. from a write interrupted mid-way -
+    see save()'s own atomic-replace discipline, which exists precisely so
+    this case should now be rare), a version this build doesn't recognize
+    (newer than SAVE_VERSION, or older than any migration can bridge), or
+    a non-dict top-level value all fall back to fresh too - but only after
+    renaming the unreadable file aside (_quarantine), so the next save()
+    doesn't silently overwrite whatever went wrong, and a person or a
+    future migration can still recover it by hand.
 
     Each field is parsed independently: one corrupt checkpoint or
     evaluation shouldn't discard all 30 lessons' unlock/complete state the
@@ -144,6 +148,7 @@ class ProgressStore:
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
+            self._quarantine(raw_version="unreadable")
             return Progress()
 
         if not isinstance(raw, dict):
@@ -221,4 +226,11 @@ class ProgressStore:
             "evaluations": {str(number): _evaluation_to_dict(evaluation) for number, evaluation in progress.evaluations.items()},
             "hints_used": {str(number): count for number, count in progress.hints_used.items()},
         }
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        # Write to a sibling temp file, then atomically replace the real
+        # save with it (Path.replace is a single rename on the same
+        # filesystem) - a crash or kill mid-write can only ever leave the
+        # OLD save intact or the NEW one fully written, never a half-
+        # written save.json a later load() would have to quarantine.
+        tmp_path = self.path.with_name(f"{self.path.name}.tmp")
+        tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp_path.replace(self.path)

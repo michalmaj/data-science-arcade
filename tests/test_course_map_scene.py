@@ -758,7 +758,7 @@ def _play_lesson_one_to_completion(app) -> None:
     app.scenes.current.inner.buttons.buttons[1].on_activate()
 
     assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-    app.scenes.current.inner.buttons.buttons[0].on_activate()
+    app.scenes.current.inner.continue_button.on_activate()
 
     _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -857,7 +857,7 @@ def test_finishing_lesson_two_marks_it_complete_and_unlocks_lesson_three():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -925,7 +925,7 @@ def test_finishing_lesson_three_marks_it_complete_and_unlocks_lesson_four():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -985,7 +985,7 @@ def test_finishing_lesson_four_marks_it_complete_and_unlocks_lesson_five():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1063,7 +1063,7 @@ def test_finishing_lesson_five_marks_it_complete_and_unlocks_lesson_six():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1160,7 +1160,7 @@ def test_finishing_lesson_six_marks_it_complete_and_unlocks_lesson_seven():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1269,7 +1269,7 @@ def test_finishing_lesson_seven_marks_it_complete_and_unlocks_lesson_eight():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1383,7 +1383,7 @@ def test_finishing_lesson_eight_marks_it_complete_and_unlocks_lesson_nine():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1515,7 +1515,7 @@ def test_finishing_lesson_nine_marks_it_complete_and_unlocks_lesson_ten():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1609,7 +1609,7 @@ def test_finishing_lesson_ten_marks_it_complete_and_unlocks_lesson_eleven():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1683,7 +1683,7 @@ def test_finishing_lesson_eleven_marks_it_complete_and_unlocks_lesson_twelve():
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1768,7 +1768,7 @@ def test_finishing_lesson_twelve_marks_it_complete_and_unlocks_lesson_thirteen()
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1852,7 +1852,7 @@ def test_finishing_lesson_thirteen_marks_it_complete_and_unlocks_lesson_fourteen
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1921,7 +1921,7 @@ def test_finishing_lesson_fourteen_marks_it_complete_and_unlocks_lesson_fifteen(
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -1994,7 +1994,7 @@ def test_finishing_lesson_fifteen_marks_it_complete_and_unlocks_lesson_sixteen()
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2066,7 +2066,7 @@ def test_finishing_lesson_sixteen_marks_it_complete_and_unlocks_lesson_seventeen
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2129,7 +2129,7 @@ def test_finishing_lesson_seventeen_marks_it_complete_and_unlocks_lesson_eightee
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2219,7 +2219,7 @@ def test_finishing_lesson_eighteen_marks_it_complete_and_unlocks_lesson_nineteen
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2283,7 +2283,7 @@ def test_finishing_lesson_nineteen_marks_it_complete_and_unlocks_lesson_twenty()
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2341,7 +2341,7 @@ def test_finishing_lesson_twenty_marks_it_complete_and_unlocks_lesson_twenty_one
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2403,7 +2403,7 @@ def test_finishing_lesson_twenty_one_marks_it_complete_and_unlocks_lesson_twenty
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2464,7 +2464,7 @@ def test_finishing_lesson_twenty_two_marks_it_complete_and_unlocks_lesson_twenty
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2525,7 +2525,7 @@ def test_finishing_lesson_twenty_three_marks_it_complete_and_unlocks_lesson_twen
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2590,7 +2590,7 @@ def test_finishing_lesson_twenty_four_marks_it_complete_and_unlocks_lesson_twent
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2655,7 +2655,7 @@ def test_finishing_lesson_twenty_five_marks_it_complete_and_unlocks_lesson_twent
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2716,7 +2716,7 @@ def test_finishing_lesson_twenty_six_marks_it_complete_and_unlocks_lesson_twenty
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2782,7 +2782,7 @@ def test_finishing_lesson_twenty_seven_marks_it_complete_and_unlocks_lesson_twen
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2852,7 +2852,7 @@ def test_finishing_lesson_twenty_eight_marks_it_complete_and_unlocks_lesson_twen
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2909,7 +2909,7 @@ def test_finishing_lesson_twenty_nine_marks_it_complete_and_unlocks_lesson_thirt
         app.scenes.current.inner.buttons.buttons[1].on_activate()
 
         assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
-        app.scenes.current.inner.buttons.buttons[0].on_activate()
+        app.scenes.current.inner.continue_button.on_activate()
 
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
@@ -2993,6 +2993,10 @@ def test_finishing_lesson_thirty_marks_it_complete():
 
         assert isinstance(app.scenes.current.inner, DecisionBuilderScene)  # no standalone Twist stage
         _fill_out_l30_decision(app.scenes.current.inner)
+
+        assert isinstance(app.scenes.current.inner, LessonFeedbackScene)  # feedback
+        app.scenes.current.inner.continue_button.on_activate()
+
         _play_dialogue_to_the_end(app.scenes.current)  # debrief -> finishes
 
         assert app.scenes.current is course_map

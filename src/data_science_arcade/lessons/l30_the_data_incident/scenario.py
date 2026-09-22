@@ -2,12 +2,13 @@ from data_science_arcade.lessons.framework.brief import BriefField, BriefOption,
 from data_science_arcade.lessons.framework.runner import LessonRunner
 from data_science_arcade.lessons.l30_the_data_incident.definition import LESSON_30
 from data_science_arcade.lessons.l30_the_data_incident.leads import MINIMUM_LEADS_REQUIRED, build_investigation_leads
-from data_science_arcade.lessons.l30_the_data_incident.scoring import LessonThirtyResult
+from data_science_arcade.lessons.l30_the_data_incident.scoring import LessonThirtyResult, score_lesson_thirty
 from data_science_arcade.narrative.dialogue import Dialogue, DialogueLine
 from data_science_arcade.narrative.npc import DATA_ENGINEER, FINANCE_LEAD, MENTOR, PRODUCT_MANAGER
 from data_science_arcade.ui.decision_builder_scene import DecisionBuilderScene, EvidenceField
 from data_science_arcade.ui.dialogue_scene import DialogueScene
 from data_science_arcade.ui.investigation_hub_scene import InvestigationHubScene
+from data_science_arcade.ui.lesson_feedback_scene import LessonFeedbackScene
 from data_science_arcade.workbench.context import LessonContext
 
 # No standalone Twist stage: the spec's "initial executive narrative is
@@ -157,11 +158,8 @@ def build_lesson_thirty_runner(app, on_finished) -> tuple[LessonRunner, dict]:
         steps = (WHAT_HAPPENED_FIELD, SUPPORTING_EVIDENCE_FIELD, *DECISION_FIELDS[1:])
         return DecisionBuilderScene(app, "lesson.l30.decision_title", steps, context, on_complete, guided=True)
 
-    def debrief(advance):
-        return DialogueScene(app, DEBRIEF_DIALOGUE, on_complete=advance)
-
-    def finished():
-        collected["result"] = LessonThirtyResult(
+    def _build_result() -> LessonThirtyResult:
+        return LessonThirtyResult(
             leads_investigated=collected.get("leads_investigated", frozenset()),
             gathered_evidence=context.evidence,
             regional_cut_choice=collected.get("regional_cut_choice"),
@@ -174,9 +172,21 @@ def build_lesson_thirty_runner(app, on_finished) -> tuple[LessonRunner, dict]:
             dashboard_choice=collected.get("dashboard_choice"),
             decision=collected.get("decision", {}),
         )
+
+    def feedback(advance):
+        result = _build_result()
+        hints_used = app.progress.hints_used.get(LESSON_30.number, 0)
+        evaluation = score_lesson_thirty(result, LESSON_30, hints_used=hints_used)
+        return LessonFeedbackScene(app, evaluation, on_complete=advance)
+
+    def debrief(advance):
+        return DialogueScene(app, DEBRIEF_DIALOGUE, on_complete=advance)
+
+    def finished():
+        collected["result"] = _build_result()
         on_finished(collected["result"])
 
-    stages = [briefing, investigation_hub, decision, debrief]
+    stages = [briefing, investigation_hub, decision, feedback, debrief]
     runner = LessonRunner(
         app,
         stages,
