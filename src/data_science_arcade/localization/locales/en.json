@@ -48,6 +48,8 @@
   "brief.back": "Back",
   "brief.next": "Next",
   "brief.finish": "Finish",
+  "handbook.previous_page": "Previous",
+  "handbook.next_page": "Next",
   "runtime.feedback_previous_page": "Previous",
   "runtime.feedback_next_page": "Next",
   "prediction.direction.increase": "Increase",

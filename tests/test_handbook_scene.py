@@ -58,14 +58,20 @@ def test_opening_an_article_from_the_index_shows_its_detail():
 
 
 def test_opening_a_glossary_term_from_the_index_shows_its_detail():
+    # The glossary index is sorted alphabetically by the active locale's
+    # own translated term (a lookup list, unlike the curriculum-ordered
+    # articles list) - this asserts against that real sorted order rather
+    # than GLOSSARY_ENTRIES[0], which is only the first *registry* entry
+    # and isn't generally the alphabetically-first one in every locale.
     app = _init_app()
     try:
         scene = HandbookScene(app)
         scene.buttons.buttons[1].on_activate()  # GLOSSARY tab
+        expected_first_id = min(GLOSSARY_ENTRIES, key=lambda e: app.localization.t(e.term_key)).id
         first_term_button = scene.buttons.buttons[2]
         first_term_button.on_activate()
 
-        assert scene.selected_glossary_id == GLOSSARY_ENTRIES[0].id
+        assert scene.selected_glossary_id == expected_first_id
     finally:
         pygame.quit()
 
@@ -217,21 +223,82 @@ def test_constructing_with_an_initial_entry_id_opens_it_directly():
 
 def test_every_index_row_fits_inside_content_rect_for_both_tabs():
     # Caught by eye in a real screenshot, not by any test: a fixed row
-    # spacing sized comfortably for the 4 real articles ran the glossary
-    # tab's 10 real terms off the bottom of CONTENT_RECT entirely, the
-    # last one overlapping the global Back button. Nothing in this
-    # codebase clips overflow, so a scene has to keep its own content
-    # inside its own bounds rather than relying on that.
+    # spacing sized comfortably for the 4 real articles once shrank to
+    # cram all 26 real articles / 39 real glossary terms into the same
+    # space instead of paginating - rects stayed technically within
+    # CONTENT_RECT, but rows became too short for their own real 24px
+    # button text, which then visually overlapped its neighbors (a defect
+    # this rect-bounds check alone can't see - the real fix is real
+    # pagination, asserted below).
     app = _init_app()
     try:
         scene = HandbookScene(app)
-        for entries, switch_to_glossary in ((HANDBOOK_ENTRIES, False), (GLOSSARY_ENTRIES, True)):
-            if switch_to_glossary:
+        for is_glossary in (False, True):
+            if is_glossary:
                 scene.buttons.buttons[1].on_activate()
             index_buttons = scene.buttons.buttons[2:-1]  # after the 2 tabs, before the global Back
-            assert len(index_buttons) == len(entries)
+            row_buttons = [b for b in index_buttons if b not in (scene.index_back_page_button, scene.index_next_page_button)]
+            assert len(row_buttons) <= scene._index_rows_per_page()
             for button in index_buttons:
                 assert CONTENT_RECT.top <= button.rect.top and button.rect.bottom <= CONTENT_RECT.bottom
+    finally:
+        pygame.quit()
+
+
+def test_glossary_index_is_alphabetical_per_locale_articles_are_not():
+    # The real regression this guards: sorting only the glossary tab (a
+    # lookup list) alphabetically, per the CURRENTLY active locale's own
+    # translated term - not a fixed order baked in at authoring time,
+    # which would only ever be alphabetical in one language. Confirmed
+    # with a locale where the alphabetically-first term is NOT
+    # GLOSSARY_ENTRIES[0] (it is in English, by coincidence).
+    app = _init_app()
+    try:
+        app.localization.set_locale("pl")
+        scene = HandbookScene(app)
+        scene.buttons.buttons[1].on_activate()  # GLOSSARY tab
+        assert GLOSSARY_ENTRIES[0].id != "exploratory_analysis"  # sanity: real reordering happened
+        ordered = scene._current_index_entries()
+        terms = [app.localization.t(entry.term_key) for entry in ordered]
+        assert terms == sorted(terms)
+
+        article_order = [entry.id for entry in HANDBOOK_ENTRIES]
+        scene.buttons.buttons[0].on_activate()  # ARTICLES tab
+        assert [entry.id for entry in scene._current_index_entries()] == article_order
+    finally:
+        pygame.quit()
+
+
+def test_every_real_entry_is_reachable_by_paging_through_the_index():
+    app = _init_app()
+    try:
+        for is_glossary, entries in ((False, HANDBOOK_ENTRIES), (True, GLOSSARY_ENTRIES)):
+            scene = HandbookScene(app)
+            if is_glossary:
+                scene.buttons.buttons[1].on_activate()
+
+            seen_ids: set[str] = set()
+            for _ in range(len(entries) + 1):  # hard cap - never trust an unbounded paging loop
+                row_buttons = [
+                    b
+                    for b in scene.buttons.buttons[2:-1]
+                    if b not in (scene.index_back_page_button, scene.index_next_page_button)
+                ]
+                assert 1 <= len(row_buttons) <= scene._index_rows_per_page()
+                for button in row_buttons:
+                    button.on_activate()
+                    if is_glossary:
+                        seen_ids.add(scene.selected_glossary_id)
+                        scene.selected_glossary_id = None
+                    else:
+                        seen_ids.add(scene.selected_article_id)
+                        scene.selected_article_id = None
+                    scene._rebuild_buttons()
+                if not scene.index_next_page_button.enabled:
+                    break
+                scene.index_next_page_button.on_activate()
+
+            assert seen_ids == {entry.id for entry in entries}
     finally:
         pygame.quit()
 

@@ -47,20 +47,21 @@ def _display_key(entry: HandbookEntry | GlossaryEntry) -> str:
 
 
 class HandbookScene(Scene):
-    """The Analyst Handbook (spec §46): a small, bilingual reference
-    library reachable from the Hub - an ARTICLES tab (full-prose theory,
-    paginated - see ui/handbook_pagination.py) and a GLOSSARY tab (short
-    lookup terms, one screen each, no pagination needed at that length).
-    Both tabs share one "related concepts" mechanism via
-    handbook/registry.py's find_entry(), which searches the union of both
-    registries - a related reference can jump from an article to a
-    glossary term or back, since neither kind is privileged over the
-    other here.
+    """The Analyst Handbook (spec §46): a bilingual reference library
+    reachable from the Hub - an ARTICLES tab (full-prose theory, paginated
+    - see ui/handbook_pagination.py) and a GLOSSARY tab (short lookup
+    terms, one screen each, no pagination needed at that length). Both
+    tabs share one "related concepts" mechanism via handbook/registry.py's
+    find_entry(), which searches the union of both registries - a related
+    reference can jump from an article to a glossary term or back, since
+    neither kind is privileged over the other here.
 
-    Deliberately small: this proves the system with 3-4 real articles and
-    ~10 real glossary terms tied to Lesson 01, not theory for all 30
-    lessons - see decisions/CONTENT_STYLE_GUIDE.md for the standard the
-    content itself was written against."""
+    Covers all 30 lessons today (26 articles, 39 glossary terms) - see
+    decisions/CONTENT_STYLE_GUIDE.md for the standard the content itself
+    was written against. Both index lists paginate at a fixed, always-
+    legible row height rather than shrinking rows to fit everything on
+    one screen - real pagination the same way the article body already
+    does, not a second, different overflow strategy."""
 
     def __init__(self, app, initial_entry_id: str | None = None) -> None:
         super().__init__(app)
@@ -69,6 +70,7 @@ class HandbookScene(Scene):
         self.selected_glossary_id: str | None = None
         self.pages: list[list[str]] = [[]]
         self.page_index = 0
+        self.index_page = 0
 
         if initial_entry_id is not None:
             self._open_entry(initial_entry_id)
@@ -147,6 +149,7 @@ class HandbookScene(Scene):
             self.active_tab = tab
             self.selected_article_id = None
             self.selected_glossary_id = None
+            self.index_page = 0
             self._rebuild_buttons()
 
         return switch
@@ -183,6 +186,39 @@ class HandbookScene(Scene):
             self.page_index -= 1
             self._rebuild_buttons()
 
+    def _current_index_entries(self) -> tuple:
+        raw = HANDBOOK_ENTRIES if self.active_tab is HandbookTab.ARTICLES else GLOSSARY_ENTRIES
+        if raw and isinstance(raw[0], GlossaryEntry):
+            # Alphabetical by the CURRENT locale's own translated term - a
+            # reference lookup list is scanned, not read top to bottom, so
+            # it needs a predictable order a player can jump into midway;
+            # articles keep their curriculum order instead (a deliberate
+            # reading sequence, not something to alphabetize away).
+            loc = self.app.localization
+            return tuple(sorted(raw, key=lambda entry: loc.t(entry.term_key)))
+        return raw
+
+    def _index_rows_per_page(self) -> int:
+        available_height = CONTENT_RECT.height - 30 - NAV_RESERVED_HEIGHT
+        return max(1, available_height // INDEX_ROW_HEIGHT)
+
+    def _index_total_pages(self, entries: tuple) -> int:
+        if not entries:
+            return 1
+        rows_per_page = self._index_rows_per_page()
+        return -(-len(entries) // rows_per_page)  # ceil division
+
+    def _next_index_page(self) -> None:
+        entries = self._current_index_entries()
+        if self.index_page < self._index_total_pages(entries) - 1:
+            self.index_page += 1
+            self._rebuild_buttons()
+
+    def _previous_index_page(self) -> None:
+        if self.index_page > 0:
+            self.index_page -= 1
+            self._rebuild_buttons()
+
     def _back(self) -> None:
         if self.selected_article_id is not None:
             self.selected_article_id = None
@@ -206,12 +242,12 @@ class HandbookScene(Scene):
             if self.selected_article_id is not None:
                 buttons.extend(self._build_article_detail_buttons())
             else:
-                buttons.extend(self._build_index_buttons(HANDBOOK_ENTRIES, self._make_open_article))
+                buttons.extend(self._build_index_buttons(self._current_index_entries(), self._make_open_article))
         else:
             if self.selected_glossary_id is not None:
                 buttons.extend(self._build_glossary_detail_buttons())
             else:
-                buttons.extend(self._build_index_buttons(GLOSSARY_ENTRIES, self._make_open_glossary))
+                buttons.extend(self._build_index_buttons(self._current_index_entries(), self._make_open_glossary))
 
         back_rect = pygame.Rect(0, 0, 160, 44)
         back_rect.center = (CENTER_X, BACK_BUTTON_Y)
@@ -222,25 +258,49 @@ class HandbookScene(Scene):
         self.buttons.focus_index = list(HandbookTab).index(self.active_tab)
 
     def _build_index_buttons(self, entries: tuple, make_open) -> list[Button]:
-        # Row spacing is capped at INDEX_ROW_HEIGHT when it fits (4 real
-        # articles today), but shrinks to whatever actually fits when it
-        # doesn't (10 real glossary terms) - a fixed spacing sized for one
-        # tab's real count silently ran the other tab's last rows off the
-        # bottom of CONTENT_RECT, caught by eye in a real screenshot, not
-        # by any test (nothing clips overflow in this codebase - see
-        # ui/handbook_pagination.py's own docstring on the same point).
+        # Real pagination, not a shrink-to-fit row height: this index has
+        # grown from the original "3-4 articles, ~10 glossary terms" it
+        # was built for to 26 articles and 39 glossary terms, and cramming
+        # every one of them into one fixed-height list made every row's
+        # own real 24px button text overlap its neighbors - the rects
+        # themselves stayed within CONTENT_RECT (nothing here clips
+        # overflow, so that much always "passed"), but the text rendered
+        # inside each shrunk row didn't fit the row it was drawn in. A
+        # fixed, always-legible row height paginates instead, matching
+        # the same discipline this file's own article-body pagination
+        # already uses (ui/handbook_pagination.py).
         if not entries:
             return []
         loc = self.app.localization
-        available_height = CONTENT_RECT.height - 30
-        row_height = min(INDEX_ROW_HEIGHT, available_height // len(entries))
-        row_size = (INDEX_ROW_SIZE[0], min(INDEX_ROW_SIZE[1], row_height - 4))
+        rows_per_page = self._index_rows_per_page()
+        total_pages = self._index_total_pages(entries)
+        self.index_page = min(self.index_page, total_pages - 1)
+        start = self.index_page * rows_per_page
+        page_entries = entries[start : start + rows_per_page]
+
         buttons = []
-        for index, entry in enumerate(entries):
-            rect = pygame.Rect(0, 0, *row_size)
-            rect.center = (CENTER_X, CONTENT_RECT.top + 30 + index * row_height)
+        for row_index, entry in enumerate(page_entries):
+            rect = pygame.Rect(0, 0, *INDEX_ROW_SIZE)
+            rect.center = (CENTER_X, CONTENT_RECT.top + 30 + row_index * INDEX_ROW_HEIGHT)
             label = loc.t(_display_key(entry))
             buttons.append(Button(rect, label, make_open(entry.id)))
+
+        if total_pages > 1:
+            nav_y = CONTENT_RECT.bottom - PAGE_NAV_Y_OFFSET
+            back_rect = pygame.Rect(0, 0, 120, 36)
+            back_rect.center = (CENTER_X - 80, nav_y)
+            self.index_back_page_button = Button(
+                back_rect, loc.t("handbook.previous_page"), self._previous_index_page, enabled=self.index_page > 0
+            )
+            buttons.append(self.index_back_page_button)
+
+            next_rect = pygame.Rect(0, 0, 120, 36)
+            next_rect.center = (CENTER_X + 80, nav_y)
+            self.index_next_page_button = Button(
+                next_rect, loc.t("handbook.next_page"), self._next_index_page, enabled=self.index_page < total_pages - 1
+            )
+            buttons.append(self.index_next_page_button)
+
         return buttons
 
     def _build_article_detail_buttons(self) -> list[Button]:
@@ -250,16 +310,25 @@ class HandbookScene(Scene):
         loc = self.app.localization
         buttons = []
 
+        # Dedicated keys, not brief.back/brief.next - both read "Back" in
+        # English (and "Wstecz" in Polish), identical to the global exit
+        # Back button drawn right below this row on the very same screen,
+        # doing something completely different (previous paragraph vs.
+        # leave the article) - the exact "what am I even clicking"
+        # confusion this whole pass exists to fix, caught in the same
+        # screenshot review that caught the index's own identical bug.
         nav_y = CONTENT_RECT.bottom - PAGE_NAV_Y_OFFSET
         back_page_rect = pygame.Rect(0, 0, 120, 36)
         back_page_rect.center = (CENTER_X - 80, nav_y)
-        self.back_page_button = Button(back_page_rect, loc.t("brief.back"), self._previous_page, enabled=self.page_index > 0)
+        self.back_page_button = Button(
+            back_page_rect, loc.t("handbook.previous_page"), self._previous_page, enabled=self.page_index > 0
+        )
         buttons.append(self.back_page_button)
 
         next_page_rect = pygame.Rect(0, 0, 120, 36)
         next_page_rect.center = (CENTER_X + 80, nav_y)
         self.next_page_button = Button(
-            next_page_rect, loc.t("brief.next"), self._next_page, enabled=self.page_index < len(self.pages) - 1
+            next_page_rect, loc.t("handbook.next_page"), self._next_page, enabled=self.page_index < len(self.pages) - 1
         )
         buttons.append(self.next_page_button)
 
@@ -314,20 +383,23 @@ class HandbookScene(Scene):
             if self.selected_article_id is not None:
                 self._draw_article_detail(surface)
             else:
-                self._draw_index(surface, HANDBOOK_ENTRIES)
+                self._draw_index(surface, self._current_index_entries())
         else:
             if self.selected_glossary_id is not None:
                 self._draw_glossary_detail(surface)
             else:
-                self._draw_index(surface, GLOSSARY_ENTRIES)
+                self._draw_index(surface, self._current_index_entries())
 
     def _draw_index(self, surface: pygame.Surface, entries: tuple) -> None:
         if not entries:
             return
         # Row positions are drawn by the buttons themselves (Button.draw
-        # renders its own label) - nothing extra to draw here beyond the
-        # panel background, matching how WorkbenchScene's own tab-content
-        # split works (buttons carry their own label rendering).
+        # renders its own label) - only the page indicator (when there's
+        # more than one page) needs its own draw call here.
+        total_pages = self._index_total_pages(entries)
+        if total_pages > 1:
+            progress = f"{self.index_page + 1} / {total_pages}"
+            draw_centered_text(surface, progress, (CENTER_X, CONTENT_RECT.bottom - PAGE_NAV_Y_OFFSET - 26), 13, colors.BUTTON_TEXT_DISABLED)
 
     def _draw_article_detail(self, surface: pygame.Surface) -> None:
         loc = self.app.localization
