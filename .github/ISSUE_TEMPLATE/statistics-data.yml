@@ -1,0 +1,43 @@
+name: "Statistics / data / calculation concern"
+description: "You think a number, denominator, statistical claim, Python Mirror snippet, or dataset is wrong."
+title: "[Stats/Data]: "
+labels: ["type: statistics"]
+body:
+  - type: input
+    id: lesson
+    attributes:
+      label: Lesson
+    validations:
+      required: true
+
+  - type: textarea
+    id: claim
+    attributes:
+      label: Exact claim or value in question
+      description: "Quote the exact number or statement the app shows."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: reasoning
+    attributes:
+      label: Reasoning / how to reproduce
+      description: "Walk through why you think this is wrong, or the exact steps/choices that produced it."
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Supporting code / source
+      description: "Optional - your own pandas/numpy check, a citation, or anything else that backs this up."
+      render: python
+    validations:
+      required: false

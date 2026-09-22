@@ -1,0 +1,26 @@
+name: "Feature / improvement"
+description: "Suggest something the app or course doesn't do yet."
+title: "[Feature]: "
+labels: ["type: enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: who-benefits
+    attributes:
+      label: Who benefits from this?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed idea
+      description: "Optional - a rough sketch is fine, no need to design the implementation."
+    validations:
+      required: false

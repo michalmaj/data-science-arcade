@@ -1,0 +1,41 @@
+name: "Polish language / translation"
+description: "Unnatural wording, grammar, terminology, or untranslated English in the Polish version."
+title: "[PL]: "
+labels: ["type: translation"]
+body:
+  - type: input
+    id: lesson-screen
+    attributes:
+      label: Lesson / screen
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-wording
+    attributes:
+      label: Current wording
+      description: "Quote the exact Polish text."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Problem category
+      options:
+        - Unnatural Polish
+        - Grammar
+        - Terminology
+        - Untranslated English left in
+        - Typo
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-wording
+    attributes:
+      label: Suggested wording
+      description: "Optional."
+    validations:
+      required: false

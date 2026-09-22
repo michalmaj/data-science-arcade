@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/michalmaj/data-science-arcade/security/policy
+    about: "Please do not open a public issue for security concerns - see SECURITY.md for how to report privately."
